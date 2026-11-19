@@ -76,8 +76,6 @@ bool AudioEngine::openLocked() {
         ->setSampleRate(48000)
         ->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::Medium)
         ->setUsage(oboe::Usage::Media)
-        // ADPF: система видит время колбэка и держит его на нужной частоте и ядре (Android 12+).
-        ->setPerformanceHintEnabled(true)
         ->setDataCallback(this)
         ->setErrorCallback(this);
     oboe::Result r = b.openStream(stream_);
