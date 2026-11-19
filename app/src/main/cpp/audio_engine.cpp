@@ -76,12 +76,15 @@ bool AudioEngine::openLocked() {
         ->setSampleRate(48000)
         ->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::Medium)
         ->setUsage(oboe::Usage::Media)
+        // ADPF: система видит время колбэка и держит его на нужной частоте и ядре (Android 12+).
+        ->setPerformanceHintEnabled(true)
         ->setDataCallback(this)
         ->setErrorCallback(this);
     oboe::Result r = b.openStream(stream_);
     if (r != oboe::Result::OK) { LOGI("openStream: %s", oboe::convertToText(r)); return false; }
     // Два «бёрста» — рекомендованный минимум без треска.
     stream_->setBufferSizeInFrames(stream_->getFramesPerBurst() * 2);
+    tuner_ = std::make_unique<oboe::LatencyTuner>(*stream_);
     sr_ = stream_->getSampleRate();
     frameCount_ = 0;
     tapFrame_.store(-1);
@@ -93,6 +96,7 @@ bool AudioEngine::openLocked() {
 void AudioEngine::stop() {
     std::lock_guard<std::mutex> g(lock_);
     wanted_ = false;
+    tuner_.reset();
     if (stream_) { stream_->stop(); stream_->close(); stream_.reset(); }
 }
 
@@ -100,6 +104,7 @@ void AudioEngine::onErrorAfterClose(oboe::AudioStream*, oboe::Result r) {
     // Отключили наушники / сменился выход — открываем поток заново.
     LOGI("stream closed: %s, reopening", oboe::convertToText(r));
     std::lock_guard<std::mutex> g(lock_);
+    tuner_.reset();
     stream_.reset();
     if (wanted_) openLocked();
 }
@@ -124,6 +129,7 @@ void AudioEngine::play(bool on) { push(jambo::CoreEvent::play(on)); }
 
 oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream*, void* data, int32_t frames) {
     const int64_t t0 = monoNs();
+    if (tuner_) tuner_->tune();
     float* out = static_cast<float*>(data);
     const float sr = float(sr_);
 

@@ -3,6 +3,7 @@
 #pragma once
 #include <cstring>
 #include <oboe/Oboe.h>
+#include <oboe/LatencyTuner.h>
 #include <atomic>
 #include <mutex>
 #include <memory>
@@ -39,6 +40,8 @@ private:
     LinkSession* link_;
     std::mutex lock_;
     std::shared_ptr<oboe::AudioStream> stream_;
+    /// Буфер растёт на бёрст при каждом XRun (щелчки на перегрузке колбэка).
+    std::unique_ptr<oboe::LatencyTuner> tuner_;
     bool wanted_ = false;
 
     // UI/MIDI -> аудио
