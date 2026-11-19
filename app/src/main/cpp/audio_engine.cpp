@@ -82,6 +82,8 @@ bool AudioEngine::openLocked() {
     if (r != oboe::Result::OK) { LOGI("openStream: %s", oboe::convertToText(r)); return false; }
     // Два «бёрста» — рекомендованный минимум без треска.
     stream_->setBufferSizeInFrames(stream_->getFramesPerBurst() * 2);
+    // ADPF: система видит время колбэка и поднимает частоту или переносит его на большое ядро (если устройство умеет).
+    stream_->setPerformanceHintEnabled(true);
     tuner_ = std::make_unique<oboe::LatencyTuner>(*stream_);
     sr_ = stream_->getSampleRate();
     frameCount_ = 0;
