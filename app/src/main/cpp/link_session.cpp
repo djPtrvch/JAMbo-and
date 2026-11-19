@@ -1,8 +1,17 @@
 #include "link_session.h"
 #include <ableton/Link.hpp>
+#include <ableton/link/HostTimeFilter.hpp>
 #include <cmath>
 
-LinkSession::LinkSession() : link_(std::make_unique<ableton::Link>(120.0)) {}
+struct LinkSession::Filter { ableton::link::HostTimeFilter<ableton::Link::Clock> f; };
+
+LinkSession::LinkSession()
+    : link_(std::make_unique<ableton::Link>(120.0)), filter_(std::make_unique<Filter>()) {}
+
+std::chrono::microseconds LinkSession::hostTimeAtFrame(double frame) {
+    return filter_->f.sampleTimeToHostTime(frame);
+}
+void LinkSession::resetHostTime() { filter_->f.reset(); }
 LinkSession::~LinkSession() { link_->enable(false); }
 
 void LinkSession::enable(bool on) {

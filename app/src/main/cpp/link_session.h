@@ -20,10 +20,16 @@ public:
 
     // Для колбэка (realtime-safe): часы Link и доли на отрезке [t0, t1].
     std::chrono::microseconds clockMicros() const;
+    // Время Link для кадра потока: регрессия по счётчику кадров (HostTimeFilter),
+    // а не часы в момент колбэка — колбэки идут неровно. Только из аудиопотока.
+    std::chrono::microseconds hostTimeAtFrame(double frame);
+    void resetHostTime();
     void beatsAt(std::chrono::microseconds t0, std::chrono::microseconds t1,
                  double& b0, double& b1, double& phaseAtNextBeat) const;
 
 private:
     std::unique_ptr<ableton::Link> link_;
+    struct Filter;
+    std::unique_ptr<Filter> filter_;
     std::atomic<bool> enabled_{false};
 };

@@ -41,6 +41,8 @@ bool AudioEngine::openLocked() {
     stream_->setBufferSizeInFrames(stream_->getFramesPerBurst() * 2);
     sr_ = stream_->getSampleRate();
     frameCount_ = 0;
+    lastClickBeat_ = -1e9;
+    if (link_) link_->resetHostTime();
     tapFrame_.store(-1);
     r = stream_->requestStart();
     if (r != oboe::Result::OK) { LOGI("start: %s", oboe::convertToText(r)); return false; }
@@ -107,7 +109,7 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream*, void* dat
     }
 
     pendingClickFrames_ = -1;
-    if (linkClick_.load(std::memory_order_relaxed)) scheduleLinkClick(frames);
+    scheduleLinkClick(frames);
 
     for (int i = 0; i < frames; ++i) {
         float s = 0;
@@ -165,16 +167,18 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream*, void* dat
 }
 
 void AudioEngine::scheduleLinkClick(int32_t frames) {
-    // Момент, когда первый отсчёт буфера прозвучит (часы Link + задержка выхода).
     if (!link_ || !link_->enabled()) return;
+    // Время Link первого кадра буфера (по счётчику кадров) + задержка выхода.
     const auto latency = std::chrono::microseconds(outLatencyUs_.load(std::memory_order_relaxed));
+    const auto tStart = link_->hostTimeAtFrame(double(frameCount_)) + latency;
+    if (!linkClick_.load(std::memory_order_relaxed)) { lastClickBeat_ = -1e9; return; }
     const auto bufDur = std::chrono::microseconds(int64_t(1e6 * frames / sr_));
-    const auto tStart = link_->clockMicros() + latency;
     double b0 = 0, b1 = 0, phaseAtNext = 0;
     link_->beatsAt(tStart, tStart + bufDur, b0, b1, phaseAtNext);
     if (b0 < 0 || b1 <= b0) return;
     const double next = std::floor(b0) + 1.0;
-    if (next > b1) return;
+    if (next > b1 || next <= lastClickBeat_) return;   // одна доля — один щелчок
+    lastClickBeat_ = next;
     int64_t off = int64_t((next - b0) / (b1 - b0) * frames);
     if (off >= frames) off = frames - 1;
     pendingClickFrames_ = off;
@@ -198,6 +202,8 @@ void AudioEngine::info(double* o) {
     o[9] = oboe::OboeExtensions::isMMapUsed(s) ? 1 : 0;
     auto lat = s->calculateLatencyMillis();
     o[10] = lat ? lat.value() : -1;
+    o[18] = lat ? 0 : double(int(lat.error()));      // код ошибки метки времени
+    o[19] = double(int(s->getState()));
     if (lat) outLatencyUs_.store(int64_t(lat.value() * 1000.0));
     o[11] = loadAvg_.load() * 100.0;
     o[12] = loadMax_.load() * 100.0;

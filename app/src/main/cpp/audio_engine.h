@@ -24,7 +24,7 @@ public:
     void setLinkClick(bool on) { linkClick_.store(on); }
 
     // Заполняет out (kInfoSize значений), см. порядок в audio_engine.cpp.
-    static constexpr int kInfoSize = 18;
+    static constexpr int kInfoSize = 20;
     void info(double* out);
 
     oboe::DataCallbackResult onAudioReady(oboe::AudioStream* s, void* data, int32_t frames) override;
@@ -68,4 +68,5 @@ private:
     int loadMaxTicks_ = 0;
     int64_t pendingClickFrames_ = -1;   // щелчок Link внутри буфера
     float pendingClickFreq_ = 1000;
+    double lastClickBeat_ = -1e9;
 };
