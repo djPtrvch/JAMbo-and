@@ -20,7 +20,7 @@ Track Track::channel(const std::string& name) {
 }
 
 std::vector<std::optional<Clip>> Track::firstClips() {
-    std::vector<std::optional<Clip>> c(size_t(Params::patternSlots));
+    std::vector<std::optional<Clip>> c(static_cast<size_t>(Params::patternSlots));
     c[0] = Clip();
     return c;
 }

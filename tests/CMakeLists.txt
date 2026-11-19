@@ -15,5 +15,9 @@ file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS ${CORE_DIR}/*.cpp)
 add_executable(core_tests main.cpp golden.cpp fx_golden.cpp jambo_golden.cpp drums_test.cpp texgran_test.cpp tables_test.cpp model_test.cpp coding_test.cpp ${CORE_SOURCES})
 target_include_directories(core_tests PRIVATE ${CORE_DIR} ${TP}/json/single_include)
 target_compile_options(core_tests PRIVATE -Wall -Wextra -O2)
+# gcc 15: ложные -Wmaybe-uninitialized в std::optional<std::map> забивают лог CI.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  target_compile_options(core_tests PRIVATE -Wno-maybe-uninitialized)
+endif()
 target_compile_definitions(core_tests PRIVATE
   GOLDEN_DIR="${TP}/jambo-golden/ios/CoreTests/golden")
