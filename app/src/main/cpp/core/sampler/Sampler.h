@@ -4,8 +4,7 @@
 // уровень до конца, Decay — как Release) → Velocity → фильтр (LP/HP + Resonance) → Pan → шина дорожки → EQ → громкость
 // микшера и гейт mute/solo → выход. RATE: PTCH (скорость и высота) или TSTR (таймстретч BEAT — Stretcher, NORMAL —
 // Vocoder; WARP). Без выделений памяти после создания.
-// Отличие от Swift: EQ дорожек, метры, спектры и замеры колбэка подключаются на шаге 5d2 (SamplerHooks.cpp — пока их нет:
-// как в Swift при eqs, levels, spectra, profile = nil).
+// EQ дорожек, метры, спектры и замеры колбэка — SamplerHooks.cpp (в Swift — TrackEqs.swift и микшер).
 #pragma once
 #include <cstdint>
 #include <limits>
@@ -231,7 +230,7 @@ private:
     // Микшер (SamplerMix.cpp).
     void mix(const SoundData& d, int n, float* left, float* right);
     void parallelEqs(const SoundData& d, int n, bool sends);
-    // EQ, метры и замеры (SamplerHooks.cpp; до шага 5d2 — пусто).
+    // EQ, метры и замеры (SamplerHooks.cpp).
     void wakeEqs(const SoundData& d, int n);
     void idleEq(int t, const SoundData& d, int n);
     void trackEq(int t, const SoundData& d, int n, bool sends);

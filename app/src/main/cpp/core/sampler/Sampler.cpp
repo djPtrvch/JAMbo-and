@@ -3,12 +3,9 @@
 #include <algorithm>
 #include <cmath>
 #include "model/SynthEngines.h"
+#include "util/RenderProfile.h"
 
 namespace jambo {
-
-namespace Prof {
-constexpr int voices = 1, synth = 2, eq = 3, fx = 5;
-}
 
 Sampler::Sampler(double sampleRate) : sr(sampleRate) {
     const size_t s = slots;
@@ -125,18 +122,18 @@ void Sampler::render(int64_t blockStart, int frames, float* left, float* right) 
         }
         renderVoice(v, d, blockStart, n);
     }
-    lap(Prof::voices);
+    lap(RenderProfile::voices);
     if (synth)
         synth->render(d, blockStart, n, busL.data(), busR.data(), sendL.data(), sendR.data(), used.data(), maxFrames);
-    lap(Prof::synth);
+    lap(RenderProfile::synth);
     wakeEqs(d, n);
-    lap(Prof::eq);
+    lap(RenderProfile::eq);
     if (fx) fx->prepare(blockStart, n);
-    lap(Prof::fx);
+    lap(RenderProfile::fx);
     mix(d, n, left, right);
-    lap(4);
+    lap(RenderProfile::mix);
     if (fx) fx->process(n, bpm, left, right);
-    lap(Prof::fx);
+    lap(RenderProfile::fx);
 }
 
 void Sampler::clearSends(int t, int n) {

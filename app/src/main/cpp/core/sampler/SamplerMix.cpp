@@ -3,12 +3,9 @@
 #include <algorithm>
 #include <cmath>
 #include "Sampler.h"
+#include "util/RenderProfile.h"
 
 namespace jambo {
-
-namespace {
-constexpr int profMix = 4, profEq = 3;
-}
 
 void Sampler::mix(const SoundData& d, int n, float* left, float* right) {
     // Гейт mute/solo — за ~5 мс (постоянная 1,5 мс), громкость — за ~10 мс, глубина Sidechain и переключатели
@@ -44,7 +41,7 @@ void Sampler::mix(const SoundData& d, int n, float* left, float* right) {
     const bool cap = stemG != nullptr;
     float* gw0 = stemG ? stemG : meterL.data();
     parallelEqs(d, n, rack != nullptr);
-    lap(profEq);
+    lap(RenderProfile::eq);
     for (int oi = 0; oi < d.trackCount; ++oi) {
         const int t = d.eqOrder[size_t(oi)];
         const size_t T = size_t(t);
@@ -66,14 +63,14 @@ void Sampler::mix(const SoundData& d, int n, float* left, float* right) {
             if (meter) meter[2] = at * eMax;
             std::fill(ol, ol + n, 0.f);
             std::fill(orr, orr + n, 0.f);
-            lap(profMix);
+            lap(RenderProfile::mix);
             idleEq(t, d, n);
-            lap(profEq);
+            lap(RenderProfile::eq);
             continue;
         }
-        lap(profMix);
+        lap(RenderProfile::mix);
         if (eqDone[T] == 0) trackEq(t, d, n, rack != nullptr);
-        lap(profEq);
+        lap(RenderProfile::eq);
         const float* bl = busL.data() + t * mf;
         const float* br = busR.data() + t * mf;
         float* ml = meterL.data();
