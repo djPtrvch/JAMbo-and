@@ -19,8 +19,8 @@
 1. ~~Справочники~~ — готово (tables_test.cpp): Params (+Fmt), SynthEngines, FilterType, Scales.
 2. ~~Данные проекта~~ — готово (model_test.cpp): Step, Clip, Track, Project и типы полей (поля TrackMore/ProjectMore — обычные поля); KnobDefaults, Track::setSynth, Project::migrateFilter.
 3. ~~Чтение и запись проекта~~ — готово (coding_test.cpp): ProjectFormat «jambo-swift», model/Json.h — правила Swift Codable, ProjectDecode/ProjectEncode, ProjectRepair и миграции, пресеты синта и KnobDefaults в JSON. Хранилище проектов на диске (ProjectStore) — позже. Проверено на файлах по образцу Swift-тестов; настоящий файл с iPad — ждём от пользователя.
-4. **Следующий:** правки и UNDO: TrackEdits, RollEdits, History — с тестами Swift-версии (EditTests и др.).
-5. Аудиоядро: SoundSnapshot, SeqSnapshot, AudioCore, Sequencer, SynthVoices (+ JamboBank, LadderFilter, Biquad, ModEngine), Sampler, микшер — в колбэк Oboe.
+4. ~~Правки и UNDO~~ — готово (edit_test.cpp): History (место правки — std::any), TrackEdits (страницы, шаги, p-lock, MORPH, дорожки проекта), RollEdits и Roll, StepNotes; части Clips (fillRows), Transition (звук дорожки), remapEqDyn, morphFxId. Тесты EditTests и MorphTests; шкалы параметров — в tables_test. Не перенесено: ArrangeEdits целиком (есть часть), остальное Clips и Transition (переход MIX).
+5. **Следующий:** аудиоядро: SoundSnapshot, SeqSnapshot, AudioCore, Sequencer, SynthVoices (+ JamboBank, LadderFilter, Biquad, ModEngine), Sampler, микшер — в колбэк Oboe.
 6. Экран Compose: дорожки, 16 шагов, PLAY, пианоролл, сетка ручек 4×4 — по UI Swift-версии. Граница с C++ — JNI: «выполни действие» и «дай данные для отрисовки»; перерисовка — только изменившегося (CPU спайка 40 % — из-за перерисовки всего экрана).
 7. APK: шаги + PLAY — играют синты и сэмплы.
 

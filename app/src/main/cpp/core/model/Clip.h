@@ -28,6 +28,31 @@ struct Step {
 
     /// Длины и velocity нот — параллельно notes (иначе снимаются); при lens len — самая длинная.
     void repair();
+
+    // Ноты шага (StepNotes.swift): StepNotes.cpp
+    /// Длина ноты k в шагах.
+    int noteLen(int k) const;
+    /// Своя velocity ноты k (Level 0…127); nullopt — Level шага или дорожки.
+    std::optional<double> noteVel(int k) const;
+    /// Хоть у одной ноты своя velocity.
+    bool hasVel() const { return vels.has_value(); }
+    /// Длина всех нот шага — поштучные длины забываются.
+    void setAllLen(int n);
+    /// Новый набор нот: у оставшихся — прежние длины и velocity, у новых — len шага, без своей velocity.
+    void setNotes(const std::vector<int>& next);
+    /// Добавить ноту (или сменить длину и velocity, если такая уже есть).
+    void addNote(int n, int l, std::optional<double> vel);
+    /// Убрать ноту k; шаг без нот — без трига.
+    void removeNote(int k);
+    void setNoteLen(int k, int n);
+    /// nullopt — снять свою velocity.
+    void setNoteVel(int k, std::optional<double> v);
+    /// Velocity ноты k, связанная с p-lock Level шага.
+    void setVelLinked(int k, double v, double fallback);
+    void clearVels() { vels.reset(); }
+    /// Одинаковые длины — одна len; без своих velocity — vels nullopt; len — самая длинная нота.
+    void normalize();
+
     auto tie() const { return std::tie(on, len, notes, lens, vels, locks, sound, soundLocks); }
     JAMBO_EQ(Step)
 };

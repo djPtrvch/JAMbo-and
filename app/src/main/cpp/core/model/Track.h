@@ -1,13 +1,16 @@
 // Дорожка (порт Track и TrackMore, Core/Model/Project.swift, ветка swift JAMbo). Поля TrackMore («коробка» Swift —
 // для объёма сборки) здесь — обычные поля дорожки.
 #pragma once
+#include <functional>
 #include <map>
+#include <set>
 #include <optional>
 #include <string>
 #include <vector>
 #include "Arp.h"
 #include "Arrange.h"
 #include "Clip.h"
+#include "Roll.h"
 #include "ModAssign.h"
 #include "Scales.h"
 #include "Sounds.h"
@@ -131,6 +134,76 @@ struct Track {
     /// После чтения (ProjectRepair.swift): дорожка (или MIX, MST) проекта из n дорожек.
     void repair(int n);
 
+    // Звук дорожки (Transition.swift): Transition.cpp
+    /// Звук дорожки (поля, которые сейчас действуют).
+    TrackSound sound() const;
+    void setSound(const TrackSound& s);
+
+    // Клипы (Clips.swift): Clips.cpp
+    bool clipFilled(int k) const { return k >= 0 && k < int(clips.size()) && clips[size_t(k)].has_value(); }
+    /// Клип с пустым паттерном (одна пустая страница) в ячейку k.
+    void putEmptyClip(int k, std::optional<int> scale, std::optional<int> root);
+
+    // Правки страниц, шагов, p-lock, MORPH (TrackEdits.swift): TrackEdits.cpp
+    /// Изменение числа страниц: при полной длине длина растёт; если играли все — играют все.
+    void changePages(const std::function<void(std::vector<Page>&)>& change);
+    /// Страницы, на которые действует меню страницы i: весь играющий диапазон, если i в нём, иначе только i.
+    PageRange pageRange(int i) const;
+    void setPlayPages(int a, int b);
+    /// «+»: 16 пустых шагов в конец секвенции.
+    void addPage();
+    /// Шаги steps — сразу за последним шагом секвенции; false — больше 8 страниц.
+    bool appendSteps(const std::vector<Step>& steps);
+    /// DUPLICATE: копии диапазона сразу за ним; false — страниц стало бы больше 8.
+    bool duplicatePages(int i);
+    std::vector<Page> copyPages(int i) const;
+    /// PASTE: скопированные страницы с первой страницы диапазона (не хватает — добавляются, до 8).
+    void pastePages(int i, const std::vector<Page>& clip);
+    /// CLEAR: все шаги диапазона пустые.
+    void clearPages(int i);
+    /// DELETE страниц диапазона i (single — только страница i); false — не осталось бы ни одной.
+    bool deletePages(int i, bool single = false);
+    enum class Nudge { left, right, up, down };
+    /// ◀ ▶ — шаги диапазона по кругу, ▲ ▼ — ноты на октаву; false — ничего не изменилось.
+    bool nudgePages(int i, Nudge dir);
+    /// SHIFT + ▲ ▼: ноты диапазона на одну ноту гаммы; false — ничего не изменилось.
+    bool transposePages(int i, int d, int scale, int root);
+    void withStep(int index, const std::function<void(Step&)>& change);
+    /// Тап по шагу: триг с нотами notes или снять (снятый триг забывает p-lock и свой звук).
+    void toggleStep(int index, const std::vector<int>& notes);
+    void setLock(int index, const std::string& id, double value);
+    void clearLock(int index, const std::string& id);
+    /// SHIFT + двойной тап по ручке: снять все p-lock дорожки (свой звук шага остаётся).
+    void clearAllLocks();
+    /// Шаг держит длинная нота с предыдущих шагов.
+    bool isTail(int index) const;
+    /// Ручной p-lock или velocity ноты: шаг жёлтый.
+    static bool hasManualLocks(const Step& s);
+    /// Параметры 4-го столбца сетки дорожки, FX и MOD: их p-lock — оранжевые.
+    static const std::set<std::string>& col4Ids();
+    struct LockKinds {
+        bool other, col4;
+    };
+    static LockKinds manualLockKinds(const Step& s);
+    /// P-lock громкостей (mix.vol1…16) на всех шагах: дорожка k → map(k) (−1 — снять).
+    void remapMixLocks(const std::function<int(int)>& map);
+    /// Перенос страницы from на место to.
+    void movePage(int from, int to);
+    /// MORPH: исходное значение ручки / назначения — при первом изменении; undoMorph — вернуть всё.
+    void morphParam(const std::string& id);
+    void morphAssign(const std::string& id);
+    void undoMorph();
+
+    // Правки нот пианоролла (RollEdits.swift): RollEdits.cpp
+    void addRollNote(int index, int pitch, int len, std::optional<double> vel);
+    void removeRollNote(int index, int pitch);
+    void setRollNoteLen(int index, int pitch, int len);
+    void setRollNoteVel(int index, int pitch, double vel);
+    double rollNoteLevel(const RollNote& n) const;
+    std::optional<StepCarry> rollCarry(int index, int pitch) const;
+    void moveRollNote(int index, int pitch, int dest, int dp, std::optional<StepCarry>& carry);
+    void moveRollNote(int index, int pitch, int dest, int dp);
+
     /// Значение параметра на шаге: p-lock шага, иначе ручка дорожки, иначе значение по умолчанию.
     double value(const std::string& id, const Step* step) const;
 
@@ -142,6 +215,8 @@ struct Track {
     JAMBO_EQ(Track)
 
 private:
+    /// Секвенция короче своих страниц и кончается на последней странице.
+    bool endsShortOnLastPage() const;
     int openIndex() const { return std::max(0, std::min(open, int(clips.size()) - 1)); }
 };
 

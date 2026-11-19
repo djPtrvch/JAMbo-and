@@ -52,4 +52,11 @@ void Project::migrateTrackFx() {
         }
 }
 
+// MORPH эффектов дорожки: исходное — в Track::morphOrig под ключом «fx:» + id.
+std::optional<std::string> Project::morphFxId(const std::string& key) {
+    static const std::string k = "fx:";
+    if (key.compare(0, k.size(), k) != 0) return std::nullopt;
+    return key.substr(k.size());
+}
+
 }  // namespace jambo

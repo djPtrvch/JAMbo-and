@@ -1,6 +1,7 @@
 // Модель проекта (порт Project и ProjectMore, Core/Model/Project.swift, ветка swift JAMbo). Значения: копия — снимок
 // для UNDO. Поля ProjectMore («коробка» Swift) здесь — обычные поля проекта. Имена полей — ключи файла проекта.
 #pragma once
+#include <functional>
 #include <map>
 #include <algorithm>
 #include <optional>
@@ -85,6 +86,33 @@ struct Project {
     double fxValue(int t, const std::string& id) const;
     void setFx(int t, const std::string& id, double v);
     void migrateTrackFx();
+
+    // Клипы и строки (Clips.swift): Clips.cpp
+    bool rowFilled(int k) const;
+    /// Строк проекта: при переходе MIX последняя строка — PREV.
+    int rowLimit() const { return prevRow ? Params::patternSlots - 1 : Params::patternSlots; }
+    int visibleRows() const;
+    /// Пустых ячеек нет: в видимых строках у каждой дорожки клип.
+    void fillRows();
+
+    // Дорожки (TrackEdits.swift): TrackEdits.cpp
+    /// Номера последовательностей MIX и MST в chanSeqs.
+    static constexpr int mixSeq = 0;
+    static constexpr int mstSeq = 1;
+    bool canAddTrack() const { return int(tracks.size()) < Params::maxTracks; }
+    bool canDeleteTrack(int i) const {
+        return int(tracks.size()) > Params::trackCount && i >= 0 && i < int(tracks.size());
+    }
+    void addTrack();
+    void deleteTrack(int i);
+    void moveTrack(int from, int to);
+    /// PASTE дорожки на место i: только настройки скопированной.
+    void pasteTrack(int i, const Track& c);
+    void renameTrack(int i, const std::string& name);
+    /// Источники-дорожки динамических полос EQ (EqModel.swift): map — новый номер по старому, −1 — удалена.
+    void remapEqDyn(const std::function<int(int)>& map);
+    /// Ключ MORPH эффекта (TrackFx.swift): «fx:id» → id; nullopt — не эффект дорожки.
+    static std::optional<std::string> morphFxId(const std::string& key);
 
     auto tie() const {
         return std::tie(version, bpm, scale, root, fx, tracks, notice, fxAssigns, master, satBypass, cmpBypass,
