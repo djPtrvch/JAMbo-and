@@ -6,7 +6,7 @@
 namespace jambo {
 
 RoomConv::RoomConv(const RoomIR& ir, const RoomIR* hd, double from, double stp)
-    : out(4 * part, 0.f), name(ir.name), fft(size) {
+    : name(ir.name), out(4 * part, 0.f), fft(size) {
     const int p = part, b = bins;
     parts = std::max(1, (ir.frames + p - 1) / p);
     directParts = std::max(1, std::min(parts, (ir.direct + p - 1) / p));

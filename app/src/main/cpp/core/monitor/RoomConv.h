@@ -21,6 +21,7 @@ public:
     /// head — набор HEAD (4 пути, наборы по part кадров подряд), from и step — углы, градусы.
     explicit RoomConv(const RoomIR& ir, const RoomIR* head = nullptr, double from = -50, double step = 2);
     const std::string name;
+    std::vector<float> out;
     /// Основной поток: срез низа колонок — частота и порядок (2 или 4; 0 — нет).
     void setHighpass(double hz, int order, double sampleRate);
     /// Колбэк: история входа из прежнего экземпляра той же длины (false — другая длина).
@@ -29,7 +30,6 @@ public:
     void feed(int k, float l, float r);
     /// Блок: новые 128 отсчётов — в inL[128…], inR[128…]; выход — out (4 × 128).
     void step(float yaw = 0, bool headOn = false);
-    std::vector<float> out;
 
 private:
     int parts, directParts;
