@@ -35,7 +35,13 @@ private val Accent = Color(0xFFFFD000)
 private val Red = Color(0xFFFF2B2B)
 
 @Composable
-fun SpikeScreen(midi: MidiHub, onScanBle: () -> Unit, onLink: (Boolean) -> Unit) {
+fun SpikeScreen(
+    midi: MidiHub,
+    ble: BleMidiPeripheral,
+    onScanBle: () -> Unit,
+    onAdvertise: (Boolean) -> Unit,
+    onLink: (Boolean) -> Unit,
+) {
     var audio by remember { mutableStateOf(DoubleArray(20)) }
     var link by remember { mutableStateOf(DoubleArray(5)) }
     var appCpu by remember { mutableStateOf(0.0) }
@@ -55,7 +61,7 @@ fun SpikeScreen(midi: MidiHub, onScanBle: () -> Unit, onLink: (Boolean) -> Unit)
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         AudioColumn(audio, appCpu, Modifier.weight(1f))
-        MidiColumn(midi, onScanBle, Modifier.weight(1.3f))
+        MidiColumn(midi, ble, onScanBle, onAdvertise, Modifier.weight(1.3f))
         LinkColumn(link, onLink, Modifier.weight(1f))
     }
 }
@@ -131,7 +137,14 @@ private fun AudioColumn(a: DoubleArray, appCpu: Double, modifier: Modifier) {
 }
 
 @Composable
-private fun MidiColumn(midi: MidiHub, onScanBle: () -> Unit, modifier: Modifier) {
+private fun MidiColumn(
+    midi: MidiHub,
+    ble: BleMidiPeripheral,
+    onScanBle: () -> Unit,
+    onAdvertise: (Boolean) -> Unit,
+    modifier: Modifier,
+) {
+    var adv by remember { mutableStateOf(false) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Title("MIDI")
         if (!midi.available) { Text("android.media.midi unavailable", color = Red); return@Column }
@@ -142,6 +155,16 @@ private fun MidiColumn(midi: MidiHub, onScanBle: () -> Unit, modifier: Modifier)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Btn(if (midi.scanning.value) "SCANNING…" else "SCAN BLUETOOTH", midi.scanning.value) { onScanBle() }
             Text("Clock ticks: ${midi.clockTicks.value}", color = Dim, fontSize = 12.sp)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Btn("ADVERTISE", adv) { adv = !adv; onAdvertise(adv) }
+            val st = when {
+                !adv -> "Off"
+                ble.connected.value != null -> "Connected: ${ble.connected.value}"
+                ble.advertising.value -> "Visible as Bluetooth MIDI"
+                else -> "Starting…"
+            }
+            Text(st, color = if (ble.connected.value != null) Accent else Dim, fontSize = 12.sp)
         }
         midi.ble.forEach { b ->
             Text("⟶ ${b.name}", color = Accent, fontSize = 14.sp,

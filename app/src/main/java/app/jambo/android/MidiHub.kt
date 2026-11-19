@@ -35,6 +35,14 @@ class MidiHub(private val ctx: Context) {
     val scanning = mutableStateOf(false)
     val clockTicks = mutableStateOf(0L)
     private val bleDevices = HashMap<String, BluetoothDevice>()
+    private val parsers = HashMap<String, MidiReceiver>()
+
+    /** Байты MIDI не из MidiManager (ADVERTISE): тот же разбор, лог и звук. */
+    fun feed(label: String, bytes: ByteArray) {
+        parsers.getOrPut(label) { Parser(label) }.send(bytes, 0, bytes.size)
+    }
+
+    fun log(line: String) = addLog(line)
 
     val available get() = mm != null
 
@@ -222,4 +230,4 @@ class MidiHub(private val ctx: Context) {
 }
 
 private val NOTE_NAMES = arrayOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
-fun noteName(n: Int) = NOTE_NAMES[n % 12] + (n / 12 - 2)   // 60 = C3, как в JAMbo
+fun noteName(n: Int) = NOTE_NAMES[n % 12] + (n / 12 - 1)   // 60 = C4, 48 = C3 — как в JAMbo
