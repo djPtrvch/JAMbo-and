@@ -1,5 +1,9 @@
 // Порт Core/Model/SynthEngines.swift (ветка swift JAMbo).
 #include "SynthEngines.h"
+#include "AnalogMod.h"
+#include "KnobDefaults.h"
+#include "Track.h"
+#include "../synth/Jambo.h"
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
@@ -85,4 +89,24 @@ int engine(const std::string& key) {
 }
 
 }  // namespace SynthKey
+void Track::setSynth(int engine, const KnobDefaults* defaults) {
+    const std::string key = SynthKey::key(engine);
+    const std::string was = sample;
+    sample = key;
+    const SynthEngine* e = SynthEngines::engine(engine);
+    if (!e) return;
+    if (e->initKnobs.size() == 4 && was != key)
+        for (size_t k = 0; k < 4; ++k) params[SynthEngines::knobIds[k]] = e->initKnobs[k];
+    // ANALOG с другого звука: модуляция и октава B выключены.
+    if (was != key && engine == J::analog) {
+        params[AnalogMod::modId] = 0;
+        params[AnalogMod::octId] = 0;
+    }
+    if (was != key && defaults) defaults->applySound(*this);
+    if (e->decayMax) {
+        const auto it = params.find("decay");
+        if (it != params.end() && it->second > *e->decayMax) it->second = *e->decayMax;
+    }
+}
+
 }  // namespace jambo

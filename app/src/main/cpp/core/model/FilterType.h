@@ -1,10 +1,17 @@
 // Тип фильтра голоса: ручка Filter — частота на всём ходу, SHIFT + тап — тип. У всех движков и сэмплера —
 // LP → HP → BP (12 dB); у SUB — LP → LADDER → BP. Порт Core/Model/FilterType.swift (ветка swift JAMbo); перевод
-// дорожек, клипов и кривых (FilterMigration.clip, lanes, used, Project.migrateFilter) — с моделью проекта.
+// дорожек, клипов и кривых — Project::migrateFilter.
 #pragma once
 #include <string>
 #include <vector>
 #include "Params.h"
+
+namespace jambo {
+struct Step;
+struct Clip;
+struct Track;
+struct ArrAutoLane;
+}
 
 namespace jambo {
 
@@ -39,6 +46,13 @@ int soundType(const double* base, const std::vector<double>& others);
 void params(ParamMap& p, int type);
 /// Пресет: тип — по его ручке Filter (нет ручки — ничего не меняется).
 void preset(ParamMap& p);
+/// P-lock шага: Filter по типу звука; у пресет-лока — по своей ручке, тип — в его p-lock.
+void locks(Step& s, int type);
+void clip(Clip& c, int type);
+/// Кривые Filter (y 0…1 = ручка −100…100 → 0…100).
+void lanes(std::vector<ArrAutoLane>& ls, int type);
+/// Прежние значения шагов (без пресет-локов) и кривых — для типа звука, у которого ручка выключена.
+std::vector<double> used(const Track& t);
 }  // namespace FilterMigration
 
 }  // namespace jambo
