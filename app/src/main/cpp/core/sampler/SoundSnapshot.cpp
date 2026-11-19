@@ -162,6 +162,11 @@ SoundSnapshot::SoundSnapshot(const Project& project, const std::map<std::string,
     d.eOnsets.assign(size_t(entries), nullptr);
     d.eOnsetCount.assign(size_t(entries), 0);
     d.sliceAt.assign(size_t(slices), 0);
+    d.eWarpStart.assign(size_t(entries), 0);
+    d.eWarpCount.assign(size_t(entries), 0);
+    d.warpU.assign(size_t(maxWarps), 0);
+    d.warpP.assign(size_t(maxWarps), 0);
+    int wl = 0;
     d.sliceNote.assign(size_t(slices), 0);
     int e = 0, sl = 0;
     d.trackCount = std::min(int(project.tracks.size()), tracks);
@@ -258,14 +263,26 @@ SoundSnapshot::SoundSnapshot(const Project& project, const std::map<std::string,
             if (e >= entries) break;
             auto it = samples.find(key);
             if (it == samples.end() || !it->second) continue;
-            const SampleData& s = *it->second;
+            SampleData& s = *it->second;
             keep.push_back(it->second);
             d.eHash[size_t(e)] = SoundKey::hash(key);
             d.eLeft[size_t(e)] = s.left();
             d.eRight[size_t(e)] = s.right();
             d.eFrames[size_t(e)] = s.frames();
             d.eChannels[size_t(e)] = int32_t(s.channels());
-            // Темп файла, атаки и метки варпинга — с таймстретчем (не перенесены): eBpm 0, атак нет.
+            // Темп файла — у дорожки в TSTR или с метками варпинга (▶ WARP играет в Rate Stretch).
+            const WarpInfo* wi = nullptr;
+            if (snd.warps) {
+                auto wf = snd.warps->find(key);
+                if (wf != snd.warps->end()) wi = &wf->second;
+            }
+            d.eBpm[size_t(e)] = d.rateMode[size_t(u)] != 0 || wi ? s.loopBpm() : 0;
+            putWarp(e, wl, wi, s, o.warpFollow ? std::optional<double>(project.bpm) : std::nullopt);
+            if (d.rateMode[size_t(u)] == 1) {
+                const OnsetList& ol = s.onsets();
+                d.eOnsets[size_t(e)] = ol.at.data();
+                d.eOnsetCount[size_t(e)] = ol.count();
+            }
             std::vector<SliceMark> marks;
             if (!key.empty()) {
                 auto ms = snd.slices.find(key);
@@ -343,6 +360,28 @@ void SoundSnapshot::fillClipFx(const Project& project, int tracks) {
                 if (it != clip->fx->end()) row[p] = float(it->second);
             }
         }
+}
+
+void SoundSnapshot::putWarp(int e, int& w, const WarpInfo* info, SampleData& s, std::optional<double> follow) {
+    SoundData& d = data_;
+    d.eWarpStart[size_t(e)] = int32_t(w);
+    d.eWarpCount[size_t(e)] = 0;
+    if (!info || info->isOff()) return;
+    if (info->marks.empty()) {
+        if (info->bpm) d.eBpm[size_t(e)] = *info->bpm;
+        return;
+    }
+    const double bpm = WarpMap::bpm(info, s.loopBpm(), follow);
+    d.eBpm[size_t(e)] = bpm;
+    const WarpMap map(*info, s.frames(), bpm);
+    int n = 0;
+    while (n < int(map.pos.size()) && w + n < maxWarps) {
+        d.warpU[size_t(w + n)] = map.beats[size_t(n)] * map.perBeat;
+        d.warpP[size_t(w + n)] = map.pos[size_t(n)];
+        n += 1;
+    }
+    d.eWarpCount[size_t(e)] = int32_t(n);
+    w += n;
 }
 
 }  // namespace jambo

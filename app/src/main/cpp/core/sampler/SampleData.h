@@ -1,11 +1,13 @@
 // Сэмпл в памяти и ключ звука (порт Core/Sampler/SampleData.swift, ветка swift JAMbo): 48 кГц, float32, моно или
 // стерео (у моно right — тот же буфер, что left). Создаётся вне колбэка; колбэк читает только указатели.
-// Не перенесено: loopBpm (TempoDetect), onsets (Onsets) — с таймстретчем; SampleEdit — с редактором сэмпла.
+// SampleEdit (TRIM, NORMALIZE, MONO, peaks) — с редактором сэмпла.
 #pragma once
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
+#include "TempoDetect.h"
 
 namespace jambo {
 
@@ -24,8 +26,20 @@ public:
     double duration() const;
     /// Период источника, с (метаданные; 0 — неизвестен): GRANULAR выравнивает по нему зёрна.
     double period = 0;
+    /// Темп лупа для RATE в TSTR (TempoDetect::loopBpm); считается один раз, в основном потоке.
+    double loopBpm() {
+        if (!loopBpm_) loopBpm_ = TempoDetect::loopBpm(*this);
+        return *loopBpm_;
+    }
+    /// Атаки (Onsets::detect) — для таймстретча NORMAL; один раз, в основном потоке.
+    const OnsetList& onsets() {
+        if (!onsets_) onsets_ = std::make_unique<OnsetList>(OnsetList{Onsets::detect(*this)});
+        return *onsets_;
+    }
 
 private:
+    std::optional<double> loopBpm_;
+    std::unique_ptr<OnsetList> onsets_;
     int frames_;
     int channels_;
     std::unique_ptr<float[]> l, r;

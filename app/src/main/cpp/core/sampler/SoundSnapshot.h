@@ -2,7 +2,6 @@
 // микшера, mute/solo, сэмплы дорожек с маркерами нарезки, MOD, FX, мастер, EQ. Строится в основном потоке после каждой
 // правки; держит ссылки на сэмплы и таблицы, пока колбэк может их читать. Массивы выделены при построении — колбэк
 // только читает.
-// Не перенесено (с таймстретчем и WARP): темп файла (eBpm — 0), атаки (eOnsets — нет), метки варпинга.
 #pragma once
 #include <cstdint>
 #include <map>
@@ -15,6 +14,7 @@
 #include "master/MasterChain.h"
 #include "mod/ParamScale.h"
 #include "model/Sounds.h"
+#include "model/Warp.h"
 #include "synth/GranularVoice.h"
 #include "synth/Wavetable.h"
 
@@ -50,6 +50,10 @@ struct SoundData {
     std::vector<const double*> eOnsets;
     std::vector<int> eOnsetCount;
     std::vector<double> sliceAt;
+    /// Варпинг (только TSTR; SoundWarp.swift): метки сэмпла — отрезок таблиц warpU (доля в отсчётах темпа файла) и warpP
+    /// (отсчёт сэмпла).
+    std::vector<int32_t> eWarpStart, eWarpCount;
+    std::vector<double> warpU, warpP;
     std::vector<int32_t> sliceNote;
     std::vector<WtRef> tableRef;
     std::vector<GrainSrc> grainRef;
@@ -141,6 +145,9 @@ private:
     std::map<int, int> altKeep_;
 
     void fillClipFx(const Project& project, int tracks);
+    static constexpr int maxWarps = 8192;
+    /// Метки сэмпла s записи e (SoundWarp.swift): свой BPM файла — в eBpm, метки — с позиции w таблиц.
+    void putWarp(int e, int& w, const WarpInfo* info, SampleData& s, std::optional<double> follow);
 };
 
 }  // namespace jambo

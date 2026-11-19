@@ -4,6 +4,7 @@
 #include "model/Project.h"
 #include "sampler/SoundSnapshot.h"
 #include "util/SPSCQueue.h"
+#include <climits>
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -134,6 +135,92 @@ void soundSnapshot() {
           "snapshot: ноты нарезки");
     check(SoundKey::hash("") == 0 && SoundKey::hash("a") == 0xaf63dc4c8601ec8cULL, "SoundKey: FNV-1a");
 }
+// TempoDetectTests: синтетические ритмы.
+uint32_t seed = 1;
+float noise() {
+    seed = seed * 1664525u + 1013904223u;
+    return float(int32_t(seed)) / float(INT32_MAX);
+}
+SampleRef groove(double bpm, double sec = 60, bool fourOnFloor = true) {
+    const double rate = 48000;
+    const int n = int(sec * rate);
+    std::vector<float> x(size_t(n), 0);
+    const double beat = 60 / bpm * rate;
+    for (int b = 0; double(b) * beat < double(n); ++b) {
+        const int at = int(double(b) * beat);
+        if (fourOnFloor || b % 4 == 0 || b % 4 == 2)
+            for (int i = 0; i < 6000 && at + i < n; ++i) {
+                const double t = double(i) / rate;
+                x[size_t(at + i)] += float(std::sin(2 * M_PI * 55 * t) * std::exp(-t * 18)) * 0.8f;
+            }
+        if (b % 2 == 1)
+            for (int i = 0; i < 4000 && at + i < n; ++i) x[size_t(at + i)] += noise() * float(std::exp(-double(i) / 900)) * 0.4f;
+        const int off = at + int(beat / 2);
+        for (int i = 0; i < 1200 && off + i < n; ++i) x[size_t(off + i)] += noise() * float(std::exp(-double(i) / 200)) * 0.15f;
+    }
+    for (auto& v : x) v += noise() * 0.005f;
+    return std::make_shared<SampleData>(x, nullptr);
+}
+
+void tempoDetect() {
+    seed = 1;
+    check(TempoDetect::bpm(*groove(126)) == 126.0 && TempoDetect::bpm(*groove(128)) == 128.0, "tempo: house");
+    check(TempoDetect::bpm(*groove(90, 60, false)) == 90.0 && TempoDetect::bpm(*groove(100)) == 100.0 &&
+              TempoDetect::bpm(*groove(140)) == 140.0 && TempoDetect::bpm(*groove(174, 60, false)) == 174.0 &&
+              TempoDetect::bpm(*groove(85)) == 85.0,
+          "tempo: диапазон");
+    check(std::fabs(TempoDetect::bpm(*groove(123.5)).value_or(0) - 123.5) <= 0.11, "tempo: дробный");
+    check(!TempoDetect::bpm(SampleData(std::vector<float>(48000 * 20, 0.f), nullptr)) &&
+              !TempoDetect::bpm(*groove(120, 3)),
+          "tempo: тишина и коротко");
+}
+
+void warpMap() {
+    WarpInfo info;
+    info.marks = {WarpMark{26400.0 / 96000, 1}, WarpMark{0.5, 2}};
+    const WarpMap map(info, 96000, 120);
+    check(near(map.beat(26400), 1) && near(map.beat(37200), 1.5) && near(map.beat(72000), 3) && near(map.beat(2400), 0),
+          "warp: карта");
+    bool ok = true;
+    for (double b = -0.5; b <= 4; b += 0.25) ok = ok && near(map.beat(map.position(b)), b);
+    check(ok, "warp: туда и обратно");
+    const WarpMap none(WarpInfo(), 96000, 120);
+    WarpInfo own;
+    own.bpm = 98;
+    check(near(none.beat(36000), 1.5) && WarpMap::bpm(nullptr, 0) == 120 && WarpMap::bpm(&own, 125) == 98,
+          "warp: без меток, BPM файла");
+    const auto m = WarpMap::autoMarks({10, 6500, 11000, 12100, 30500}, 48000, 120, 0.25);
+    check(m.size() == 4 && m[0].beat == 0 && m[1].beat == 0.25 && m[2].beat == 0.5 && m[3].beat == 1.25 &&
+              m[0].at == 0 && near(m[1].at * 48000, 6500, 1e-6),
+          "warp: AUTO WARP по сетке");
+    WarpInfo marked;
+    marked.bpm = 98;
+    marked.marks = {WarpMark{0, 0}};
+    WarpInfo off = marked;
+    off.off = true;
+    check(WarpMap::bpm(&marked, 125, 140.0) == 140 && WarpMap::bpm(&marked, 125) == 98 &&
+              WarpMap::bpm(&own, 125, 140.0) == 98 && WarpMap::bpm(&off, 125, 140.0) == 98,
+          "warp: WARP TO PROJECT BPM");
+    // Снимок: темп файла сэмпла с метками — темп проекта (follow) или свой.
+    Project p;
+    p.tracks[0].sample = "k";
+    p.tracks[0].params[Params::rateModeId] = 1;
+    p.bpm = 133;
+    WarpInfo wi;
+    wi.bpm = 120;
+    wi.marks = {WarpMark{0, 0}, WarpMark{0.5, 2}};
+    p.tracks[0].warps["k"] = wi;
+    std::map<std::string, SampleRef> samples;
+    samples["k"] = groove(120, 4);
+    for (bool fol : {true, false}) {
+        SoundSnapshot::Options o;
+        o.warpFollow = fol;
+        SoundSnapshot snap(p, samples, o);
+        const int e = snap.data().entryStart[0];
+        check(snap.data().eBpm[size_t(e)] == (fol ? 133.0 : 120.0) && snap.data().eWarpCount[size_t(e)] == 2,
+              "warp: снимок звука, follow " + std::to_string(fol));
+    }
+}
 }  // namespace
 
 int runAudio() {
@@ -144,6 +231,8 @@ int runAudio() {
     lfoValue();
     envDot();
     soundSnapshot();
+    tempoDetect();
+    warpMap();
     std::printf("audio: %s\n", fails == 0 ? "all passed" : "FAILED");
     return fails;
 }
