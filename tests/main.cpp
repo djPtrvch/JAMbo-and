@@ -5,6 +5,7 @@
 
 std::vector<golden::Result> runFx();
 std::vector<golden::Result> runJambo();
+std::vector<golden::Result> runEq();
 int runDrums();
 int runTexGran();
 int runTables();
@@ -21,6 +22,7 @@ int main() {
     std::printf("%-28s %10s %10s %10s  %s\n", "case", "sample dB", "band dB", "rms dBFS", "result");
     std::vector<golden::Result> all = runFx();
     for (auto& r : runJambo()) all.push_back(r);
+    for (auto& r : runEq()) all.push_back(r);
     for (const auto& r : all) {
         ++total;
         const bool ok = r.ok();
