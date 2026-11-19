@@ -1,7 +1,8 @@
 // Сверка эффектов с эталонами fx_*.i16 (порт Golden/FxSelfTest.swift JAMbo): блоки по 128, k-rate параметры
-// в начале блока, вход — как input() в FxSelfTest. Пока — Delay; остальные эффекты добавляются по мере переноса.
+// в начале блока, вход — как input() в FxSelfTest. Перенесены Delay, Reverb; остальные эффекты добавляются по мере переноса.
 #include "golden.h"
 #include "fx/Delay.h"
+#include "fx/Reverb.h"
 #include "fx/FxRandom.h"
 #include <nlohmann/json.hpp>
 #include <cmath>
@@ -63,7 +64,9 @@ bool render(const json& c, int block, std::vector<float>& outL, std::vector<floa
     auto p = [&](const char* k, double def) { auto it = vals.find(k); return float(it == vals.end() ? def : it->second); };
 
     std::unique_ptr<jambo::FxDelay> delay;
+    std::unique_ptr<jambo::FxReverb> reverb;
     if (proc == "delay") delay = std::make_unique<jambo::FxDelay>(48000, 6, seed);
+    else if (proc == "reverb") reverb = std::make_unique<jambo::FxReverb>(48000, seed);
     else return false;
 
     std::vector<float> bL(block), bR(block), oL(block), oR(block);
@@ -78,6 +81,10 @@ bool render(const json& c, int block, std::vector<float>& outL, std::vector<floa
         if (delay) {
             delay->process(bL.data(), bR.data(), oL.data(), oR.data(), block, p("time", 0.25),
                            p("feedback", 0.4), p("filter", 0), p("spread", 0));
+        }
+        if (reverb) {
+            reverb->process(bL.data(), bR.data(), oL.data(), oR.data(), block, p("size", 50), p("decay", 2),
+                            p("tone", 0), p("lowcut", 20), p("predelay", 0));
         }
         for (int i = 0; i < block && f + i < frames; ++i) {
             outL[f + i] = oL[i];

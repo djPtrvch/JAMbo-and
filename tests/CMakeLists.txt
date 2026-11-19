@@ -10,7 +10,7 @@ endif()
 
 set(CORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../app/src/main/cpp/core)
 set(TP ${CMAKE_CURRENT_SOURCE_DIR}/../third_party)
-file(GLOB_RECURSE CORE_SOURCES ${CORE_DIR}/*.cpp)
+file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS ${CORE_DIR}/*.cpp)
 
 add_executable(core_tests main.cpp golden.cpp fx_golden.cpp ${CORE_SOURCES})
 target_include_directories(core_tests PRIVATE ${CORE_DIR} ${TP}/json/single_include)
