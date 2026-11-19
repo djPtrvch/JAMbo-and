@@ -6,3 +6,4 @@
 - Справочники: Params (+Fmt), SynthEngines, FilterType, Scales — тест `tables_test.cpp`; KnobDefaults и миграции Filter, которым нужен проект, — с моделью.
 - Модель проекта: Step, Clip, Track, Project и типы полей (поля TrackMore и ProjectMore — обычные поля), KnobDefaults без JSON, `Track::setSynth`, `Project::migrateFilter` — тест `model_test.cpp`.
 - Файл проекта: ProjectFormat (`jambo-swift`, JSON как у iPad; nlohmann/json — `scripts/fetch-deps.sh`), чтение по правилам Swift Codable (`model/Json.h`), repair и миграции версий 3–10, пресеты синта и KnobDefaults — тест `coding_test.cpp`. Хранилище проектов на диске — позже.
+- Правки и UNDO: History (место правки — `std::any`), TrackEdits, RollEdits, Roll, StepNotes — тест `edit_test.cpp` (EditTests, MorphTests).
