@@ -21,14 +21,18 @@ endif()
 
 # Core — порт ios/JAMbo.swiftpm/Core (ветка swift JAMbo), сверяется тестами tests/ на Linux.
 file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/core/*.cpp)
+# Состояние приложения (порт части AppModel): правки, UNDO, данные для экрана.
+file(GLOB APP_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/app/*.cpp)
 
 add_library(jambo SHARED
   audio_engine.cpp
   link_session.cpp
   jni_bridge.cpp
+  jni_app.cpp
   ${CORE_SOURCES}
+  ${APP_SOURCES}
 )
-target_include_directories(jambo PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/core ${JSON_DIR})
+target_include_directories(jambo PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_SOURCE_DIR} ${JSON_DIR})
 # Без -ffast-math: проверки NaN и точность должны совпадать с тестами и эталонами.
 target_compile_options(jambo PRIVATE -Wall -Wno-multichar -O2)
 target_link_libraries(jambo oboe::oboe Ableton::Link android log)

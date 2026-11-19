@@ -1,5 +1,5 @@
 // Звук: Oboe (AAudio), 48 кГц, low latency. Весь звук — Core (jambo::AudioCore::render в колбэке); поверх — тестовый
-// тон и щелчок TAP спайка. Ноты MIDI и PLAY — события ядра. Колбэк без выделений памяти и блокировок.
+// тон и щелчок TAP спайка. События и снимки — от App (jambo::AppAudio). Колбэк без выделений памяти и блокировок.
 #pragma once
 #include <cstring>
 #include <oboe/Oboe.h>
@@ -9,12 +9,14 @@
 #include <memory>
 #include <cstdint>
 #include <vector>
+#include "app/App.h"
 #include "engine/AudioCore.h"
 
 class LinkSession;
 
 class AudioEngine : public oboe::AudioStreamDataCallback,
-                    public oboe::AudioStreamErrorCallback {
+                    public oboe::AudioStreamErrorCallback,
+                    public jambo::AppAudio {
 public:
     explicit AudioEngine(LinkSession* link) : link_(link) {}
     bool start();
@@ -22,10 +24,10 @@ public:
 
     void setTone(bool on) { tone_.store(on); }
     void tap(int64_t touchNanos);           // время касания, CLOCK_MONOTONIC
-    void noteOn(int note, int velocity);
-    void noteOff(int note);
-    /// PLAY проверочного проекта (дорожка 1 — DRUM, дорожка 2 — ANALOG).
-    void play(bool on);
+    // jambo::AppAudio (основной поток; события и снимки — под produce_).
+    void push(const jambo::CoreEvent& e) override;
+    void publish(const jambo::Project& p) override;
+    bool popOut(jambo::SeqOut& e) override;
 
     // Заполняет out (kInfoSize значений), см. порядок в audio_engine.cpp.
     static constexpr int kInfoSize = 20;
@@ -53,7 +55,6 @@ private:
     std::mutex produce_;
     std::vector<float> coreL_, coreR_;
     void ensureCore();
-    void push(const jambo::CoreEvent& e);
     std::atomic<int64_t> outLatencyUs_{0};
 
     // аудио -> UI

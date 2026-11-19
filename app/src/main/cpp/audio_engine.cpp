@@ -5,7 +5,6 @@
 #include <ctime>
 #include <android/log.h>
 #include <chrono>
-#include "model/Project.h"
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "JAMbo", __VA_ARGS__)
 
@@ -21,25 +20,6 @@ double nowSec() {
     return duration<double>(steady_clock::now().time_since_epoch()).count();
 }
 
-/// Проверочный проект: дорожка 1 — DRUM на долях, дорожка 2 — ANALOG (басовая фигура); ноты MIDI — на дорожку 2.
-jambo::Project demoProject() {
-    jambo::Project p;
-    p.tracks[0].setSynth(16);
-    p.tracks[1].setSynth(17);
-    auto& kick = p.tracks[0].pagesMut()[0];
-    for (int s : {0, 4, 8, 12}) {
-        kick[size_t(s)].on = true;
-        kick[size_t(s)].notes = {48};
-    }
-    auto& bass = p.tracks[1].pagesMut()[0];
-    const int notes[4] = {36, 36, 43, 41};
-    for (int k = 0; k < 4; ++k) {
-        auto& st = bass[size_t(k * 4 + 2)];
-        st.on = true;
-        st.notes = {notes[k]};
-    }
-    return p;
-}
 }
 
 void AudioEngine::ensureCore() {
@@ -47,7 +27,6 @@ void AudioEngine::ensureCore() {
     if (core_) return;
     core_ = std::make_unique<jambo::AudioCore>();
     core_->installSynth();
-    core_->publish(demoProject(), {}, {}, nowSec());
     coreL_.assign(jambo::AudioCore::maxFrames, 0.f);
     coreR_.assign(jambo::AudioCore::maxFrames, 0.f);
 }
@@ -114,18 +93,20 @@ void AudioEngine::tap(int64_t touchNanos) {
     tapSeq_.fetch_add(1);
 }
 
-void AudioEngine::noteOn(int note, int velocity) {
-    if (note < 0 || note > 127) return;
-    if (velocity == 0) { noteOff(note); return; }
-    push(jambo::CoreEvent::noteOn(1, note, note, float(velocity) / 127.0f));
+void AudioEngine::publish(const jambo::Project& p) {
+    ensureCore();
+    std::lock_guard<std::mutex> g(produce_);
+    core_->publish(p, {}, {}, nowSec());
+    core_->releaseRetired(nowSec());
 }
 
-void AudioEngine::noteOff(int note) {
-    if (note < 0 || note > 127) return;
-    push(jambo::CoreEvent::noteOff(1, note));
+bool AudioEngine::popOut(jambo::SeqOut& e) {
+    if (!core_) return false;
+    auto x = core_->sequencer.out.pop();
+    if (!x) return false;
+    e = *x;
+    return true;
 }
-
-void AudioEngine::play(bool on) { push(jambo::CoreEvent::play(on)); }
 
 oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream*, void* data, int32_t frames) {
     const int64_t t0 = monoNs();

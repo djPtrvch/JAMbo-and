@@ -8,10 +8,6 @@ object Native {
     external fun stop()
     external fun setTone(on: Boolean)
     external fun tap(touchNanos: Long)
-    external fun noteOn(note: Int, velocity: Int)
-    external fun noteOff(note: Int)
-    /** PLAY проверочного проекта ядра (DRUM и ANALOG). */
-    external fun play(on: Boolean)
     /** Порядок значений — AudioEngine::info (audio_engine.cpp). */
     external fun audioInfo(): DoubleArray
 

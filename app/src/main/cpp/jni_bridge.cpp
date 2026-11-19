@@ -2,6 +2,7 @@
 #include <jni.h>
 #include "audio_engine.h"
 #include "link_session.h"
+#include "audio_bridge.h"
 
 namespace {
 LinkSession* gLink = nullptr;
@@ -12,15 +13,17 @@ void ensure() {
 }
 }
 
+AudioEngine* audioEngine() {
+    ensure();
+    return gAudio;
+}
+
 #define FN(ret, name) extern "C" JNIEXPORT ret JNICALL Java_app_jambo_android_Native_##name
 
 FN(jboolean, start)(JNIEnv*, jobject) { ensure(); return gAudio->start(); }
 FN(void, stop)(JNIEnv*, jobject) { if (gAudio) gAudio->stop(); }
 FN(void, setTone)(JNIEnv*, jobject, jboolean on) { ensure(); gAudio->setTone(on); }
 FN(void, tap)(JNIEnv*, jobject, jlong touchNs) { ensure(); gAudio->tap(touchNs); }
-FN(void, noteOn)(JNIEnv*, jobject, jint n, jint v) { ensure(); gAudio->noteOn(n, v); }
-FN(void, noteOff)(JNIEnv*, jobject, jint n) { ensure(); gAudio->noteOff(n); }
-FN(void, play)(JNIEnv*, jobject, jboolean on) { ensure(); gAudio->play(on); }
 
 FN(jdoubleArray, audioInfo)(JNIEnv* env, jobject) {
     ensure();

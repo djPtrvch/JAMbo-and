@@ -3,6 +3,26 @@
 
 namespace jambo {
 
+void Track::activate(int k) {
+    if (open == slot) open = k;
+    moveSlot(k);
+}
+
+void Track::moveSlot(int k) {
+    if (home) {
+        const TrackSound own = *home;
+        if (clipFilled(slot) && clips[size_t(slot)]->src) {
+            TrackSound cur = sound();
+            cur.vol = clips[size_t(slot)]->src->vol;
+            clips[size_t(slot)]->src = cur;
+        }
+        setSound(own);
+        home.reset();
+    }
+    slot = k;
+    settleSound();
+}
+
 void Track::putEmptyClip(int k, std::optional<int> scale, std::optional<int> root) {
     Clip c;
     c.scale = scale;

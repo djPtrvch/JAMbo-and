@@ -1,0 +1,165 @@
+package app.jambo.android.ui
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.jambo.android.AppNative.Act
+import kotlin.math.abs
+import kotlin.math.roundToInt
+
+/** Верхняя панель: бутерброд, BPM, метроном | SCALE, ROOT, UNDO, PLAY, REC, REDO, EQ | PATTERNS, ARRANGE, CPU. */
+@Composable
+fun TopBar(s: ScreenState, onMenu: () -> Unit) {
+    val th = LocalTheme.current
+    val top = s.top
+    val half = (Layout.topButton - Layout.gap) / 2
+    Row(Modifier.fillMaxWidth().height(Layout.topHeight.dp), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
+        Row(Modifier.width(Layout.leftColumn.dp).fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
+            Box(Modifier.width(52.dp).fillMaxHeight().pointerInput(Unit) { detectTapGestures(onTap = { onMenu() }) },
+                contentAlignment = Alignment.Center) { Burger(th.text) }
+            BpmField(s, top[0] / 10.0, Modifier.weight(1f))
+            Metronome(s, top[4] != 0, Modifier.width(52.dp))
+        }
+        Later(s.topTexts[0], Modifier.width(Layout.topButton.dp))
+        Later(s.topTexts[1], Modifier.weight(1f))
+        Glyph("↶", top[1] != 0, Modifier.width(Layout.topButton.dp)) { s.act(Act.UNDO) }
+        PlayButton(s, top[3] != 0, Modifier.width(half.dp))
+        Box(Modifier.width(half.dp).fillMaxHeight().framed(th.panel2, th.rec.copy(alpha = 0.4f)), contentAlignment = Alignment.Center) {
+            Text("●", color = th.rec.copy(alpha = 0.4f), fontSize = 16.sp)
+        }
+        Glyph("↷", top[2] != 0, Modifier.width(Layout.topButton.dp)) { s.act(Act.REDO) }
+        Later("ROLL", Modifier.weight(1f))
+        Later("EQ", Modifier.width(Layout.topButton.dp))
+        Later("PATTERNS", Modifier.width(Layout.topButton.dp))
+        Later("ARRANGE", Modifier.width(Layout.topButton.dp))
+        Spacer(Modifier.width(Layout.meterWidth.dp))
+    }
+}
+
+/** Кнопка следующих этапов: подпись серая, не нажимается. */
+@Composable
+private fun Later(title: String, modifier: Modifier) {
+    val th = LocalTheme.current
+    Box(modifier.fillMaxHeight().tile(th.panel2), contentAlignment = Alignment.Center) {
+        Text(title, color = th.dim, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+    }
+}
+
+@Composable
+private fun Glyph(symbol: String, enabled: Boolean, modifier: Modifier, action: () -> Unit) {
+    val th = LocalTheme.current
+    Box(modifier.fillMaxHeight().tile(th.panel2).pointerInput(enabled) { detectTapGestures(onTap = { if (enabled) action() }) },
+        contentAlignment = Alignment.Center) {
+        Text(symbol, color = if (enabled) th.text else th.dim, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+/** PLAY срабатывает на касании, а не на отпускании. */
+@Composable
+private fun PlayButton(s: ScreenState, on: Boolean, modifier: Modifier) {
+    val th = LocalTheme.current
+    Box(
+        modifier.fillMaxHeight().framed(if (on) th.accent else th.panel2, th.accent)
+            .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(); s.act(Act.TOGGLE_PLAY) } },
+        contentAlignment = Alignment.Center,
+    ) { Text("▶", color = if (on) th.onAccent else th.accent, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+}
+
+/** BPM: палец вверх-вниз — 4 dp на 1 BPM (после 10 dp), одна запись UNDO на жест. */
+@Composable
+private fun BpmField(s: ScreenState, bpm: Double, modifier: Modifier) {
+    val th = LocalTheme.current
+    var active by remember { mutableStateOf(false) }
+    val text = if (bpm == Math.rint(bpm)) "${bpm.toInt()}" else "%.1f".format(bpm)
+    Row(
+        modifier.fillMaxHeight().tile(if (active) th.panel2 else th.panel).padding(horizontal = 12.dp)
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown()
+                    active = true
+                    s.act(Act.BEGIN_GESTURE)
+                    val start = s.top[0] / 10.0
+                    var moved = false
+                    while (true) {
+                        val ev = awaitPointerEvent()
+                        val c = ev.changes.firstOrNull { it.id == down.id } ?: break
+                        val dy = (c.position.y - down.position.y) / density
+                        if (abs(dy) > 10) moved = true
+                        if (moved) s.act(Act.SET_BPM, 0, 0, (start - dy / 4).roundToInt().toDouble())
+                        c.consume()
+                        if (!c.pressed) break
+                    }
+                    s.act(Act.END_GESTURE)
+                    active = false
+                }
+            },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("BPM", color = th.dim, fontSize = 11.sp, letterSpacing = 0.9.sp)
+        Spacer(Modifier.weight(1f))
+        Text(text, color = th.text, fontSize = 19.sp)
+    }
+}
+
+/** Метроном: тап включает; доля мигает (акцент — мягким жёлтым). */
+@Composable
+private fun Metronome(s: ScreenState, on: Boolean, modifier: Modifier) {
+    val th = LocalTheme.current
+    val bg = if (s.beatFlash != 0) (if (s.beatAccent != 0) th.accentSoft else th.panel2) else th.panel
+    val fg = if (on) th.text else th.dim
+    Box(
+        modifier.fillMaxHeight().tile(bg).border(1.dp, if (on) th.text else Color.Transparent, RoundedCornerShape(Layout.radius.dp))
+            .pointerInput(Unit) { detectTapGestures(onTap = { s.act(Act.TOGGLE_METRONOME) }) },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(20.dp)) {
+            val w = size.width
+            val h = size.height
+            val body = Path().apply {
+                moveTo(w * 0.35f, h * 0.05f); lineTo(w * 0.65f, h * 0.05f); lineTo(w * 0.9f, h * 0.95f)
+                lineTo(w * 0.1f, h * 0.95f); close()
+            }
+            drawPath(body, fg, style = Stroke(1.6.dp.toPx()))
+            drawLine(fg, Offset(w * 0.5f, h * 0.75f), Offset(w * 0.8f, h * 0.2f), 1.6.dp.toPx(), StrokeCap.Round)
+        }
+    }
+}
+
+/** Бутерброд — только полоски, без фона. */
+@Composable
+fun Burger(color: Color) {
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        repeat(3) { Box(Modifier.width(22.dp).height(2.dp).tile(color, 1f)) }
+    }
+}

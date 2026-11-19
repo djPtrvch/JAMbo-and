@@ -179,9 +179,9 @@ class MidiHub(private val ctx: Context) {
             val ch = (s and 0x0F) + 1
             val hex = "%02X %02X %02X".format(s, d1, d2)
             val text = when (s and 0xF0) {
-                0x90 -> if (d2 > 0) { Native.noteOn(d1, d2); "NoteOn ch$ch ${noteName(d1)} v$d2" }
-                        else { Native.noteOff(d1); "NoteOff ch$ch ${noteName(d1)}" }
-                0x80 -> { Native.noteOff(d1); "NoteOff ch$ch ${noteName(d1)}" }
+                0x90 -> if (d2 > 0) { AppNative.act(AppNative.Act.MIDI_NOTE, d1, d2); "NoteOn ch$ch ${noteName(d1)} v$d2" }
+                        else { AppNative.act(AppNative.Act.MIDI_NOTE, d1, 0); "NoteOff ch$ch ${noteName(d1)}" }
+                0x80 -> { AppNative.act(AppNative.Act.MIDI_NOTE, d1, 0); "NoteOff ch$ch ${noteName(d1)}" }
                 0xB0 -> "CC ch$ch #$d1 = $d2"
                 0xC0 -> "Program ch$ch $d1"
                 0xE0 -> "PitchBend ch$ch ${(d2 shl 7 or d1) - 8192}"
