@@ -21,6 +21,8 @@ public:
     void reset();
     /// Покой: фильтры с нуля, время и ручки при пробуждении — сразу целевые.
     void sleep();
+    /// Длина линии (отсчётов).
+    int len() const { return len_; }
 
 private:
     void updateFilter(double f);
