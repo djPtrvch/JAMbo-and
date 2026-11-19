@@ -31,6 +31,10 @@ public:
 
     /// Сколько голосов звучит или ждёт старта.
     int activeCount() const;
+    /// Голос v (для тестов и экрана): звучит или ждёт старта, нота, движок.
+    bool isActive(int v) const { return active[size_t(v)] != 0; }
+    int voiceNote(int v) const { return note[size_t(v)]; }
+    int voiceEngine(int v) const { return engine[size_t(v)]; }
     /// Ноты дорожки t движком e в кадре frame (gate: −1 — нота в 1 шаг, forever — живая).
     void trigger(const SoundData& d, int t, int e, int64_t frame, const int16_t* notes, int count, VoiceMask mask,
                  const float* vals, int64_t gate, bool isOwn, int live, bool retrig);

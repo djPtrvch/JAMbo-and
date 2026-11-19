@@ -9,6 +9,18 @@
 
 namespace jambo {
 
+/// Ключ таблицы дорожки (Track.table; порт enum WavetableKey): "" — BASIC, "builtin:NAME" — встроенная,
+/// «wt:<ключ WAV>:<размер кадра>» — своя (разбор parseUser — со своими таблицами, позже).
+namespace WavetableKey {
+inline std::string builtin(const std::string& name) { return name == "BASIC" ? "" : "builtin:" + name; }
+inline std::string name(const std::string& key) {
+    if (key.empty()) return "BASIC";
+    if (key.rfind("builtin:", 0) == 0) return key.substr(8);
+    return "TABLE";
+}
+inline std::string user(const std::string& wav, int frameSize) { return "wt:" + wav + ":" + std::to_string(frameSize); }
+}  // namespace WavetableKey
+
 /// Таблица для колбэка — только указатели (WtTable живёт в кэше).
 struct WtRef {
     int frames = 0;
