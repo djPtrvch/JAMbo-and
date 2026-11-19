@@ -104,6 +104,44 @@ struct Track {
     /// значения по умолчанию defaults); Decay больше предела движка — к пределу. (SynthEngines.swift; SynthEngines.cpp)
     void setSynth(int engine, const KnobDefaults* defaults = nullptr);
 
+    // Папка звуков, свой звук шага, запись на дорожку (Sounds.swift): Sounds.cpp
+    /// Добавить звуки в папку (уже лежащий там сэмпл не повторяется, пресет — добавляется); номер первого (−1 — пусто).
+    int addItems(const std::vector<FolderItem>& items);
+    /// Звук из папки на дорожку: пресет — движок, его ручки и таблица.
+    void applyItem(const FolderItem& it);
+    /// Загруженные файлы — в папку, первый звучит на дорожке.
+    void addSamples(const std::vector<std::string>& keys);
+    /// Файлы для зажатых шагов: в папку, не меняя звук дорожки.
+    void addSamplesQuiet(const std::vector<std::string>& keys);
+    /// Библиотека: в папке дорожки — только эти звуки, первый звучит.
+    void setFolder(const std::vector<FolderItem>& items);
+    /// Таблица WTABLE в папке дорожки (пресет с движком и таблицей); дорожка не WTABLE — nullopt.
+    static std::optional<FolderItem> tableItem(const Track& t, const std::string& key, const std::string& name);
+    /// Пресет из синта дорожки; у сэмпла — nullopt.
+    std::optional<SynthPreset> preset(const std::string& name) const;
+    /// Имя пресета, если звук дорожки — пресет из её папки ("" — нет).
+    std::string presetName() const;
+    /// Стрелки: соседний звук папки на дорожку.
+    void stepFolder(int dir);
+    /// Номер звука шага в папке или −1.
+    int stepItemIndex(const Step& s) const;
+    /// Сменился звук шага — p-lock прежнего пресета звука убираются.
+    static void dropSoundLocks(Step& s);
+    /// Зажат шаг + стрелка: шагу — соседний звук папки.
+    void stepFolderOnSteps(const std::vector<int>& indices, int dir);
+    /// Снять свои сэмплы шагов во всех клипах (свой синт шага остаётся).
+    void clearSampleLocks();
+    /// Свой звук шагов (nullopt — снова звук дорожки).
+    void setStepSound(const std::vector<int>& indices, const std::optional<std::string>& key);
+    /// Подпись между стрелками: номер (с 1) и всего; held — зажатый шаг (его звук).
+    std::pair<int, int> folderPos(std::optional<int> held) const;
+    /// CLEAR в редакторе: сэмпл убирается с дорожки и из её папки.
+    void clearSample();
+    /// Отредактированная копия или запись — на место прежнего сэмпла (и в папке).
+    void replaceSample(const std::string& old, const std::string& next);
+    /// REC: был сэмпл — запись на его место (и в папке); иначе — в папку и звучит.
+    void addRecordedSample(const std::string& key);
+
     // Звуки (Sounds.swift), ударные (DrumRhythm.swift): Track.cpp
     std::vector<SliceMark> sliceMarks(const std::string& key) const;
     /// Звук дорожки — сэмпл с маркерами нарезки.
