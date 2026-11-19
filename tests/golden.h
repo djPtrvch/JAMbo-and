@@ -23,5 +23,7 @@ std::vector<float> load(const std::string& file);
 Result compare(const std::string& file, const std::vector<float>& actual, const std::vector<float>& golden);
 /// Как в эталоне: ±1, Int16.
 void quantize(std::vector<float>& x);
+/// Вход самотестов мастера и EQ: sine, stereo, drums, noise, loud (MasterSelfTest.input).
+void masterInput(const std::string& kind, int frames, std::vector<float>& l, std::vector<float>& r);
 
 }  // namespace golden

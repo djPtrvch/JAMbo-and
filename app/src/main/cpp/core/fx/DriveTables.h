@@ -49,9 +49,11 @@ public:
     /// F(|u|) по таблице (кубический Эрмит); за 12 кривая ≈ 1 — F растёт линейно.
     static double tableF(const double* F, const double* D, double fmax, double u);
 
+    /// Антипроизводная кривой y (Симпсон) и её значения на [0, 12] — F и D по tableN + 2.
+    static void makeTable(double* F, double* D, const std::function<double(double)>& y);
+
 private:
     static double besselI0(double x);
-    static void makeTable(double* F, double* D, const std::function<double(double)>& y);
     static void bandLimit(std::vector<double>& v, int H);
     static void makeComp(double* t, int type, const std::function<double(double)>& f);
 };

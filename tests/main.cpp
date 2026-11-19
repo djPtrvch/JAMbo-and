@@ -6,6 +6,7 @@
 std::vector<golden::Result> runFx();
 std::vector<golden::Result> runJambo();
 std::vector<golden::Result> runEq();
+std::vector<golden::Result> runMaster();
 int runDrums();
 int runTexGran();
 int runTables();
@@ -24,6 +25,7 @@ int main() {
     std::vector<golden::Result> all = runFx();
     for (auto& r : runJambo()) all.push_back(r);
     for (auto& r : runEq()) all.push_back(r);
+    for (auto& r : runMaster()) all.push_back(r);
     for (const auto& r : all) {
         ++total;
         const bool ok = r.ok();

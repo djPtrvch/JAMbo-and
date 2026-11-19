@@ -1,3 +1,5 @@
+#include "fx/FxRandom.h"
+#include <cmath>
 #include "golden.h"
 #include <cmath>
 #include <cstdint>
@@ -108,6 +110,50 @@ Result compare(const std::string& file, const std::vector<float>& actual, const 
     r.finite = actual.size() == golden.size();
     for (float v : actual) if (!std::isfinite(v)) r.finite = false;
     return r;
+}
+
+/// Вход самотестов мастера и EQ (MasterSelfTest.input).
+void masterInput(const std::string& kind, int frames, std::vector<float>& l, std::vector<float>& r) {
+    l.assign(size_t(frames), 0.f);
+    r.assign(size_t(frames), 0.f);
+    const double sr = 48000;
+    if (kind == "sine") {
+        for (int i = 0; i < std::min(24000, frames); ++i) {
+            const float v = float(0.25 * std::sin(2 * M_PI * 440 * double(i) / sr));
+            l[size_t(i)] = v;
+            r[size_t(i)] = v;
+        }
+    } else if (kind == "stereo") {
+        jambo::FxRandom rnd(11);
+        for (int i = 0; i < std::min(1440, frames); ++i) {
+            l[size_t(i)] = float((rnd.next() * 2 - 1) * 0.5);
+            r[size_t(i)] = float(0.3 * std::sin(2 * M_PI * 660 * double(i) / sr));
+        }
+    } else if (kind == "drums") {
+        jambo::FxRandom rnd(5);
+        for (int i = 0; i < frames; ++i) {
+            const double t = double(i % 12000) / sr;
+            const double th = double((i + 6000) % 12000) / sr;
+            const double ph = 55 * t + 40 * 0.03 * (1 - std::exp(-t / 0.03));
+            const double kick = 0.9 * std::exp(-t / 0.12) * std::sin(2 * M_PI * ph);
+            const double hat = 0.4 * std::exp(-th / 0.015) * (rnd.next() * 2 - 1);
+            l[size_t(i)] = float(kick + hat);
+            r[size_t(i)] = float(kick + hat + 0.2 * std::sin(2 * M_PI * 220 * double(i) / sr));
+        }
+    } else if (kind == "noise") {
+        jambo::FxRandom a(3), b(4);
+        for (int i = 0; i < frames; ++i) {
+            l[size_t(i)] = float((a.next() * 2 - 1) * 0.3);
+            r[size_t(i)] = float((b.next() * 2 - 1) * 0.3);
+        }
+    } else if (kind == "loud") {
+        for (int i = 0; i < frames; ++i) {
+            const double v = i < 24000 ? std::sin(2 * M_PI * 1000 * double(i) / sr)
+                                       : 0.708 * std::sin(2 * M_PI * 5000 * double(i) / sr);
+            l[size_t(i)] = float(v);
+            r[size_t(i)] = float(0.9 * v);
+        }
+    }
 }
 
 }  // namespace golden
