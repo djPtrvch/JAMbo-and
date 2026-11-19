@@ -7,7 +7,11 @@
 #include "../model/Params.h"
 
 namespace jambo {
+struct Project;
 namespace MasterChain {
+
+/// Значения проекта → массив параметров колбэка (count значений; при построении снимка звука). MasterChain.cpp
+void fill(double* p, const Project& project);
 
 /// RELEASE компрессора и лимитера ≥ autoValue — AUTO.
 constexpr double autoValue = 1e9;

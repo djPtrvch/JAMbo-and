@@ -29,4 +29,10 @@ void Project::fillRows() {
             if (!t.clipFilled(k)) t.putEmptyClip(k, scale, root);
 }
 
+bool Project::audible(int i) const {
+    if (i < 0 || i >= int(tracks.size())) return false;
+    for (const auto& t : tracks) if (t.solo) return tracks[size_t(i)].solo;
+    return !tracks[size_t(i)].mute;
+}
+
 }  // namespace jambo

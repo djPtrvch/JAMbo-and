@@ -19,6 +19,14 @@ constexpr double freqMin = 20, freqMax = 20000, gainMax = 18, qMin = 0.1, qMax =
 inline bool isCut(int type) { return type == lowCut || type == highCut; }
 /// Усиление не применяется к cut и notch.
 inline bool hasGain(int type) { return type <= highShelf; }
+inline int slopeDb(int k) { static const int s[slopeCount] = {12, 24, 48}; return s[k]; }
+/// Каналы снимка: дорожки 0…maxTracks−1 (16), мастер — 16.
+constexpr int channels = 16 + 1;
+constexpr int masterChannel = 16;
+/// Параметры EQ для колбэка: на канал stride значений — [0] включён ли EQ, затем на полосу [тип (−1 — нет), каскад,
+/// частота, усиление, Q фильтра, режим M/S, источник Dynamic (−1 — нет), порог, сдвиг].
+constexpr int bandStride = 9;
+constexpr int stride = 1 + bands * bandStride;
 }  // namespace EqSpec
 
 struct EqBand {

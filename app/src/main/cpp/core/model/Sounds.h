@@ -40,4 +40,21 @@ struct SliceMark {
 /// SETTINGS → SAMPLER → SLICE NOTES.
 enum class SliceMap { chromatic, scale };
 
+/// Ноты маркеров нарезки (Slices, Sounds.swift): Slices.cpp
+namespace Slices {
+/// «Нота» метки без ноты.
+constexpr int noNote = -1;
+/// ПРОБА Swift-версии: ноты по порядку — всегда от 3-й октавы (fixedOctave), не от октавы клавиатуры.
+constexpr int fixedOctave = 3;
+/// Нота по порядку маркера idx: CHROMATIC — по полутону, SCALE — ступени гаммы.
+int note(int idx, SliceMap map, int scale, int root, int octave = 3);
+/// Ноты маркеров: назначенная — как есть; остальные — по порядку, занятая пропускается; без ноты — noNote.
+std::vector<int> notes(const std::vector<SliceMark>& m, SliceMap map, int scale, int root, int octave = 3);
+}  // namespace Slices
+
+/// SETTINGS → SIDECHAIN: какие посылы приглушаются вместе с дорожкой (Settings.swift).
+struct SidechainSends {
+    bool rev = false, dly = false, drv = true;
+};
+
 }  // namespace jambo

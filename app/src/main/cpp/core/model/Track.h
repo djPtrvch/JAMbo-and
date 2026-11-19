@@ -138,6 +138,12 @@ struct Track {
     /// Звук дорожки (поля, которые сейчас действуют).
     TrackSound sound() const;
     void setSound(const TrackSound& s);
+    /// Звук по активной ячейке: у клипа со своим звуком (src) — он (свой — в home), у клипа без своего — звук дорожки.
+    void settleSound();
+    /// Громкость (dB), с которой звучит клип k: своя у клипа со своим звуком, иначе — дорожки.
+    double volSlot(int k) const;
+    /// Звук, которым звучит клип k.
+    TrackSound soundSlot(int k) const;
 
     // Клипы (Clips.swift): Clips.cpp
     bool clipFilled(int k) const { return k >= 0 && k < int(clips.size()) && clips[size_t(k)].has_value(); }

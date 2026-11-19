@@ -94,6 +94,10 @@ struct Project {
     int visibleRows() const;
     /// Пустых ячеек нет: в видимых строках у каждой дорожки клип.
     void fillRows();
+    /// Слышна ли дорожка (mute / solo); номер вне дорожек — не слышна.
+    bool audible(int i) const;
+    /// Гамма и нота клипа k дорожки t (Transition.swift); без своих — проекта.
+    std::pair<int, int> clipKey(int t, int k) const;
 
     // Дорожки (TrackEdits.swift): TrackEdits.cpp
     /// Номера последовательностей MIX и MST в chanSeqs.
