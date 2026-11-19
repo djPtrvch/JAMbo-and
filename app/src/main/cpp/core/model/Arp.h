@@ -8,6 +8,9 @@ namespace jambo {
 
 namespace Arp {
 constexpr int dirCount = 6, rateCount = 5, maxOctaves = 3;
+/// Направления (Arp.dirs) и шаги RATE в шестнадцатых (Arp.rateSteps).
+constexpr int up = 0, down = 1, upDown = 2, downUp = 3, random = 4, order = 5;
+constexpr double rateSteps[rateCount] = {2, 1.3333333333333333, 1, 0.6666666666666666, 0.5};
 constexpr double gateMin = 0.1;
 inline int clampDir(int d) { return std::max(0, std::min(dirCount - 1, d)); }
 inline int clampRate(int r) { return std::max(0, std::min(rateCount - 1, r)); }
