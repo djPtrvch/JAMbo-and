@@ -189,14 +189,15 @@ FN(jobjectArray, knobTexts)(JNIEnv* env, jobject) {
     return strings(env, v);
 }
 
-/// Клавиатура: [число клавиш, по клавише: нота, биты подсвечена 1, обведена 2, корневая 4].
+/// Клавиатура: [число клавиш, число клавиш двух октав (сторона клавиши), по клавише: нота, биты подсвечена 1,
+/// обведена 2, корневая 4].
 FN(jintArray, keys)(JNIEnv* env, jobject) {
     std::lock_guard<std::mutex> g(gLock);
     auto& m = app();
     const auto lit = m.litNotes();
     const auto shown = m.shownNotes();
     const int n = m.keyCount();
-    std::vector<jint> v{n};
+    std::vector<jint> v{n, jambo::Scales::keyCount(m.project().scale, 2)};
     for (int k = 0; k < n; ++k) {
         const int note = m.keyNote(k);
         v.push_back(note);

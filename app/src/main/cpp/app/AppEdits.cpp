@@ -8,8 +8,8 @@
 namespace jambo {
 
 namespace {
-/// Клавиатура: две октавы гаммы (меню клавиатуры — позже).
-constexpr int pianoOctaves = 2;
+/// Клавиатура: одна октава гаммы + верхняя корневая (Settings.pianoOctaves по умолчанию; меню клавиатуры — позже).
+constexpr int pianoOctaves = 1;
 }  // namespace
 
 // MARK: — шаги

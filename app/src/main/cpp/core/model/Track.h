@@ -181,6 +181,14 @@ struct Track {
     void withStep(int index, const std::function<void(Step&)>& change);
     /// Тап по шагу: триг с нотами notes или снять (снятый триг забывает p-lock и свой звук).
     void toggleStep(int index, const std::vector<int>& notes);
+
+    // Запись с REC (Recording.swift): Recording.cpp
+    /// Ноты на шаг index: merge — к записанным в том же дубле; overdub — к стоящим; velocity (0.2…1) — сила нот.
+    void recordNotes(int index, const std::vector<int>& notes, bool merge, bool overdub, std::optional<double> velocity);
+    /// Отпустили клавишу: длина записанной ноты (не меньше 1, не дальше конца паттерна).
+    void recordLength(int index, int len);
+    /// OVERDUB OFF: шаг, по которому проходит запись, очищается; false — шаг и так пустой.
+    bool clearPassStep(int index);
     void setLock(int index, const std::string& id, double value);
     void clearLock(int index, const std::string& id);
     /// SHIFT + двойной тап по ручке: снять все p-lock дорожки (свой звук шага остаётся).

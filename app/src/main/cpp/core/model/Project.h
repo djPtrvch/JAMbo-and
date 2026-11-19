@@ -115,6 +115,38 @@ struct Project {
     void renameTrack(int i, const std::string& name);
     /// Источники-дорожки динамических полос EQ (EqModel.swift): map — новый номер по старому, −1 — удалена.
     void remapEqDyn(const std::function<int(int)>& map);
+
+    // Правки EQ (EqModel.swift). Канал: дорожка 0… или EqSpec::masterChannel.
+    Eq eq(int ch) const {
+        if (ch == EqSpec::masterChannel) return masterEq;
+        return ch >= 0 && ch < int(tracks.size()) ? tracks[size_t(ch)].eq : Eq();
+    }
+    template <typename F>
+    void withEq(int ch, F&& f) {
+        if (ch == EqSpec::masterChannel) f(masterEq);
+        else if (ch >= 0 && ch < int(tracks.size())) f(tracks[size_t(ch)].eq);
+    }
+    /// Новая bell-полоса в первом свободном месте; −1, если мест нет.
+    int addEqBand(int ch, double freq, double gain) {
+        int k = -1;
+        withEq(ch, [&](Eq& e) { k = e.addBand(freq, gain); });
+        return k;
+    }
+    void setEqBand(int ch, int k, std::optional<double> freq, std::optional<double> gain = std::nullopt,
+                   std::optional<double> q = std::nullopt) {
+        withEq(ch, [&](Eq& e) { e.setBand(k, freq, gain, q); });
+    }
+    void setEqType(int ch, int k, int type) { withEq(ch, [&](Eq& e) { e.setType(k, type); }); }
+    void setEqSlope(int ch, int k, int slope) { withEq(ch, [&](Eq& e) { e.setSlope(k, slope); }); }
+    void setEqMs(int ch, int k, int ms) { withEq(ch, [&](Eq& e) { e.setMs(k, ms); }); }
+    void setEqDyn(int ch, int k, int src) { withEq(ch, [&](Eq& e) { e.setDyn(k, src); }); }
+    void setEqDynParams(int ch, int k, std::optional<double> thr, std::optional<double> range = std::nullopt) {
+        withEq(ch, [&](Eq& e) { e.setDynParams(k, thr, range); });
+    }
+    void toggleEqBand(int ch, int k) { withEq(ch, [&](Eq& e) { e.toggleBand(k); }); }
+    void deleteEqBand(int ch, int k) { withEq(ch, [&](Eq& e) { e.deleteBand(k); }); }
+    /// BYPASS: выключение EQ канала.
+    void toggleEq(int ch) { withEq(ch, [](Eq& e) { e.on = !e.on; }); }
     /// Ключ MORPH эффекта (TrackFx.swift): «fx:id» → id; nullopt — не эффект дорожки.
     static std::optional<std::string> morphFxId(const std::string& key);
 

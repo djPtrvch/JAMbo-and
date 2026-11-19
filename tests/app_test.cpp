@@ -92,7 +92,7 @@ void knobs() {
 void keysAndPlay() {
     CoreAudio a;
     App app(&a);
-    check(app.keyCount() == 15 && app.keyNote(0) == 48, "app: клавиатура — две октавы от C3");
+    check(app.keyCount() == 8 && app.keyNote(0) == 48, "app: клавиатура — октава от C3");
     app.keyDown(7, 2, 1);
     check(app.litNotes().count(app.keyNote(2)) && app.shownNotes() == std::set<int>{app.keyNote(2)},
           "app: нажатая нота подсвечена и выбрана");

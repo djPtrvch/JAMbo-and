@@ -145,6 +145,12 @@ public:
 
     void runJob(int j) override;
 
+    /// Шины дорожек (дорожка·maxFrames) и посылов ((дорожка·3 + посыл)·maxFrames) последнего блока — для тестов.
+    const std::vector<float>& trackBusL() const { return busL; }
+    const std::vector<float>& trackBusR() const { return busR; }
+    const std::vector<float>& sendBusL() const { return sendL; }
+    const std::vector<float>& sendBusR() const { return sendR; }
+
 private:
     SoundData* sound_ = nullptr;
     std::vector<uint64_t> synthHash;

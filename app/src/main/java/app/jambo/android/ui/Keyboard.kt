@@ -33,7 +33,8 @@ private const val KEY_GAP = 3f
 @Composable
 fun KeyboardPanel(s: ScreenState, width: Float) {
     val th = LocalTheme.current
-    val count = s.keys[0]
+    // Сторона клавиши — по двум октавам гаммы (с одной октавой клавиши шире, высота та же).
+    val count = s.keys.getOrElse(1) { 15 }
     val step = Layout.step(width)
     Row(Modifier.fillMaxWidth().height(Layout.pianoHeight(width, count).dp),
         horizontalArrangement = Arrangement.spacedBy(Layout.stepGap.dp)) {
@@ -80,7 +81,7 @@ private fun KeyRow(s: ScreenState, modifier: Modifier) {
         horizontalArrangement = Arrangement.spacedBy(KEY_GAP.dp),
     ) {
         for (k in 0 until count) {
-            val bits = keys.getOrElse(2 + 2 * k) { 0 }
+            val bits = keys.getOrElse(3 + 2 * k) { 0 }
             val on = bits and 1 != 0
             val shown = bits and 2 != 0
             val root = bits and 4 != 0

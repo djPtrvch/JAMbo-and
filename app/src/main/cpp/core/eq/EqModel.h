@@ -77,8 +77,63 @@ struct Eq {
             if (b.dyn > n || b.dyn < -1) b.dyn = -1;
         }
     }
+    // Правки (EqModel.swift: extension Eq).
+    /// Новая bell-полоса в первом свободном месте; −1, если мест нет.
+    int addBand(double freq, double gain) {
+        for (int k = 0; k < int(bands.size()); ++k) {
+            if (bands[size_t(k)]) continue;
+            bands[size_t(k)] = EqBand(true, EqSpec::bell, clamp(freq, EqSpec::freqMin, EqSpec::freqMax),
+                                      clamp(gain, -EqSpec::gainMax, EqSpec::gainMax), EqSpec::qDef);
+            return k;
+        }
+        return -1;
+    }
+    /// Значения полосы: частота, усиление (округление до 0,1 dB), Q.
+    void setBand(int k, std::optional<double> freq, std::optional<double> gain = std::nullopt,
+                 std::optional<double> q = std::nullopt) {
+        change(k, [&](EqBand& b) {
+            if (freq) b.freq = clamp(*freq, EqSpec::freqMin, EqSpec::freqMax);
+            if (gain) b.gain = std::round(clamp(*gain, -EqSpec::gainMax, EqSpec::gainMax) * 10) / 10;
+            if (q) b.q = clamp(*q, EqSpec::qMin, EqSpec::qMax);
+        });
+    }
+    void setType(int k, int type) {
+        const int n = EqSpec::typeCount;
+        change(k, [&](EqBand& b) { b.type = ((type % n) + n) % n; });
+    }
+    void setSlope(int k, int slope) {
+        change(k, [&](EqBand& b) { b.slope = std::max(0, std::min(slope, EqSpec::slopeCount - 1)); });
+    }
+    /// Режим M/S полосы: 0 STEREO, 1 MID, 2 SIDE.
+    void setMs(int k, int ms) {
+        change(k, [&](EqBand& b) { b.ms = std::max(0, std::min(ms, EqSpec::msCount - 1)); });
+    }
+    /// Источник динамической полосы: −1 OFF, 0 SELF, n — дорожка n.
+    void setDyn(int k, int src) {
+        change(k, [&](EqBand& b) { b.dyn = std::max(-1, std::min(src, EqSpec::channels - 1)); });
+    }
+    /// Порог (dBFS) и сдвиг (dB) динамической полосы, с округлением до 0,1.
+    void setDynParams(int k, std::optional<double> thr, std::optional<double> range = std::nullopt) {
+        change(k, [&](EqBand& b) {
+            if (thr) b.thr = std::round(clamp(*thr, EqSpec::dynThrMin, 0) * 10) / 10;
+            if (range) b.range = std::round(clamp(*range, -EqSpec::dynRangeMax, EqSpec::dynRangeMax) * 10) / 10;
+        });
+    }
+    void toggleBand(int k) { change(k, [](EqBand& b) { b.on = !b.on; }); }
+    void deleteBand(int k) {
+        if (k >= 0 && k < int(bands.size())) bands[size_t(k)].reset();
+    }
+
     auto tie() const { return std::tie(on, bands); }
     JAMBO_EQ(Eq)
+
+private:
+    static double clamp(double v, double lo, double hi) { return std::max(lo, std::min(hi, v)); }
+    template <typename F>
+    void change(int k, F&& f) {
+        if (k < 0 || k >= int(bands.size()) || !bands[size_t(k)]) return;
+        f(*bands[size_t(k)]);
+    }
 };
 
 }  // namespace jambo

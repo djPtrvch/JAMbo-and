@@ -19,7 +19,7 @@ class ScreenState {
     var stepLabels by mutableStateOf(emptyArray<String>()); private set
     var knobs by mutableStateOf(FloatArray(16 * 6)); private set
     var knobTexts by mutableStateOf(Array(32) { "" }); private set
-    var keys by mutableStateOf(IntArray(1)); private set
+    var keys by mutableStateOf(IntArray(2)); private set
     var keyLabels by mutableStateOf(emptyArray<String>()); private set
 
     var playPos by mutableIntStateOf(-1); private set

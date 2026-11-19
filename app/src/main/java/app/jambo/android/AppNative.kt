@@ -52,7 +52,7 @@ object AppNative {
     external fun knobs(): FloatArray
     /** По слоту: подпись, значение. */
     external fun knobTexts(): Array<String>
-    /** [число клавиш, по клавише: нота, биты подсвечена 1 | обведена 2 | корневая 4]. */
+    /** [число клавиш, число клавиш двух октав, по клавише: нота, биты подсвечена 1 | обведена 2 | корневая 4]. */
     external fun keys(): IntArray
     external fun keyLabels(): Array<String>
 }
