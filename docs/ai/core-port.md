@@ -7,4 +7,5 @@
 - Модель проекта: Step, Clip, Track, Project и типы полей (поля TrackMore и ProjectMore — обычные поля), KnobDefaults без JSON, `Track::setSynth`, `Project::migrateFilter` — тест `model_test.cpp`.
 - Файл проекта: ProjectFormat (`jambo-swift`, JSON как у iPad; nlohmann/json — `scripts/fetch-deps.sh`), чтение по правилам Swift Codable (`model/Json.h`), repair и миграции версий 3–10, пресеты синта и KnobDefaults — тест `coding_test.cpp`. Хранилище проектов на диске — позже.
 - Правки и UNDO: History (место правки — `std::any`), TrackEdits, RollEdits, Roll, StepNotes — тест `edit_test.cpp` (EditTests, MorphTests).
-- Аудиоядро (без 5d): SoundSnapshot (с TempoDetect, Onsets, WarpMap), ModEngine, SynthVoices + RenderPool (MULTICORE), SeqSnapshot, Launcher, Sequencer, StemRing — тесты audio_test, synth_test, seq_test; Sampler для секвенсора — интерфейс SeqVoices.
+- Аудиоядро (без 5d2–5d4): SoundSnapshot (с TempoDetect, Onsets, WarpMap), ModEngine, SynthVoices + RenderPool (MULTICORE), SeqSnapshot, Launcher, Sequencer, StemRing — тесты audio_test, synth_test, seq_test; Sampler для секвенсора — интерфейс SeqVoices.
+- Сэмплер (голоса, микшер, MIDI OUT, предпрослушка, WARP), таймстретч BEAT и NORMAL, FxRack — тест sampler_test.cpp; EQ дорожек и метры в микшере — шаг 5d2.
