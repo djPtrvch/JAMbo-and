@@ -2,6 +2,7 @@
 // Room*.wav и rooms.json. WAV: 48 кГц, 4 канала — LL, LR, RL, RR, 16/24/32 бит или float. Прямая часть — первые direct
 // отсчётов (на 0 dB всегда), остальное — хвост (громкость — Ambience).
 #pragma once
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
