@@ -23,6 +23,8 @@ inline int slopeDb(int k) { static const int s[slopeCount] = {12, 24, 48}; retur
 /// Каналы снимка: дорожки 0…maxTracks−1 (16), мастер — 16.
 constexpr int channels = 16 + 1;
 constexpr int masterChannel = 16;
+/// Окно коррекции наушников (спектры до и после монитор-цепочки; PhonesEq.swift).
+constexpr int phonesChannel = -2;
 /// Параметры EQ для колбэка: на канал stride значений — [0] включён ли EQ, затем на полосу [тип (−1 — нет), каскад,
 /// частота, усиление, Q фильтра, режим M/S, источник Dynamic (−1 — нет), порог, сдвиг].
 constexpr int bandStride = 9;
