@@ -292,9 +292,41 @@ void levels() {
               "levels: телеметрия COMP / CLIP / LIM");
     }
 }
+/// Проверочный проект APK (audio_engine.cpp): DRUM и ANALOG через ядро с мастером — звучат, без NaN, не выше 0 dBFS.
+void demoProject() {
+    AudioCore core;
+    core.installSynth();
+    Project p;
+    p.tracks[0].setSynth(16);
+    p.tracks[1].setSynth(17);
+    for (int s : {0, 4, 8, 12}) {
+        p.tracks[0].pagesMut()[0][size_t(s)].on = true;
+        p.tracks[0].pagesMut()[0][size_t(s)].notes = {48};
+    }
+    const int notes[4] = {36, 36, 43, 41};
+    for (int k = 0; k < 4; ++k) {
+        p.tracks[1].pagesMut()[0][size_t(k * 4 + 2)].on = true;
+        p.tracks[1].pagesMut()[0][size_t(k * 4 + 2)].notes = {notes[k]};
+    }
+    core.publish(p);
+    core.events.push(CoreEvent::play(true));
+    const Out o = render(core, 48000 * 2);
+    float pk = 0;
+    bool finite = true;
+    for (size_t i = 0; i < o.l.size(); ++i) {
+        pk = std::max({pk, std::fabs(o.l[i]), std::fabs(o.r[i])});
+        finite = finite && std::isfinite(o.l[i]) && std::isfinite(o.r[i]);
+    }
+    core.events.push(CoreEvent::noteOn(1, 60, 60, 1));
+    const Out n = render(core, 4800);
+    float pn = 0;
+    for (float v : n.l) pn = std::max(pn, std::fabs(v));
+    check(finite && pk > 0.05f && pk <= 1.0f && pn > 0.05f, "core: проверочный проект APK звучит");
+}
 }  // namespace
 
 int runCoreTests() {
+    demoProject();
     oneStep();
     liveAndMute();
     midiOut();

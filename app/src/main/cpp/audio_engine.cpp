@@ -4,6 +4,8 @@
 #include <cmath>
 #include <ctime>
 #include <android/log.h>
+#include <chrono>
+#include "model/Project.h"
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "JAMbo", __VA_ARGS__)
 
@@ -14,12 +16,53 @@ int64_t monoNs() {
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return int64_t(ts.tv_sec) * 1000000000LL + ts.tv_nsec;
 }
+double nowSec() {
+    using namespace std::chrono;
+    return duration<double>(steady_clock::now().time_since_epoch()).count();
+}
+
+/// Проверочный проект: дорожка 1 — DRUM на долях, дорожка 2 — ANALOG (басовая фигура); ноты MIDI — на дорожку 2.
+jambo::Project demoProject() {
+    jambo::Project p;
+    p.tracks[0].setSynth(16);
+    p.tracks[1].setSynth(17);
+    auto& kick = p.tracks[0].pagesMut()[0];
+    for (int s : {0, 4, 8, 12}) {
+        kick[size_t(s)].on = true;
+        kick[size_t(s)].notes = {48};
+    }
+    auto& bass = p.tracks[1].pagesMut()[0];
+    const int notes[4] = {36, 36, 43, 41};
+    for (int k = 0; k < 4; ++k) {
+        auto& st = bass[size_t(k * 4 + 2)];
+        st.on = true;
+        st.notes = {notes[k]};
+    }
+    return p;
+}
+}
+
+void AudioEngine::ensureCore() {
+    std::lock_guard<std::mutex> g(produce_);
+    if (core_) return;
+    core_ = std::make_unique<jambo::AudioCore>();
+    core_->installSynth();
+    core_->publish(demoProject(), {}, {}, nowSec());
+    coreL_.assign(jambo::AudioCore::maxFrames, 0.f);
+    coreR_.assign(jambo::AudioCore::maxFrames, 0.f);
+}
+
+void AudioEngine::push(const jambo::CoreEvent& e) {
+    ensureCore();
+    std::lock_guard<std::mutex> g(produce_);
+    core_->events.push(e);
+    core_->releaseRetired(nowSec());
 }
 
 bool AudioEngine::start() {
+    ensureCore();
     std::lock_guard<std::mutex> g(lock_);
     wanted_ = true;
-    for (int i = 0; i < 128; ++i) { gate_[i].store(false); onCount_[i].store(0); vel_[i].store(0); }
     return openLocked();
 }
 
@@ -69,15 +112,15 @@ void AudioEngine::tap(int64_t touchNanos) {
 void AudioEngine::noteOn(int note, int velocity) {
     if (note < 0 || note > 127) return;
     if (velocity == 0) { noteOff(note); return; }
-    vel_[note].store(velocity / 127.0f);
-    gate_[note].store(true);
-    onCount_[note].fetch_add(1);
+    push(jambo::CoreEvent::noteOn(1, note, note, float(velocity) / 127.0f));
 }
 
 void AudioEngine::noteOff(int note) {
     if (note < 0 || note > 127) return;
-    gate_[note].store(false);
+    push(jambo::CoreEvent::noteOff(1, note));
 }
+
+void AudioEngine::play(bool on) { push(jambo::CoreEvent::play(on)); }
 
 oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream*, void* data, int32_t frames) {
     const int64_t t0 = monoNs();
@@ -97,14 +140,6 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream*, void* dat
     const float toneStep = kTwoPi * 440.0f / sr;
     const float rampK = 1.0f / (0.005f * sr);            // 5 мс
     const float clickDecay = std::exp(-1.0f / (0.004f * sr));
-    const float attK = 1.0f / (0.002f * sr), relK = std::exp(-1.0f / (0.25f * sr));
-
-    // Ноты MIDI: новые нажатия перезапускают атаку.
-    for (int n = 0; n < 128; ++n) {
-        uint32_t c = onCount_[n].load(std::memory_order_relaxed);
-        if (c != noteSeen_[n]) { noteSeen_[n] = c; noteHeld_[n] = true; }
-        if (!gate_[n].load(std::memory_order_relaxed)) noteHeld_[n] = false;
-    }
 
     for (int i = 0; i < frames; ++i) {
         float s = 0;
@@ -125,21 +160,19 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream*, void* dat
         out[2 * i + 1] = s;
     }
 
-    // Синусы нот (отдельным проходом по активным нотам).
-    for (int n = 0; n < 128; ++n) {
-        if (!noteHeld_[n] && noteEnv_[n] < 1e-4f) continue;
-        const float amp = 0.18f * vel_[n].load(std::memory_order_relaxed);
-        const float step = kTwoPi * 440.0f * std::pow(2.0f, (n - 69) / 12.0f) / sr;
-        float env = noteEnv_[n], ph = notePhase_[n];
-        for (int i = 0; i < frames; ++i) {
-            if (noteHeld_[n]) env = std::fmin(1.0f, env + attK); else env *= relK;
-            float v = amp * env * (std::sin(ph) + 0.5f * std::sin(2 * ph) + 0.33f * std::sin(3 * ph));
-            ph += step;
-            if (ph > kTwoPi) ph -= kTwoPi;
-            out[2 * i] += v;
-            out[2 * i + 1] += v;
+    // Ядро: блоками не длиннее AudioCore::maxFrames, планарно → чередование каналов.
+    if (core_) {
+        float* cl = coreL_.data();
+        float* cr = coreR_.data();
+        for (int at = 0; at < frames;) {
+            const int n = std::min(int(frames) - at, jambo::AudioCore::maxFrames);
+            core_->render(n, cl, cr);
+            for (int i = 0; i < n; ++i) {
+                out[2 * (at + i)] += cl[i];
+                out[2 * (at + i) + 1] += cr[i];
+            }
+            at += n;
         }
-        noteEnv_[n] = env; notePhase_[n] = ph;
     }
 
     frameCount_ += frames;

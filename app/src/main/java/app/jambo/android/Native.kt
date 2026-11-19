@@ -1,6 +1,6 @@
 package app.jambo.android
 
-/** Мост к C++ (libjambo.so): звук Oboe и Ableton Link. */
+/** Мост к C++ (libjambo.so): звук (Oboe + Core) и Ableton Link. */
 object Native {
     init { System.loadLibrary("jambo") }
 
@@ -10,6 +10,8 @@ object Native {
     external fun tap(touchNanos: Long)
     external fun noteOn(note: Int, velocity: Int)
     external fun noteOff(note: Int)
+    /** PLAY проверочного проекта ядра (DRUM и ANALOG). */
+    external fun play(on: Boolean)
     /** Порядок значений — AudioEngine::info (audio_engine.cpp). */
     external fun audioInfo(): DoubleArray
 

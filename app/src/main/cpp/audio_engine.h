@@ -1,5 +1,5 @@
-// Звук спайка: Oboe (AAudio), 48 кГц, low latency. Тестовый тон, щелчок TAP,
-// ноты MIDI. Колбэк без выделений памяти и блокировок.
+// Звук: Oboe (AAudio), 48 кГц, low latency. Весь звук — Core (jambo::AudioCore::render в колбэке); поверх — тестовый
+// тон и щелчок TAP спайка. Ноты MIDI и PLAY — события ядра. Колбэк без выделений памяти и блокировок.
 #pragma once
 #include <cstring>
 #include <oboe/Oboe.h>
@@ -7,6 +7,8 @@
 #include <mutex>
 #include <memory>
 #include <cstdint>
+#include <vector>
+#include "engine/AudioCore.h"
 
 class LinkSession;
 
@@ -21,6 +23,8 @@ public:
     void tap(int64_t touchNanos);           // время касания, CLOCK_MONOTONIC
     void noteOn(int note, int velocity);
     void noteOff(int note);
+    /// PLAY проверочного проекта (дорожка 1 — DRUM, дорожка 2 — ANALOG).
+    void play(bool on);
 
     // Заполняет out (kInfoSize значений), см. порядок в audio_engine.cpp.
     static constexpr int kInfoSize = 20;
@@ -41,9 +45,12 @@ private:
     std::atomic<bool> tone_{false};
     std::atomic<uint32_t> tapSeq_{0};
     std::atomic<int64_t> tapTouchNs_{0};
-    std::atomic<bool> gate_[128];
-    std::atomic<uint32_t> onCount_[128];
-    std::atomic<float> vel_[128];
+    /// Ядро: события и снимки пишет один поток за раз (produce_), колбэк читает без блокировок.
+    std::unique_ptr<jambo::AudioCore> core_;
+    std::mutex produce_;
+    std::vector<float> coreL_, coreR_;
+    void ensureCore();
+    void push(const jambo::CoreEvent& e);
     std::atomic<int64_t> outLatencyUs_{0};
 
     // аудио -> UI
@@ -58,9 +65,6 @@ private:
     float toneGain_ = 0, tonePhase_ = 0;
     uint32_t tapSeen_ = 0;
     float clickEnv_ = 0, clickPhase_ = 0, clickFreq_ = 1500;
-    float noteEnv_[128] = {}, notePhase_[128] = {};
-    uint32_t noteSeen_[128] = {};
-    bool noteHeld_[128] = {};
     float loadMaxHold_ = 0;
     int loadMaxTicks_ = 0;
 };

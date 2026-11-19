@@ -96,10 +96,13 @@ private fun f1(v: Double) = if (v < 0) "—" else "%.1f".format(v)
 @Composable
 private fun AudioColumn(a: DoubleArray, appCpu: Double, modifier: Modifier) {
     var tone by remember { mutableStateOf(false) }
+    var playing by remember { mutableStateOf(false) }
     var flash by remember { mutableStateOf(false) }
     Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Title("AUDIO  · build ${BuildConfig.VERSION_NAME}")
         Btn("TONE", tone, Modifier.fillMaxWidth()) { tone = !tone; Native.setTone(tone) }
+        // PLAY: проверочный проект ядра (бочка DRUM и бас ANALOG; ноты MIDI — на бас).
+        Btn("PLAY CORE", playing, Modifier.fillMaxWidth()) { playing = !playing; Native.play(playing) }
         // TAP: звук на касании (ACTION_DOWN), не на отпускании.
         Box(
             Modifier.fillMaxWidth().height(140.dp)
