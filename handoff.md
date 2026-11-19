@@ -16,7 +16,7 @@
 
 ## План первой вехи (порядок)
 1. ~~Справочники~~ — готово: Params (+Fmt), SynthEngines, FilterType, Scales; KnobDefaults (значения, apply, JSON), Track.setSynth и миграции Filter — с шагом 2.
-2. Данные проекта: Step, Clip, Track (с TrackMore), Project. Поля, не нужные в первой вехе (аранжировщик, EQ, ARP, MIDI дорожки), — заводятся сразу без логики, чтобы файл читался целиком.
+2. ~~Данные проекта~~ — готово (model_test.cpp): Step, Clip, Track (с TrackMore), Project. Поля, не нужные в первой вехе (аранжировщик, EQ, ARP, MIDI дорожки), — заводятся сразу без логики, чтобы файл читался целиком.
 3. Чтение и запись проекта (ProjectCoding, ProjectRepair) — JSON как у iPad; тесты на файлах из Swift-тестов (ProjectFileTests и др.).
 4. Правки и UNDO: TrackEdits, RollEdits, History — с тестами Swift-версии (EditTests и др.).
 5. Аудиоядро: SoundSnapshot, SeqSnapshot, AudioCore, Sequencer, SynthVoices (+ JamboBank, LadderFilter, Biquad, ModEngine), Sampler, микшер — в колбэк Oboe.

@@ -4,3 +4,4 @@
 - Без `-ffast-math` (проверки NaN и совпадение с эталонами).
 - Перенесено: FX — Delay, Reverb, Drive (с DriveTables), Duck; движки — KICK, ANALOG, FM, WTABLE, SUB (JamboVoice), SNARE, HAT, CLAP, PERC (JamboDrums), TEXTURE, GRANULAR (с TexGran), таблицы и встроенные wavetable. Эталоны: 36 из 36 (fx_*, j16–j19), −102…−315 dB; ударные — тесты свойств (как DrumEngineTests). Без проверки: SUB и режимы модуляции ANALOG. TEXTURE и GRANULAR — тесты свойств (уровень, ровность; GRANULAR — NaN, лимит зёрен); пик GRANULAR на крайних ручках до +6,5 dBFS — сверить со Swift на слух.
 - Справочники: Params (+Fmt), SynthEngines, FilterType, Scales — тест `tables_test.cpp`; KnobDefaults и миграции Filter, которым нужен проект, — с моделью.
+- Модель проекта: Step, Clip, Track, Project и типы полей (поля TrackMore и ProjectMore — обычные поля), KnobDefaults без JSON, `Track::setSynth`, `Project::migrateFilter` — тест `model_test.cpp`.
