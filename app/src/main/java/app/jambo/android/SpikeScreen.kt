@@ -157,13 +157,9 @@ private fun MidiColumn(midi: MidiHub, onScanBle: () -> Unit, modifier: Modifier)
 @Composable
 private fun LinkColumn(l: DoubleArray, onLink: (Boolean) -> Unit, modifier: Modifier) {
     var on by remember { mutableStateOf(false) }
-    var click by remember { mutableStateOf(false) }
     Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Title("ABLETON LINK")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Btn("LINK", on, Modifier.weight(1f)) { on = !on; onLink(on) }
-            Btn("CLICK", click, Modifier.weight(1f)) { click = !click; Native.setLinkClick(click) }
-        }
+        Btn("LINK", on, Modifier.fillMaxWidth()) { on = !on; onLink(on) }
         val tempo = l[2]
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Btn("−") { Native.linkSetTempo((tempo - 1).coerceAtLeast(20.0)) }
@@ -182,7 +178,7 @@ private fun LinkColumn(l: DoubleArray, onLink: (Boolean) -> Unit, modifier: Modi
                     .background(if (on && i == beat) Accent else Panel, RoundedCornerShape(4.dp)))
             }
         }
-        Text("Phase and click include output latency.", color = Dim, fontSize = 12.sp)
+        Text("Phase includes output latency.", color = Dim, fontSize = 12.sp)
     }
 }
 

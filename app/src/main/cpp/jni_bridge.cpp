@@ -20,7 +20,6 @@ FN(void, setTone)(JNIEnv*, jobject, jboolean on) { ensure(); gAudio->setTone(on)
 FN(void, tap)(JNIEnv*, jobject, jlong touchNs) { ensure(); gAudio->tap(touchNs); }
 FN(void, noteOn)(JNIEnv*, jobject, jint n, jint v) { ensure(); gAudio->noteOn(n, v); }
 FN(void, noteOff)(JNIEnv*, jobject, jint n) { ensure(); gAudio->noteOff(n); }
-FN(void, setLinkClick)(JNIEnv*, jobject, jboolean on) { ensure(); gAudio->setLinkClick(on); }
 
 FN(jdoubleArray, audioInfo)(JNIEnv* env, jobject) {
     ensure();

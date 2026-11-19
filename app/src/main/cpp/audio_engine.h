@@ -1,5 +1,5 @@
 // Звук спайка: Oboe (AAudio), 48 кГц, low latency. Тестовый тон, щелчок TAP,
-// ноты MIDI (синус), щелчок по долям Ableton Link. Колбэк без выделений памяти и блокировок.
+// ноты MIDI. Колбэк без выделений памяти и блокировок.
 #pragma once
 #include <cstring>
 #include <oboe/Oboe.h>
@@ -21,7 +21,6 @@ public:
     void tap(int64_t touchNanos);           // время касания, CLOCK_MONOTONIC
     void noteOn(int note, int velocity);
     void noteOff(int note);
-    void setLinkClick(bool on) { linkClick_.store(on); }
 
     // Заполняет out (kInfoSize значений), см. порядок в audio_engine.cpp.
     static constexpr int kInfoSize = 20;
@@ -32,7 +31,6 @@ public:
 
 private:
     bool openLocked();
-    void scheduleLinkClick(int32_t frames);  // доля Link внутри этого буфера
 
     LinkSession* link_;
     std::mutex lock_;
@@ -41,7 +39,6 @@ private:
 
     // UI/MIDI -> аудио
     std::atomic<bool> tone_{false};
-    std::atomic<bool> linkClick_{false};
     std::atomic<uint32_t> tapSeq_{0};
     std::atomic<int64_t> tapTouchNs_{0};
     std::atomic<bool> gate_[128];
@@ -66,7 +63,4 @@ private:
     bool noteHeld_[128] = {};
     float loadMaxHold_ = 0;
     int loadMaxTicks_ = 0;
-    int64_t pendingClickFrames_ = -1;   // щелчок Link внутри буфера
-    float pendingClickFreq_ = 1000;
-    double lastClickBeat_ = -1e9;
 };

@@ -10,7 +10,6 @@ object Native {
     external fun tap(touchNanos: Long)
     external fun noteOn(note: Int, velocity: Int)
     external fun noteOff(note: Int)
-    external fun setLinkClick(on: Boolean)
     /** Порядок значений — AudioEngine::info (audio_engine.cpp). */
     external fun audioInfo(): DoubleArray
 

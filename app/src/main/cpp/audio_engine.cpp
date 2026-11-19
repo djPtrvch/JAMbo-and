@@ -41,8 +41,6 @@ bool AudioEngine::openLocked() {
     stream_->setBufferSizeInFrames(stream_->getFramesPerBurst() * 2);
     sr_ = stream_->getSampleRate();
     frameCount_ = 0;
-    lastClickBeat_ = -1e9;
-    if (link_) link_->resetHostTime();
     tapFrame_.store(-1);
     r = stream_->requestStart();
     if (r != oboe::Result::OK) { LOGI("start: %s", oboe::convertToText(r)); return false; }
@@ -99,7 +97,7 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream*, void* dat
     const float toneStep = kTwoPi * 440.0f / sr;
     const float rampK = 1.0f / (0.005f * sr);            // 5 мс
     const float clickDecay = std::exp(-1.0f / (0.004f * sr));
-    const float attK = 1.0f / (0.002f * sr), relK = std::exp(-1.0f / (0.08f * sr));
+    const float attK = 1.0f / (0.002f * sr), relK = std::exp(-1.0f / (0.25f * sr));
 
     // Ноты MIDI: новые нажатия перезапускают атаку.
     for (int n = 0; n < 128; ++n) {
@@ -107,9 +105,6 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream*, void* dat
         if (c != noteSeen_[n]) { noteSeen_[n] = c; noteHeld_[n] = true; }
         if (!gate_[n].load(std::memory_order_relaxed)) noteHeld_[n] = false;
     }
-
-    pendingClickFrames_ = -1;
-    scheduleLinkClick(frames);
 
     for (int i = 0; i < frames; ++i) {
         float s = 0;
@@ -120,10 +115,6 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream*, void* dat
             s += toneGain_ * std::sin(tonePhase_);
             tonePhase_ += toneStep;
             if (tonePhase_ > kTwoPi) tonePhase_ -= kTwoPi;
-        }
-        if (pendingClickFrames_ == i) {
-            clickEnv_ = 1.0f; clickPhase_ = 0; clickFreq_ = pendingClickFreq_;
-            pendingClickFrames_ = -1;
         }
         if (clickEnv_ > 1e-4f) {
             s += 0.5f * clickEnv_ * std::sin(clickPhase_);
@@ -137,12 +128,12 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream*, void* dat
     // Синусы нот (отдельным проходом по активным нотам).
     for (int n = 0; n < 128; ++n) {
         if (!noteHeld_[n] && noteEnv_[n] < 1e-4f) continue;
-        const float amp = 0.15f * vel_[n].load(std::memory_order_relaxed);
+        const float amp = 0.18f * vel_[n].load(std::memory_order_relaxed);
         const float step = kTwoPi * 440.0f * std::pow(2.0f, (n - 69) / 12.0f) / sr;
         float env = noteEnv_[n], ph = notePhase_[n];
         for (int i = 0; i < frames; ++i) {
             if (noteHeld_[n]) env = std::fmin(1.0f, env + attK); else env *= relK;
-            float v = amp * env * std::sin(ph);
+            float v = amp * env * (std::sin(ph) + 0.5f * std::sin(2 * ph) + 0.33f * std::sin(3 * ph));
             ph += step;
             if (ph > kTwoPi) ph -= kTwoPi;
             out[2 * i] += v;
@@ -164,25 +155,6 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream*, void* dat
         loadMaxHold_ = 0; loadMaxTicks_ = 0;
     }
     return oboe::DataCallbackResult::Continue;
-}
-
-void AudioEngine::scheduleLinkClick(int32_t frames) {
-    if (!link_ || !link_->enabled()) return;
-    // Время Link первого кадра буфера (по счётчику кадров) + задержка выхода.
-    const auto latency = std::chrono::microseconds(outLatencyUs_.load(std::memory_order_relaxed));
-    const auto tStart = link_->hostTimeAtFrame(double(frameCount_)) + latency;
-    if (!linkClick_.load(std::memory_order_relaxed)) { lastClickBeat_ = -1e9; return; }
-    const auto bufDur = std::chrono::microseconds(int64_t(1e6 * frames / sr_));
-    double b0 = 0, b1 = 0, phaseAtNext = 0;
-    link_->beatsAt(tStart, tStart + bufDur, b0, b1, phaseAtNext);
-    if (b0 < 0 || b1 <= b0) return;
-    const double next = std::floor(b0) + 1.0;
-    if (next > b1 || next <= lastClickBeat_) return;   // одна доля — один щелчок
-    lastClickBeat_ = next;
-    int64_t off = int64_t((next - b0) / (b1 - b0) * frames);
-    if (off >= frames) off = frames - 1;
-    pendingClickFrames_ = off;
-    pendingClickFreq_ = (phaseAtNext < 0.5) ? 2000.0f : 1000.0f;  // первая доля такта — выше
 }
 
 void AudioEngine::info(double* o) {
