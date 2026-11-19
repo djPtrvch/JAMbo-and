@@ -13,10 +13,16 @@ if(NOT EXISTS ${LINK_DIR}/AbletonLinkConfig.cmake)
 endif()
 include(${LINK_DIR}/AbletonLinkConfig.cmake)
 
+# Core — порт ios/JAMbo.swiftpm/Core (ветка swift JAMbo), сверяется тестами tests/ на Linux.
+file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/core/*.cpp)
+
 add_library(jambo SHARED
   audio_engine.cpp
   link_session.cpp
   jni_bridge.cpp
+  ${CORE_SOURCES}
 )
-target_compile_options(jambo PRIVATE -Wall -Wno-multichar -O2 -ffast-math)
+target_include_directories(jambo PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/core)
+# Без -ffast-math: проверки NaN и точность должны совпадать с тестами и эталонами.
+target_compile_options(jambo PRIVATE -Wall -Wno-multichar -O2)
 target_link_libraries(jambo oboe::oboe Ableton::Link android log)

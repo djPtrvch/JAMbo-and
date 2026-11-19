@@ -12,6 +12,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Тесты Core на Linux: сверка C++-порта с эталонами ветки swift JAMbo.
+  core-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch golden files and json
+        run: scripts/fetch-test-deps.sh
+      - name: Build and run
+        run: |
+          cmake -S tests -B build/tests -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/tests -j
+          build/tests/core_tests
+
   build:
     runs-on: ubuntu-latest
     steps:
