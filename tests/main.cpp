@@ -5,6 +5,7 @@
 
 std::vector<golden::Result> runFx();
 std::vector<golden::Result> runJambo();
+int runDrums();
 
 int main() {
     int fails = 0, total = 0;
@@ -18,6 +19,8 @@ int main() {
         std::printf("%-28s %10.1f %10.2f %10.1f  %s\n", r.file.c_str(), r.sampleErrorDb, r.maxBandDiffDb, r.rmsDb,
                     ok ? "OK" : "FAIL");
     }
-    std::printf("%d / %d passed\n", total - fails, total);
-    return fails == 0 && total > 0 ? 0 : 1;
+    std::printf("golden: %d / %d passed\n\n", total - fails, total);
+    const int drumFails = runDrums();
+    std::printf("drums: %s\n", drumFails == 0 ? "all passed" : "FAILED");
+    return fails == 0 && total > 0 && drumFails == 0 ? 0 : 1;
 }
