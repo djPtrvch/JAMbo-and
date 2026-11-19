@@ -43,7 +43,8 @@ void Sequencer::setPlaying(bool on, int64_t at) {
         tempo.start(double(at) / sampleRate);
         if (data_) launcher.start(*data_);
     } else {
-        // Стемы — не перенесены (дописываются в кадре остановки).
+        // Стемы дописываются в кадре остановки.
+        stemsStopped(at);
         if (sampler) sampler->midiAllOff(at);
         launcher.reset();
         std::fill(fxLockMask.begin(), fxLockMask.end(), 0);
@@ -143,6 +144,12 @@ void Sequencer::playStep(const SeqData& d, double time) {
     if (sampler) {
         if (SoundData* snd = sampler->sound())
             autoPlay.apply(d, *snd, double(launcher.arrPos), launcher.follow.get());
+    }
+    // Стемы — после смены строк и клипов на этом тике; PLAY во время записи — стоп, когда всё дописано.
+    if (stemsStep(d, time)) {
+        setPlaying(false, int64_t(time));
+        out.push(SeqOut::ended());
+        return;
     }
     const double dur = 60 / tempo.tempo() / TempoGrid::stepsPerBeat * sampleRate;
     if (tick_ % int(TempoGrid::stepsPerBeat) == 0) {

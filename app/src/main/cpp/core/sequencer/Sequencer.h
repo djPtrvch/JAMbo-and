@@ -1,7 +1,6 @@
 // Секвенсор в аудиоколбэке (порт Core/Sequencer/Sequencer.swift, ветка swift JAMbo): шаг k звучит в момент
 // timeAt(k/4) источника такта — с точностью до отсчёта. Chance, Ratchet и Swing (с p-lock). Сработавшие ноты играет
 // сэмплер (SeqVoices) в своём кадре; в интерфейс уходят шаги и ноты.
-// Не перенесено: запись стемов (StemRing, SequencerStems) — позже.
 #pragma once
 #include <algorithm>
 #include <cstdint>
@@ -13,6 +12,7 @@
 #include "SeqData.h"
 #include "SeqOut.h"
 #include "TempoSource.h"
+#include "engine/StemRing.h"
 #include "mod/ModEngine.h"
 #include "sampler/VoiceParam.h"
 #include "util/SPSCQueue.h"
@@ -63,6 +63,16 @@ public:
     std::vector<float> mixLockGain;
     /// Модуляция — задаёт AudioCore.
     ModEngine* mod = nullptr;
+    /// Запись стемов: звук — в кольцо, правила начала и конца — SequencerStems.cpp.
+    StemRing stemRing;
+
+    // Стемы (SequencerStems.swift): SequencerStems.cpp
+    /// Готовность канала к записи (кнопка ● горит).
+    void armStem(int ch, bool on);
+    /// Тап по ● во время записи: дописать до конца прохода, готовность снимается.
+    void finishStem(int ch);
+    /// PLAY во время записи: дописать и остановиться; false — ничего не пишется (остановить сразу).
+    bool requestStemStop();
 
     double bpm() const { return tempo.tempo(); }
     /// Темп: при игре — со следующего шага, без игры — сразу.
@@ -97,6 +107,39 @@ public:
     void process(int64_t blockStart, int frames, float* left, float* right, double host = 0);
 
 private:
+    /// Состояние правил записи стемов (только колбэк; каналы — как у StemRing).
+    struct StemRules {
+        std::vector<uint8_t> armed = std::vector<uint8_t>(StemRing::channels, 0);
+        std::vector<uint8_t> rec = std::vector<uint8_t>(StemRing::channels, 0);
+        std::vector<uint8_t> finish = std::vector<uint8_t>(StemRing::channels, 0);
+        std::vector<int> startTick = std::vector<int>(StemRing::channels, 0);
+        std::vector<int64_t> lastEnd = std::vector<int64_t>(StemRing::channels, -1);
+        /// Клипы (биты ячеек), уже записанные в стем дорожки; у мастера — клипы каждой дорожки.
+        std::vector<uint16_t> seen = std::vector<uint16_t>(SeqData::maxTracks, 0);
+        std::vector<uint16_t> masterSeen = std::vector<uint16_t>(SeqData::maxTracks, 0);
+        bool stopAsked = false;
+        bool anyRecording() const {
+            for (uint8_t r : rec) if (r) return true;
+            return false;
+        }
+    };
+    StemRules stemRules;
+    /// Шаг в кадре time; true — пора остановить транспорт.
+    bool stemsStep(const SeqData& d, double time);
+    /// Транспорт остановился: всё, что пишется, кончается в кадре at.
+    void stemsStopped(int64_t at);
+    void stemsStart(const SeqData& d, int64_t at);
+    void stemBegin(int ch, int64_t at);
+    void stemEnd(int ch, int64_t at);
+    bool stemsArranged(const SeqData& d) const;
+    bool stemsAnyPlaying(const SeqData& d) const;
+    void stemsMasterSee(const SeqData& d);
+    bool stemsMasterAllSeen(const SeqData& d) const;
+    bool stemsMasterEdge(const SeqData& d, int k) const;
+    void stemsPredict(const SeqData& d, bool arranged);
+    int stemsTrackEndTick(const SeqData& d, int t, bool arranged) const;
+    int stemsMasterEndTick(const SeqData& d, bool arranged) const;
+
     static constexpr int pendingMax = 512;
     double sampleRate;
     InternalTempoSource tempo;

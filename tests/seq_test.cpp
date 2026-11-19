@@ -4,7 +4,9 @@
 #include "sequencer/Sequencer.h"
 #include <cmath>
 #include <cstdio>
+#include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -137,6 +139,87 @@ void launch() {
         if (e.kind == SeqOut::Kind::clip && e.track == 0 && e.a == 1 && e.b == 16) clipMsg = true;
     check(clipMsg, "launch: сообщение clip с тика 16");
 }
+/// Стемы: правила начала и конца (порт части StemTests). Звук дорожки 0 — единицы, его кладём в кольцо сами (микшер —
+/// с сэмплером).
+struct StemRun {
+    std::map<int, SampleRef> stems;
+    bool ended = false;
+};
+void stemRun(Rig& r, StemCollector& col, int frames, StemRun& o) {
+    std::vector<float> one(256, 1.f), l(256), rr(256);
+    int pos = 0;
+    while (pos < frames) {
+        const int n = std::min(256, frames - pos);
+        r.seq.process(r.frame, n, l.data(), rr.data());
+        r.seq.stemRing.captureBlock(0, one.data(), one.data(), nullptr, r.frame, n);
+        while (auto e = r.seq.out.pop()) if (e->kind == SeqOut::Kind::ended) o.ended = true;
+        for (auto& d : col.poll(r.seq.stemRing)) o.stems[d.channel] = d.data;
+        r.frame += n;
+        pos += n;
+    }
+}
+Project stemProject(int rows, bool rowLoop, int rep0) {
+    Project p;
+    p.tracks[0].pagesMut()[0][0].on = true;
+    p.rows = rows;
+    p.rowLoop = rowLoop;
+    p.fillRows();
+    p.scenes[0].repeats = rep0;
+    p.scenes[1].repeats = 1;
+    return p;
+}
+void stems() {
+    const int pass = 16 * 6000;
+    auto start = [](const Project& p) {
+        auto r = std::make_unique<Rig>(p);
+        r->seq.stemRing.prepare();
+        r->seq.armStem(0, true);
+        r->seq.setPlaying(true, 0);
+        return r;
+    };
+    {
+        auto r = start(stemProject(1, true, 1));
+        StemCollector col;
+        StemRun o;
+        stemRun(*r, col, pass * 3, o);
+        check(o.stems.count(0) && o.stems[0]->frames() == pass && r->seq.playing() && !o.stems.count(1),
+              "stems: клип по кругу — один проход");
+    }
+    {
+        auto r = start(stemProject(2, false, 3));
+        StemCollector col;
+        StemRun o;
+        stemRun(*r, col, pass * 6, o);
+        check(o.stems.count(0) && o.stems[0]->frames() == pass * 4, "stems: строки по сетке — A, A, A, B");
+    }
+    {
+        auto r = start(stemProject(2, true, 3));
+        StemCollector col;
+        StemRun o;
+        stemRun(*r, col, pass * 3, o);
+        check(o.stems.count(0) && o.stems[0]->frames() == pass, "stems: LOOP ROW — один раз");
+    }
+    {
+        auto r = start(stemProject(2, false, 3));
+        StemCollector col;
+        StemRun o;
+        stemRun(*r, col, 6000 * 3, o);
+        check(col.recording() == std::set<int>{0}, "stems: пишется");
+        r->seq.finishStem(0);
+        stemRun(*r, col, pass * 2, o);
+        check(o.stems.count(0) && o.stems[0]->frames() == pass, "stems: тап по ● — до конца прохода");
+    }
+    {
+        auto r = start(stemProject(2, false, 3));
+        StemCollector col;
+        StemRun o;
+        stemRun(*r, col, 6000 * 3, o);
+        check(r->seq.requestStemStop(), "stems: PLAY во время записи");
+        stemRun(*r, col, pass * 2, o);
+        check(o.ended && !r->seq.playing() && o.stems.count(0) && o.stems[0]->frames() == pass,
+              "stems: PLAY — дописать проход и остановиться");
+    }
+}
 }  // namespace
 
 int runSeq() {
@@ -146,6 +229,7 @@ int runSeq() {
     metronome();
     ratchetSwing();
     launch();
+    stems();
     std::printf("seq: %s\n", fails == 0 ? "all passed" : "FAILED");
     return fails;
 }
