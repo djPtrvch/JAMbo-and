@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "TextureVoice.h"
 #include <cmath>
 #include <cstring>

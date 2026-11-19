@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "Reverb.h"
 #include "FxRandom.h"
 #include <cmath>

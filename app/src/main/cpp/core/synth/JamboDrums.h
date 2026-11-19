@@ -2,6 +2,7 @@
 // поведение — docs/ai/synth-engines.md JAMbo. Затухают сами, монофоничны (слот 0): новый удар обрывает прошлый —
 // хвост гаснет за ~2 мс. Выход — через tanh. Эталонов нет — проверка тестами свойств (tests/drums_test.cpp).
 #pragma once
+#include <cstdint>
 #include "Jambo.h"
 #include "JamboTables.h"
 

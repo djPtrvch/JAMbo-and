@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "GranularVoice.h"
 #include "TexGran.h"
 #include <cmath>

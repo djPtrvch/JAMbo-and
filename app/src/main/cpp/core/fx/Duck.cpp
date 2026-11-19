@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "Duck.h"
 #include <cmath>
 #include <algorithm>

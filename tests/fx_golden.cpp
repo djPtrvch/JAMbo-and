@@ -1,5 +1,6 @@
 // Сверка эффектов с эталонами fx_*.i16 (порт Golden/FxSelfTest.swift JAMbo): блоки по 128, k-rate параметры
 // в начале блока, вход — как input() в FxSelfTest. Перенесены все: Delay, Reverb, Drive, Duck; остальные эффекты добавляются по мере переноса.
+#include <cstdint>
 #include "golden.h"
 #include "fx/Delay.h"
 #include "fx/Reverb.h"

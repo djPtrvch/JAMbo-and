@@ -2,6 +2,7 @@
 // JamboAnalog.swift (ветка swift JAMbo); поведение — docs/ai/synth-engines.md JAMbo.
 // Совпадает с эталонами CoreTests/golden/j16–j19 по отсчётам. Состояние и арифметика — Double.
 #pragma once
+#include <cstdint>
 #include "Jambo.h"
 #include "JamboTables.h"
 #include "Wavetable.h"

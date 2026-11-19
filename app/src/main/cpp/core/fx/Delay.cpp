@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "Delay.h"
 #include <cmath>
 #include <cstdlib>

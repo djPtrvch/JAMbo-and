@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "Wavetable.h"
 #include <cmath>
 #include <algorithm>

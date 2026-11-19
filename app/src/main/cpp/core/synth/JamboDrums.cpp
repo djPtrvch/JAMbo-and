@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "JamboDrums.h"
 #include "JamboDsp.h"
 #include <cmath>
