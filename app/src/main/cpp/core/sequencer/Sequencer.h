@@ -105,6 +105,8 @@ public:
     double stepFrame(int k) const { return tempo.timeAt(double(k) / TempoGrid::stepsPerBeat) * sampleRate; }
     /// Блок [blockStart, blockStart + frames): шаги, ноты, щелчки (щелчок прибавляется к left/right).
     void process(int64_t blockStart, int frames, float* left, float* right, double host = 0);
+    /// Канал ch готов к записи стема (для тестов и экрана; читать — из колбэка или при остановленном звуке).
+    bool stemArmed(int ch) const { return stemRules.armed[size_t(ch)] != 0; }
 
 private:
     /// Состояние правил записи стемов (только колбэк; каналы — как у StemRing).
