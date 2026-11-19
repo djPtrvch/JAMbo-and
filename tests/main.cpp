@@ -6,6 +6,7 @@
 std::vector<golden::Result> runFx();
 std::vector<golden::Result> runJambo();
 int runDrums();
+int runTexGran();
 
 int main() {
     int fails = 0, total = 0;
@@ -20,7 +21,7 @@ int main() {
                     ok ? "OK" : "FAIL");
     }
     std::printf("golden: %d / %d passed\n\n", total - fails, total);
-    const int drumFails = runDrums();
-    std::printf("drums: %s\n", drumFails == 0 ? "all passed" : "FAILED");
+    const int drumFails = runDrums() + runTexGran();
+    std::printf("properties: %s\n", drumFails == 0 ? "all passed" : "FAILED");
     return fails == 0 && total > 0 && drumFails == 0 ? 0 : 1;
 }

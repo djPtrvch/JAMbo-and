@@ -12,7 +12,7 @@ set(CORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../app/src/main/cpp/core)
 set(TP ${CMAKE_CURRENT_SOURCE_DIR}/../third_party)
 file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS ${CORE_DIR}/*.cpp)
 
-add_executable(core_tests main.cpp golden.cpp fx_golden.cpp jambo_golden.cpp drums_test.cpp ${CORE_SOURCES})
+add_executable(core_tests main.cpp golden.cpp fx_golden.cpp jambo_golden.cpp drums_test.cpp texgran_test.cpp ${CORE_SOURCES})
 target_include_directories(core_tests PRIVATE ${CORE_DIR} ${TP}/json/single_include)
 target_compile_options(core_tests PRIVATE -Wall -Wextra -O2)
 target_compile_definitions(core_tests PRIVATE
