@@ -27,7 +27,8 @@
 ## Структура
 - `app/src/main/cpp/` — звук и Link (C++), JNI-мост `jni_bridge.cpp` → `Native.kt`.
 - `app/src/main/java/app/jambo/android/` — Activity, экран (Compose), MIDI.
-- `scripts/fetch-deps.sh` — внешние C++-зависимости.
+- `app/src/main/cpp/core/` — порт Core (C++); `tests/` — сверка с эталонами на Linux.
+- `scripts/fetch-deps.sh` — внешние C++-зависимости; `scripts/fetch-test-deps.sh` — эталоны и json для тестов.
 - `.github/workflows/android.yml` — сборка debug-APK на каждый push.
 
 ## Правила кода
@@ -58,9 +59,11 @@
 | сборки, CI, подписи, ссылки на APK | docs/ai/build-ci.md |
 | звука: Oboe/AAudio, буфер, задержка, касания | docs/ai/audio-engine.md |
 | Ableton Link | docs/ai/link.md |
+| MIDI: устройства, Bluetooth, ADVERTISE | docs/ai/midi.md |
+| переноса Core на C++ и тестов сверки | docs/ai/core-port.md |
 
 Новые файлы `docs/ai/` (отличия Android-версии) добавляются в таблицу после подтверждения пользователем.
 
 ## Этапы
-1. **Спайк (сейчас):** каркас Kotlin + Compose + NDK + Oboe; сборка APK в CI; экран TONE, TAP, параметры звука и CPU; MIDI (устройства USB/Bluetooth, ноты играют тон, лог); Ableton Link (темп, участники, фаза). Итог — отчёт с цифрами задержки на Pixel 7 и предложение по переносу Core.
-2. Перенос функций — после решения пользователя по итогам спайка.
+1. **Спайк (готов):** каркас Kotlin + Compose + NDK + Oboe; сборка APK в CI; экран TONE, TAP, параметры звука и CPU; MIDI (устройства USB/Bluetooth, ноты играют тон, лог); Ableton Link (темп, участники, фаза). Итоги — docs/ai/audio-engine.md, link.md, midi.md.
+2. **Перенос (сейчас):** звук и всё, что в колбэке, — C++ 1:1 по файлам Core (сверка с CoreTests/golden ветки swift); модель, проекты, MIDI-маппинг — Kotlin; экран — Compose. Вехи — по образцу Swift-версии; первая — транспорт, секвенсор, сэмплер и основной экран.
