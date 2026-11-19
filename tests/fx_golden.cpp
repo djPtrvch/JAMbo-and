@@ -1,9 +1,10 @@
 // Сверка эффектов с эталонами fx_*.i16 (порт Golden/FxSelfTest.swift JAMbo): блоки по 128, k-rate параметры
-// в начале блока, вход — как input() в FxSelfTest. Перенесены Delay, Reverb, Drive; остальные эффекты добавляются по мере переноса.
+// в начале блока, вход — как input() в FxSelfTest. Перенесены все: Delay, Reverb, Drive, Duck; остальные эффекты добавляются по мере переноса.
 #include "golden.h"
 #include "fx/Delay.h"
 #include "fx/Reverb.h"
 #include "fx/Drive.h"
+#include "fx/Duck.h"
 #include "fx/FxRandom.h"
 #include <nlohmann/json.hpp>
 #include <cmath>
@@ -67,15 +68,27 @@ bool render(const json& c, int block, std::vector<float>& outL, std::vector<floa
     std::unique_ptr<jambo::FxDelay> delay;
     std::unique_ptr<jambo::FxReverb> reverb;
     std::unique_ptr<jambo::FxDrive> drive;
+    std::unique_ptr<jambo::FxDuck> duck;
     if (proc == "delay") delay = std::make_unique<jambo::FxDelay>(48000, 6, seed);
     else if (proc == "reverb") reverb = std::make_unique<jambo::FxReverb>(48000, seed);
     else if (proc == "drive") drive = std::make_unique<jambo::FxDrive>(48000);
+    else if (proc == "duck") duck = std::make_unique<jambo::FxDuck>(48000);
     else return false;
 
     std::vector<float> bL(block), bR(block), oL(block), oR(block);
     for (int f = 0; f < frames; f += block) {
         for (const auto& e : c["events"]) {
-            if (e["frame"].get<int>() == f && e.contains("params")) mergeParams(vals, e["params"]);
+            if (e["frame"].get<int>() != f) continue;
+            if (e.contains("params")) mergeParams(vals, e["params"]);
+            if (duck && e.contains("msg")) {
+                for (const auto& m : e["msg"]) {
+                    if (m["type"] == "flush") duck->flush();
+                    if (m["type"] == "trig") {
+                        duck->trig(m.value("frame", int64_t(0)), m.value("attack", 0.0), m.value("release", 0.0),
+                                   m.value("curve", 50.0));
+                    }
+                }
+            }
         }
         for (int i = 0; i < block; ++i) {
             bL[i] = f + i < frames ? iL[f + i] : 0;
@@ -92,6 +105,10 @@ bool render(const json& c, int block, std::vector<float>& outL, std::vector<floa
         if (drive) {
             drive->process(bL.data(), bR.data(), oL.data(), oR.data(), block, p("drive", 26), p("type", 0),
                            p("tone", 50), p("lowcut", 20));
+        }
+        if (duck) {
+            duck->process(f, oL.data(), block);
+            oR = oL;
         }
         for (int i = 0; i < block && f + i < frames; ++i) {
             outL[f + i] = oL[i];
