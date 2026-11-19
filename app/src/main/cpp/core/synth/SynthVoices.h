@@ -2,7 +2,7 @@
 // swift JAMbo): 6 голосов на дорожку, слот — по кругу (свободный: голос дозвучал), иначе крадётся самый тихий — гаснет
 // за ~5 мс, новая нота — через 18 мс. Громкость — внешняя огибающая: Attack (не меньше 2 мс) → удержание → Decay как
 // Release. Движок → огибающая → Level → фильтр → Pan → шина дорожки. Куски по 24 отсчёта.
-// MULTICORE (RenderPool) не перенесён: дорожки считаются по очереди.
+// MULTICORE: дорожки блока — задания RenderPool (pool); без пула — по очереди.
 #pragma once
 #include <atomic>
 #include <cstdint>
@@ -10,13 +10,14 @@
 #include <vector>
 #include "JamboBank.h"
 #include "LadderFilter.h"
+#include "engine/RenderPool.h"
 #include "mod/ModEngine.h"
 #include "sampler/Biquad.h"
 #include "sampler/SoundSnapshot.h"
 
 namespace jambo {
 
-class SynthVoices {
+class SynthVoices : public RenderJobs {
 public:
     static constexpr int perTrack = 6;
     static constexpr int tracks = SoundData::maxTracks;
@@ -60,6 +61,10 @@ public:
 
     /// Модуляция LFO/ENV (ставит AudioCore).
     ModEngine* mod = nullptr;
+    /// Многоядерный режим (ставит AudioCore): дорожки блока — задания пула.
+    RenderPool* pool = nullptr;
+    /// Задание пула: голоса j-й дорожки блока.
+    void runJob(int j) override;
     JamboBank bank;
 
 private:
@@ -98,6 +103,10 @@ private:
     std::atomic<int> serialCounter{0};
     std::vector<float> outBuf, outBufR, gBuf;
     std::vector<int> jobTracks;
+    const SoundData* jobData = nullptr;
+    int jobN = 0;
+    float* jobBusL = nullptr;
+    float* jobBusR = nullptr;
 
     double pv(const SoundData& d, int t, int p, VoiceMask mask, const float* vals) const;
     void setup(int v, const SoundData& d, int t, int e, int64_t frame, int n, int64_t gate, VoiceMask mask,

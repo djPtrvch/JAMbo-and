@@ -255,8 +255,23 @@ void SynthVoices::render(const SoundData& d, int64_t blockStart, int n, float* b
             jt += 1;
         }
     }
-    for (int j = 0; j < jt; ++j) renderTrack(jobTracks[size_t(j)], d, n, busL, busR);
+    if (jt > 0) {
+        jobData = &d;
+        jobN = n;
+        jobBusL = busL;
+        jobBusR = busR;
+        if (pool && jt > 1) {
+            pool->run(jt, *this);
+        } else {
+            for (int j = 0; j < jt; ++j) renderTrack(jobTracks[size_t(j)], d, n, busL, busR);
+        }
+    }
     for (auto& dr : drift) dr.end(n);
+}
+
+void SynthVoices::runJob(int j) {
+    if (!jobData || !jobBusL || !jobBusR) return;
+    renderTrack(jobTracks[size_t(j)], *jobData, jobN, jobBusL, jobBusR);
 }
 
 void SynthVoices::renderTrack(int t, const SoundData& d, int n, float* busL, float* busR) {

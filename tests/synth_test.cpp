@@ -3,6 +3,7 @@
 #include "model/Project.h"
 #include "sampler/SoundSnapshot.h"
 #include "synth/SynthVoices.h"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -180,6 +181,55 @@ void wavetable() {
     auto x = c->render(9600);
     check(finite(x) && peak(x, 4800, 9600) > 0.05f, "synth: WTABLE с BASIC звучит");
 }
+/// RenderPoolTests: каждое задание — ровно один раз; голоса синта с помощниками — шины те же (отсчёт в отсчёт).
+struct Counter : RenderJobs {
+    std::vector<int> hits = std::vector<int>(64, 0);
+    void runJob(int j) override { hits[size_t(j)] += 1; }
+};
+void renderPool() {
+    RenderPool pool;
+    Counter c;
+    pool.start(3);
+    bool ok = true;
+    for (int block = 0; block < 2000; ++block) {
+        const int n = 2 + block % 14;
+        std::fill(c.hits.begin(), c.hits.end(), 0);
+        pool.run(n, c);
+        for (int j = 0; j < n; ++j) ok = ok && c.hits[size_t(j)] == 1;
+    }
+    pool.stop();
+    check(ok && pool.aliveCount() == 0, "pool: каждое задание — один раз");
+
+    Project p;
+    for (int t = 0; t < 8; ++t) p.tracks[size_t(t)].setSynth(16 + t % 4);
+    for (int t = 0; t < 8; ++t) p.tracks[size_t(t)].params["reverb"] = 30;
+    std::unique_ptr<Rig> a(makeRig(p)), b(makeRig(p));
+    SoundSnapshot::Options o;
+    o.tables[""] = std::shared_ptr<WtTable>(WtTable::builtin("BASIC"));
+    a->publish(p, o);
+    b->publish(p, o);
+    RenderPool helpers;
+    helpers.start(3);
+    b->voices.pool = &helpers;
+    for (auto* r : {a.get(), b.get()})
+        for (int t = 0; t < 8; ++t)
+            for (int k = 0; k < 3; ++k) r->noteOn(t, 40 + k * 7 + t, t * 10 + k);
+    float diff = 0, peakV = 0;
+    for (int k = 0; k < 2 * 48000 / 256; ++k) {
+        a->render(256);
+        b->render(256);
+        for (size_t i = 0; i < a->busL.size(); ++i) {
+            diff = std::max({diff, std::fabs(a->busL[i] - b->busL[i]), std::fabs(a->busR[i] - b->busR[i])});
+            peakV = std::max(peakV, std::fabs(a->busL[i]));
+        }
+        for (size_t i = 0; i < a->sendL.size(); ++i)
+            diff = std::max({diff, std::fabs(a->sendL[i] - b->sendL[i]), std::fabs(a->sendR[i] - b->sendR[i])});
+    }
+    const long helped = helpers.takeHelperJobs();
+    helpers.stop();
+    check(diff == 0 && peakV > 0.01f, "pool: с помощниками звук тот же");
+    std::printf("pool: helpers took %ld jobs\n", helped);
+}
 }  // namespace
 
 int runSynth() {
@@ -191,6 +241,7 @@ int runSynth() {
     analogA4();
     jamboEnginesSound();
     wavetable();
+    renderPool();
     std::printf("synth: %s\n", fails == 0 ? "all passed" : "FAILED");
     return fails;
 }
