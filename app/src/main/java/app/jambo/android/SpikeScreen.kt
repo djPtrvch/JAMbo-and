@@ -6,6 +6,8 @@ import android.view.MotionEvent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -34,7 +36,7 @@ private val Red = Color(0xFFFF2B2B)
 
 @Composable
 fun SpikeScreen(midi: MidiHub, onScanBle: () -> Unit, onLink: (Boolean) -> Unit) {
-    var audio by remember { mutableStateOf(DoubleArray(18)) }
+    var audio by remember { mutableStateOf(DoubleArray(20)) }
     var link by remember { mutableStateOf(DoubleArray(5)) }
     var appCpu by remember { mutableStateOf(0.0) }
     val cpu = remember { CpuMeter() }
@@ -89,7 +91,7 @@ private fun f1(v: Double) = if (v < 0) "—" else "%.1f".format(v)
 private fun AudioColumn(a: DoubleArray, appCpu: Double, modifier: Modifier) {
     var tone by remember { mutableStateOf(false) }
     var flash by remember { mutableStateOf(false) }
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Title("AUDIO  · build ${BuildConfig.VERSION_NAME}")
         Btn("TONE", tone, Modifier.fillMaxWidth()) { tone = !tone; Native.setTone(tone) }
         // TAP: звук на касании (ACTION_DOWN), не на отпускании.
@@ -114,6 +116,7 @@ private fun AudioColumn(a: DoubleArray, appCpu: Double, modifier: Modifier) {
             Stat("Buffer", "%.0f / %.0f frames (%s ms)".format(a[3], a[4], f1(a[17])))
             Stat("Callback size", "%.0f frames".format(a[5]))
             Stat("Output latency", "${f1(a[10])} ms")
+            if (a[18] != 0.0) Stat("Timestamp error", "%s · state %.0f".format(resultName(a[18]), a[19]), warn = true)
             Stat("Touch → sound (est.)", "${f1(a[14])} ms")
             Stat("Path", api)
             Stat("Sharing", if (a[7] == 1.0) "EXCLUSIVE" else "SHARED", warn = a[7] != 1.0)
@@ -155,7 +158,7 @@ private fun MidiColumn(midi: MidiHub, onScanBle: () -> Unit, modifier: Modifier)
 private fun LinkColumn(l: DoubleArray, onLink: (Boolean) -> Unit, modifier: Modifier) {
     var on by remember { mutableStateOf(false) }
     var click by remember { mutableStateOf(false) }
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Title("ABLETON LINK")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Btn("LINK", on, Modifier.weight(1f)) { on = !on; onLink(on) }
@@ -181,4 +184,15 @@ private fun LinkColumn(l: DoubleArray, onLink: (Boolean) -> Unit, modifier: Modi
         }
         Text("Phase and click include output latency.", color = Dim, fontSize = 12.sp)
     }
+}
+
+/** Коды oboe::Result (совпадают с AAudio). */
+private fun resultName(code: Double) = when (code.toInt()) {
+    -895 -> "INVALID_STATE"
+    -890 -> "UNIMPLEMENTED"
+    -889 -> "UNAVAILABLE"
+    -885 -> "TIMEOUT"
+    -899 -> "DISCONNECTED"
+    -886 -> "NULL"
+    else -> "%.0f".format(code)
 }
