@@ -16,18 +16,18 @@
 - Общение с пользователем — по-русски; надписи в приложении — по-английски.
 - Поведение — как в Swift-версии JAMbo, кроме того, что требует Android (записывается в docs/ai как отличие).
 - Не добавлять функций сверх текущего этапа; перенос функций — только после решения пользователя.
-- Звук считается в C++ (NDK), интерфейс — Kotlin + Compose.
+- Весь Core — на C++ (NDK): звук, секвенсор, модель проекта, правки, UNDO, сохранение, MIDI-маппинг. Kotlin + Compose — экран и то, что есть только в Android: касания, меню, MIDI-устройства, Bluetooth, файлы, разрешения. Граница — JNI: экран зовёт «выполни действие» и «дай данные для отрисовки».
 
 ## Стек
-- Kotlin + Jetpack Compose (интерфейс), C++17 через NDK (звук), Oboe (AAudio, low latency, 48 kHz, exclusive).
+- Kotlin + Jetpack Compose (экран и системные API), C++17 через NDK (Core), Oboe (AAudio, low latency, 48 kHz, exclusive).
 - android.media.midi (USB, Bluetooth, виртуальные устройства).
 - Ableton Link — официальная библиотека C++ (GPLv2; приложение для личного пользования), исходники скачивает `scripts/fetch-deps.sh` в `third_party/link` (не в git).
 - Gradle 8.11 (без wrapper — версию задаёт CI), AGP 8.7, Kotlin 2.0, compileSdk/targetSdk 35, minSdk 29, ABI arm64-v8a.
 
 ## Структура
 - `app/src/main/cpp/` — звук и Link (C++), JNI-мост `jni_bridge.cpp` → `Native.kt`.
-- `app/src/main/java/app/jambo/android/` — Activity, экран (Compose), MIDI.
-- `app/src/main/cpp/core/` — порт Core (C++); `tests/` — сверка с эталонами на Linux.
+- `app/src/main/java/app/jambo/android/` — Activity, экран (Compose), MIDI-устройства и другие системные API.
+- `app/src/main/cpp/core/` — порт Core (C++, 1:1 по папкам `ios/JAMbo.swiftpm/Core`); `tests/` — тесты Core на Linux (эталоны и тесты Swift-версии).
 - `scripts/fetch-deps.sh` — внешние C++-зависимости; `scripts/fetch-test-deps.sh` — эталоны и json для тестов.
 - `.github/workflows/android.yml` — сборка debug-APK на каждый push.
 
@@ -66,4 +66,4 @@
 
 ## Этапы
 1. **Спайк (готов):** каркас Kotlin + Compose + NDK + Oboe; сборка APK в CI; экран TONE, TAP, параметры звука и CPU; MIDI (устройства USB/Bluetooth, ноты играют тон, лог); Ableton Link (темп, участники, фаза). Итоги — docs/ai/audio-engine.md, link.md, midi.md.
-2. **Перенос (сейчас):** звук и всё, что в колбэке, — C++ 1:1 по файлам Core (сверка с CoreTests/golden ветки swift); модель, проекты, MIDI-маппинг — Kotlin; экран — Compose. Вехи — по образцу Swift-версии; первая — транспорт, секвенсор, сэмплер и основной экран.
+2. **Перенос (сейчас):** весь Core — C++ 1:1 по файлам Swift (проверка — эталоны CoreTests/golden и тесты Swift-версии на Linux); экран — Compose по UI Swift-версии. Вехи — по образцу Swift-версии; первая — модель проекта, аудиоядро (снимки, секвенсор, голоса синта, сэмплер, микшер) и основной экран: шаги, PLAY, пианоролл, ручки.

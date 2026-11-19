@@ -1,5 +1,5 @@
 # Перенос Core
-- Звук и всё, что в колбэке, — C++17 в `app/src/main/cpp/core/`, 1:1 по файлам `ios/JAMbo.swiftpm/Core` (ветка swift JAMbo): те же имена, константы и порядок вычислений; Double там, где Double в Swift.
+- Весь Core (звук, секвенсор, модель, проекты, MIDI-маппинг) — C++17 в `app/src/main/cpp/core/`, 1:1 по файлам `ios/JAMbo.swiftpm/Core` (ветка swift JAMbo): те же имена, константы и порядок вычислений; Double там, где Double в Swift.
 - Проверка — `tests/` на Linux: сверка с `ios/CoreTests/golden` (скачивает `scripts/fetch-test-deps.sh`, только чтение), критерий как в Swift: по отсчётам ≤ −60 dB или третьоктавные полосы ±0,5 dB; в CI — задача `core-tests`.
 - Без `-ffast-math` (проверки NaN и совпадение с эталонами).
 - Перенесено: FX — Delay, Reverb, Drive (с DriveTables), Duck; движки — KICK, ANALOG, FM, WTABLE, SUB (JamboVoice), SNARE, HAT, CLAP, PERC (JamboDrums), TEXTURE, GRANULAR (с TexGran), таблицы и встроенные wavetable. Эталоны: 36 из 36 (fx_*, j16–j19), −102…−315 dB; ударные — тесты свойств (как DrumEngineTests). Без проверки: SUB и режимы модуляции ANALOG. TEXTURE и GRANULAR — тесты свойств (уровень, ровность; GRANULAR — NaN, лимит зёрен); пик GRANULAR на крайних ручках до +6,5 dBFS — сверить со Swift на слух.
