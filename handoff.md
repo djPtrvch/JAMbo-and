@@ -23,8 +23,8 @@
 5. **Идёт:** аудиоядро (подшаги):
    - ~~5a~~ — util (SPSCQueue, AtomicFloat, CPUMeter), Biquad, LadderFilter, SoundSnapshot (+ SampleData, SoundKey, Slices, EqSpec::fill/mixOrder, MasterChain::fill, ParamScale, ModTarget, VoiceParam), ModEngine, EnvDot — тест audio_test.cpp. В снимке звука не перенесено: темп файла, атаки, WARP (с таймстретчем).
    - ~~5b~~ — JamboBank, SynthVoices (+Envelope, +Notes), PitchKey — тест synth_test.cpp (SynthTests напрямую через SynthVoices). MULTICORE (RenderPool) не перенесён.
-   - **5c (следующий):** SeqSnapshot (без аранжировки и автоматизации — можно позже), PlayClock, TempoSource, Launcher, Sequencer — тесты SequencerTests, LaunchTests.
-   - 5d: Sampler (+Mix, Notes, Midi, SamplerSynth), FxRack, TrackEqs/EqUnit, Levels, мастер (Saturator, Glue, Clipper, Limiter), AudioCore → колбэк Oboe. MasterChain в C++ сейчас namespace — при переносе класса сделать struct со static.
+   - ~~5c~~ — SeqData/SeqSnapshot, PlayClock, TempoSource, Click, ArrAutoPlay, Launcher (+ArrangePlay), SeqOut, Sequencer — тест seq_test.cpp. Сэмплер для секвенсора — интерфейс SeqVoices (Sampler его реализует). Не перенесено: стемы (StemRing, SequencerStems).
+   - **5d (следующий):** Sampler (+Mix, Notes, Midi, SamplerSynth), FxRack, TrackEqs/EqUnit, Levels, мастер (Saturator, Glue, Clipper, Limiter), AudioCore → колбэк Oboe. MasterChain в C++ сейчас namespace — при переносе класса сделать struct со static.
 6. Экран Compose: дорожки, 16 шагов, PLAY, пианоролл, сетка ручек 4×4 — по UI Swift-версии. Граница с C++ — JNI: «выполни действие» и «дай данные для отрисовки»; перерисовка — только изменившегося (CPU спайка 40 % — из-за перерисовки всего экрана).
 7. APK: шаги + PLAY — играют синты и сэмплы.
 

@@ -44,6 +44,9 @@ struct ArrAutoLane {
 
 /// Ручки сетки, которые можно автоматизировать: параметры голоса, затем Duck, Chance, Ratchet.
 namespace ArrAutoTarget {
+/// Целей: параметры голоса (20), затем Duck, Chance, Ratchet.
+constexpr int count = 20 + 3;
+constexpr int sidechain = 20, prob = 21, ratchet = 22;
 const std::vector<std::string>& ids();
 /// Номер ручки; −1 — не автоматизируется.
 int index(const std::string& id);

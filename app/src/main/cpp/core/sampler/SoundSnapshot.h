@@ -127,6 +127,8 @@ public:
     ~SoundSnapshot();
 
     const SoundData& data() const { return data_; }
+    /// Колбэк: автоматизация подставляет значения кривых в ручки снимка (ArrAutoPlay).
+    SoundData& mutableData() { return data_; }
     /// Ячейки второго звука (id дорожки → ячейка) — keepAlt следующего снимка.
     const std::map<int, int>& altKeep() const { return altKeep_; }
     static int liveCount;

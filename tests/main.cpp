@@ -13,6 +13,7 @@ int runCoding();
 int runEdits();
 int runAudio();
 int runSynth();
+int runSeq();
 
 int main() {
     int fails = 0, total = 0;
@@ -27,7 +28,7 @@ int main() {
                     ok ? "OK" : "FAIL");
     }
     std::printf("golden: %d / %d passed\n\n", total - fails, total);
-    const int drumFails = runDrums() + runTexGran() + runTables() + runModel() + runCoding() + runEdits() + runAudio() + runSynth();
+    const int drumFails = runDrums() + runTexGran() + runTables() + runModel() + runCoding() + runEdits() + runAudio() + runSynth() + runSeq();
     std::printf("properties: %s\n", drumFails == 0 ? "all passed" : "FAILED");
     return fails == 0 && total > 0 && drumFails == 0 ? 0 : 1;
 }
