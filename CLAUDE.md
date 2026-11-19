@@ -36,13 +36,9 @@
 - Файл — не длиннее ~400 строк; Composable — короткие, по частям.
 - Комментарии и документы — по-русски.
 
-## Сборка и установка
-- Каждый push → GitHub Actions собирает debug-APK и выкладывает его в pre-release `debug-<ветка>`:
-  `https://github.com/djPtrvch/JAMbo-and/releases/download/debug-<ветка>/jambo-debug.apk`
-  (в имени ветки `/` заменяется на `-`). Копия — артефакт запуска.
-- Подпись — постоянный debug-ключ `app/debug.keystore` (не секрет): новые APK ставятся поверх старых.
-- Номер сборки (GITHUB_RUN_NUMBER) — в versionName и на экране: по нему видно, что APK обновился.
-- Локально Android SDK в облачной сессии недоступен — проверка сборки только в CI (логи — через GitHub Actions).
+## Сборка
+Только в CI (GitHub Actions) на каждый push; APK по постоянной ссылке:
+`https://github.com/djPtrvch/JAMbo-and/releases/download/debug-<ветка>/jambo-debug.apk`. Подробно — docs/ai/build-ci.md.
 
 ## Коммиты
 - Небольшие, сразу push. По-русски или по-английски, кратко.
@@ -59,8 +55,11 @@
 |---|---|
 | поведения JAMbo (эталон) | djPtrvch/JAMbo, ветка swift: `CLAUDE.md` (таблица тем), `docs/ai/*.md` |
 | Swift-кода JAMbo: колбэк, DSP, решения переноса | djPtrvch/JAMbo, ветка swift: `ios/CLAUDE.md` |
+| сборки, CI, подписи, ссылки на APK | docs/ai/build-ci.md |
+| звука: Oboe/AAudio, буфер, задержка, касания | docs/ai/audio-engine.md |
+| Ableton Link | docs/ai/link.md |
 
-Свои файлы `docs/ai/` (отличия Android-версии) добавляются в таблицу после подтверждения пользователем.
+Новые файлы `docs/ai/` (отличия Android-версии) добавляются в таблицу после подтверждения пользователем.
 
 ## Этапы
 1. **Спайк (сейчас):** каркас Kotlin + Compose + NDK + Oboe; сборка APK в CI; экран TONE, TAP, параметры звука и CPU; MIDI (устройства USB/Bluetooth, ноты играют тон, лог); Ableton Link (темп, участники, фаза; CLICK — щелчок по долям для проверки фазы на слух). Итог — отчёт с цифрами задержки на Pixel 7 и предложение по переносу Core.
