@@ -1,0 +1,54 @@
+name: Android debug APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.11.1
+
+      - name: Fetch Ableton Link
+        run: scripts/fetch-deps.sh
+
+      - name: Build debug APK
+        run: gradle --no-daemon assembleDebug
+
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk jambo-debug.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jambo-debug-${{ github.run_number }}
+          path: jambo-debug.apk
+
+      # Постоянная ссылка для установки с устройства:
+      # releases/download/debug-<ветка>/jambo-debug.apk
+      - name: Publish to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="debug-${GITHUB_REF_NAME//\//-}"
+          gh release delete "$TAG" -y --cleanup-tag || true
+          gh release create "$TAG" jambo-debug.apk --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "Debug build ${{ github.run_number }} ($GITHUB_REF_NAME)" \
+            --notes "Commit $GITHUB_SHA"
