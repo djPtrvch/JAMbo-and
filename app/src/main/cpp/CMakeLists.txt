@@ -13,6 +13,12 @@ if(NOT EXISTS ${LINK_DIR}/AbletonLinkConfig.cmake)
 endif()
 include(${LINK_DIR}/AbletonLinkConfig.cmake)
 
+# JSON (nlohmann): scripts/fetch-deps.sh кладёт заголовок в third_party/json.
+set(JSON_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/json/single_include)
+if(NOT EXISTS ${JSON_DIR}/nlohmann/json.hpp)
+  message(FATAL_ERROR "nlohmann/json not found: run scripts/fetch-deps.sh")
+endif()
+
 # Core — порт ios/JAMbo.swiftpm/Core (ветка swift JAMbo), сверяется тестами tests/ на Linux.
 file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/core/*.cpp)
 
@@ -22,7 +28,7 @@ add_library(jambo SHARED
   jni_bridge.cpp
   ${CORE_SOURCES}
 )
-target_include_directories(jambo PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/core)
+target_include_directories(jambo PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/core ${JSON_DIR})
 # Без -ffast-math: проверки NaN и точность должны совпадать с тестами и эталонами.
 target_compile_options(jambo PRIVATE -Wall -Wno-multichar -O2)
 target_link_libraries(jambo oboe::oboe Ableton::Link android log)

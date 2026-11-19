@@ -42,4 +42,11 @@ struct ArrAutoLane {
     JAMBO_EQ(ArrAutoLane)
 };
 
+/// Ручки сетки, которые можно автоматизировать: параметры голоса, затем Duck, Chance, Ratchet.
+namespace ArrAutoTarget {
+const std::vector<std::string>& ids();
+/// Номер ручки; −1 — не автоматизируется.
+int index(const std::string& id);
+}  // namespace ArrAutoTarget
+
 }  // namespace jambo

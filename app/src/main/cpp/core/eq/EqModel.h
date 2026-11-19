@@ -13,6 +13,8 @@ namespace EqSpec {
 constexpr int bell = 0, lowShelf = 1, highShelf = 2, lowCut = 3, highCut = 4, notch = 5;
 constexpr double dynThrDef = -24, dynThrMin = -60, dynRangeDef = -6, dynRangeMax = 18;
 constexpr int bands = 10;
+/// Типов полос, крутизн среза, режимов M/S (EqSpec.types, slopes, msModes).
+constexpr int typeCount = 6, slopeCount = 3, msCount = 3;
 constexpr double freqMin = 20, freqMax = 20000, gainMax = 18, qMin = 0.1, qMax = 18, qDef = 1;
 inline bool isCut(int type) { return type == lowCut || type == highCut; }
 /// Усиление не применяется к cut и notch.
@@ -51,6 +53,18 @@ struct Eq {
             std::optional<EqBand> b = k < int(p.size()) ? p[size_t(k)] : std::nullopt;
             if (b && b->dyn > tracks) b->dyn = -1;
             if (k < int(bands.size())) bands[size_t(k)] = b;
+        }
+    }
+    /// Места под полосы; номера в пределах таблиц; источник Dynamic — существующая дорожка (иначе OFF).
+    void repair(int n) {
+        bands.resize(size_t(EqSpec::bands));
+        for (auto& ob : bands) {
+            if (!ob) continue;
+            EqBand& b = *ob;
+            b.type = std::min(EqSpec::typeCount - 1, std::max(0, b.type));
+            b.slope = std::min(EqSpec::slopeCount - 1, std::max(0, b.slope));
+            b.ms = std::min(EqSpec::msCount - 1, std::max(0, b.ms));
+            if (b.dyn > n || b.dyn < -1) b.dyn = -1;
         }
     }
     auto tie() const { return std::tie(on, bands); }

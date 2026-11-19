@@ -1,5 +1,9 @@
 // Версия 4 (S12): ручки своих движков после появления 1.4 (порт SynthMigration.knobs, Core/Model/SynthMigration.swift).
 #pragma once
+#include <map>
+#include <string>
+#include "ModAssign.h"
+#include "Params.h"
 #include "../synth/Jambo.h"
 
 namespace jambo {
@@ -20,5 +24,21 @@ inline MigratedKnobs migrateKnobs(int e, double h, double t, double m) {
     default: return {h, t, m, 50, false};
     }
 }
+
+namespace SynthMigration {
+/// Ручки звука по движку звука; true — пропал суб ANALOG.
+bool params(const std::string& sound, ParamMap& p);
+/// P-lock шага, который звучит движком e: переводятся только поставленные ручки.
+void locks(int e, ParamMap& l);
+/// Назначения LFO/ENV.
+void assigns(int e, std::map<std::string, ModAssign>& a);
+}  // namespace SynthMigration
+
+namespace GranularMigration {
+struct Knobs { double s, d, p; };
+/// Новые SIZE, DENSITY, SPRAY (0…100) по прежним.
+Knobs knobs(double size, double density, double spray);
+void params(const std::string& sound, ParamMap& p);
+}  // namespace GranularMigration
 
 }  // namespace jambo

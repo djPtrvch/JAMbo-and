@@ -37,6 +37,12 @@ struct ArrBlock {
     ArrBlock(int c, int s, int l, int o = 0, std::optional<Clip> p = std::nullopt)
         : clip(c), start(s), length(l), offset(o), pattern(std::move(p)) {}
     int end() const { return start + length; }
+    /// Начало блока сдвинулось на d шагов вправо: точки — на прежних местах таймлайна.
+    void shiftAutos(int d);
+    /// Точка на шаге x блока у кривой param, если там точки ещё нет (строки нет — появляется).
+    void pinAuto(const std::string& param, double x, double y);
+    /// Разрез на шаге x блока: у кривых, которые через x проходят, — точка на x.
+    void pinCut(int x);
     auto tie() const { return std::tie(clip, start, length, offset, pattern, autos, legacyLink); }
     JAMBO_EQ(ArrBlock)
 };
@@ -83,6 +89,8 @@ struct Arrangement {
         return (std::max(0, x) + g / 2) / g * g;
     }
     bool hasLoop() const { return loopTo > loopFrom; }
+    /// После чтения: маркеры по порядку, в пределах; петля и сетка — в пределах.
+    void repair();
     auto tie() const { return std::tie(markers, loopFrom, loopTo, loop, grid, snap, hideSteps, ref, showRef); }
     JAMBO_EQ(Arrangement)
 };

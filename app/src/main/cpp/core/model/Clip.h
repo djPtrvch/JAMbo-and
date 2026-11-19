@@ -26,6 +26,8 @@ struct Step {
     /// P-lock, которые поставил пресет звука шага.
     std::optional<std::vector<std::string>> soundLocks;
 
+    /// Длины и velocity нот — параллельно notes (иначе снимаются); при lens len — самая длинная.
+    void repair();
     auto tie() const { return std::tie(on, len, notes, lens, vels, locks, sound, soundLocks); }
     JAMBO_EQ(Step)
 };
@@ -75,6 +77,8 @@ struct Clip {
     const Step* step(int index) const;
     /// Шаг за длиной паттерна — не играет.
     bool outside(int index) const;
+    /// После чтения: страницы, длина, играющие страницы, гамма, скорость — в пределах.
+    void repair();
 
     auto tie() const { return std::tie(pages, length, playFrom, playTo, scale, root, fx, src, rate); }
     JAMBO_EQ(Clip)

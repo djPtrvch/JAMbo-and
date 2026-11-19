@@ -2,7 +2,9 @@
 // для UNDO. Поля ProjectMore («коробка» Swift) здесь — обычные поля проекта. Имена полей — ключи файла проекта.
 #pragma once
 #include <map>
+#include <algorithm>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 #include "Arrange.h"
@@ -61,6 +63,28 @@ struct Project {
 
     /// Версия 9: ручка Filter — частота на всём ходу и тип фильтра (FilterType.swift; FilterType.cpp).
     void migrateFilter();
+
+    // ProjectRepair.swift: ProjectRepair.cpp
+    /// После чтения: миграции версий, размеры массивов и номера — в пределах.
+    void repair();
+    void migrateSwing();
+    void migrateMidiIn();
+    void migrateRandomStyles();
+    static int clamp(int v, int lo, int hi) { return std::min(hi, std::max(lo, v)); }
+    /// Ключи сэмплов, на которые ссылается проект.
+    std::set<std::string> sampleKeys() const;
+    // SynthMigration.swift, GranularMigration.swift
+    void migrateSynthKnobs();
+    void migrateGranular();
+
+    // TrackFx.swift: TrackFx.cpp
+    /// FX дорожки (Reverb, Delay, Drive), а не общий (Duck).
+    static bool trackFx(const std::string& id) { return id.compare(0, 3, "sc.") != 0; }
+    /// Клип дорожки t, FX которого показывает и правит сетка FX; нет — −1.
+    int fxClip(int t) const;
+    double fxValue(int t, const std::string& id) const;
+    void setFx(int t, const std::string& id, double v);
+    void migrateTrackFx();
 
     auto tie() const {
         return std::tie(version, bpm, scale, root, fx, tracks, notice, fxAssigns, master, satBypass, cmpBypass,

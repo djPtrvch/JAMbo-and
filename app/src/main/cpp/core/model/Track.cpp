@@ -1,6 +1,8 @@
 // Порт Track (Core/Model/Project.swift, ветка swift JAMbo).
 #include "Track.h"
 #include <random>
+#include "DrumRhythm.h"
+#include "SynthEngines.h"
 
 namespace jambo {
 
@@ -55,5 +57,18 @@ double Track::value(const std::string& id, const Step* step) const {
     const ParamDef* p = Params::byId(id);
     return p ? p->def : 0;
 }
+
+std::vector<SliceMark> Track::sliceMarks(const std::string& key) const {
+    if (key.empty()) return {};
+    const auto it = slices.find(key);
+    return it != slices.end() ? it->second : std::vector<SliceMark>();
+}
+
+bool Track::hasCuts() const {
+    if (sample.empty() || SynthKey::engine(sample) >= 0) return false;
+    return !sliceMarks(sample).empty();
+}
+
+int Track::drumRole() const { return DrumRhythm::role(SynthKey::engine(sample)); }
 
 }  // namespace jambo

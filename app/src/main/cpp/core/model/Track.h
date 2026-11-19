@@ -101,6 +101,36 @@ struct Track {
     /// значения по умолчанию defaults); Decay больше предела движка — к пределу. (SynthEngines.swift; SynthEngines.cpp)
     void setSynth(int engine, const KnobDefaults* defaults = nullptr);
 
+    // Звуки (Sounds.swift), ударные (DrumRhythm.swift): Track.cpp
+    std::vector<SliceMark> sliceMarks(const std::string& key) const;
+    /// Звук дорожки — сэмпл с маркерами нарезки.
+    bool hasCuts() const;
+    /// Роль ударного движка дорожки; −1 — не ударный.
+    int drumRole() const;
+
+    // Аранжировщик (ArrangeEdits.swift): ArrangeEdits.cpp
+    void clearArrange(int from, int to);
+    /// Поставить блок: перекрытая часть других заменяется. Номер блока после сортировки.
+    int placeBlock(const ArrBlock& b);
+    /// После чтения: клипы в пределах, длины ≥ 1, по порядку, без перекрытий; цвет в палитре.
+    void repairBlocks();
+
+    // Автоматизация (ArrangeAuto.swift): ArrangeAuto.cpp
+    int autoLane(const std::string& id) const;
+    std::vector<std::vector<ArrAutoPoint>> autoGroups(const std::string& id) const;
+    std::vector<ArrAutoPoint> autoPoints(const std::string& id) const;
+    std::optional<double> autoValue(const std::string& id, double x) const;
+    void setAuto(const std::string& id, const std::vector<ArrAutoPoint>& points);
+    void deleteAuto(const std::string& id);
+    void clearAllAutos();
+    /// Проект прежнего формата: точки кривых дорожки — в блоки под ними.
+    void migrateAutos();
+    /// LINK прежних проектов: у блоков вплотную — точки на стыке.
+    void dropLegacyLinks();
+
+    /// После чтения (ProjectRepair.swift): дорожка (или MIX, MST) проекта из n дорожек.
+    void repair(int n);
+
     /// Значение параметра на шаге: p-lock шага, иначе ручка дорожки, иначе значение по умолчанию.
     double value(const std::string& id, const Step* step) const;
 
