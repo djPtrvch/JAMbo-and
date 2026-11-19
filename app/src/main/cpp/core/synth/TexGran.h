@@ -1,10 +1,13 @@
-// Формулы GRANULAR (порт TexGran из Core/Model/TexGran.swift, ветка swift JAMbo; без подписей ручек — они в UI).
+// Формулы GRANULAR (порт TexGran из Core/Model/TexGran.swift, ветка swift JAMbo; подписи ручек — TexGran.format в model/Params.cpp).
 #pragma once
 #include <algorithm>
 #include <cmath>
 
 namespace jambo {
 namespace TexGran {
+
+/// Длина сэмпла GRANULAR выбранной дорожки, с (ставит экран; 0 — нет): POSITION на ручке — в секундах.
+inline double sourceSeconds = 0;
 
 /// Длина зерна, с: 0,01 · 80^v (10…800 мс).
 inline double grainSize(double v) { return 0.01 * std::pow(80.0, v); }
