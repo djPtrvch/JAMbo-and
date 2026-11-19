@@ -27,6 +27,7 @@ class MidiHub(private val ctx: Context) {
     private val main = Handler(Looper.getMainLooper())
     private val mm: MidiManager? = ctx.getSystemService(MidiManager::class.java)
     private val opened = HashMap<Int, MidiDevice>()
+    private val opening = HashSet<Int>()   // уже открываются — не открывать второй раз
 
     val devices = mutableStateListOf<MidiRow>()
     val ble = mutableStateListOf<BleRow>()
@@ -80,12 +81,17 @@ class MidiHub(private val ctx: Context) {
 
     private fun open(info: MidiDeviceInfo) {
         val m = mm ?: return
-        if (opened.containsKey(info.id) || info.outputPortCount == 0) return
-        m.openDevice(info, { dev -> if (dev != null) attach(dev, name(info)) }, main)
+        if (opened.containsKey(info.id) || info.id in opening || info.outputPortCount == 0) return
+        opening += info.id
+        m.openDevice(info, { dev ->
+            if (dev != null) attach(dev, name(info)) else { opening -= info.id; addLog("open failed: ${name(info)}") }
+        }, main)
     }
 
     /** Порты «выхода» устройства — то, что оно шлёт нам. */
     private fun attach(dev: MidiDevice, label: String) {
+        opening -= dev.info.id
+        if (opened.containsKey(dev.info.id)) { dev.close(); return }
         opened[dev.info.id] = dev
         for (p in 0 until dev.info.outputPortCount) {
             dev.openOutputPort(p)?.connect(Parser(label))
@@ -107,6 +113,8 @@ class MidiHub(private val ctx: Context) {
         private val data = IntArray(2)
         private var n = 0
         private var sysex = false
+        private val sx = IntArray(12)
+        private var sxLen = 0
 
         override fun onSend(msg: ByteArray, offset: Int, count: Int, timestamp: Long) {
             for (k in offset until offset + count) byteIn(msg[k].toInt() and 0xFF)
@@ -114,9 +122,14 @@ class MidiHub(private val ctx: Context) {
 
         private fun byteIn(b: Int) {
             if (b >= 0xF8) { realtime(b); return }
-            if (sysex) { if (b == 0xF7) { sysex = false; addLog("$label  SysEx") }; return }
+            if (sysex) {
+                if (b < 0x80) { if (sxLen < sx.size) sx[sxLen] = b; sxLen++; return }
+                sysex = false
+                logSysex()
+                if (b == 0xF7) return
+            }
             if (b >= 0x80) {
-                if (b == 0xF0) { sysex = true; return }
+                if (b == 0xF0) { sysex = true; sxLen = 0; return }
                 status = b; n = 0
                 if (len(b) == 0) message(b, 0, 0)
                 return
@@ -128,6 +141,13 @@ class MidiHub(private val ctx: Context) {
                 n = 0
                 if (status >= 0xF0) status = 0
             }
+        }
+
+        /** SysEx: первые байты и длина; MIDI-CI (F0 7E .. 0D) — подписано. */
+        private fun logSysex() {
+            val shown = (0 until minOf(sxLen, sx.size)).joinToString(" ") { "%02X".format(sx[it]) }
+            val ci = sxLen >= 3 && sx[0] == 0x7E && sx[2] == 0x0D
+            addLog("$label  F0 $shown${if (sxLen > sx.size) " …" else ""}  SysEx ${sxLen + 2} B${if (ci) " (MIDI-CI)" else ""}")
         }
 
         private fun len(s: Int) = when (s and 0xF0) {
@@ -195,7 +215,8 @@ class MidiHub(private val ctx: Context) {
         val m = mm ?: return
         addLog("connecting: ${d.address}")
         m.openBluetoothDevice(d, { dev ->
-            if (dev == null) addLog("BLE connect failed") else attach(dev, dev.info.properties.getString(MidiDeviceInfo.PROPERTY_NAME) ?: d.address)
+            if (dev == null) addLog("BLE connect failed")
+            else if (!opened.containsKey(dev.info.id)) attach(dev, dev.info.properties.getString(MidiDeviceInfo.PROPERTY_NAME) ?: d.address)
         }, main)
     }
 }
