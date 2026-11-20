@@ -206,34 +206,49 @@ private fun SoundTitle(main: String, detail: String, preset: String, modifier: M
     Text(text, fontSize = 13.tsp(), fontWeight = FontWeight.Bold, maxLines = 2, modifier = modifier)
 }
 
-/** Форма волны сэмпла окна (wave из C++: мин. и макс. по столбцам); стерео — L и R полосами. */
+/** Форма волны сэмпла окна (WaveStrip.swift): огибающая по модулю (стерео — L и R полосами), отрезанное Start/End
+ *  затемнено, полосы воспроизведения — жёлтые линии 2 точки (тают за 1,2 с). */
 @Composable
 private fun SampleWave(s: ScreenState, modifier: Modifier) {
     val th = LocalTheme.current
     val w = s.wave
-    androidx.compose.foundation.Canvas(modifier.onSizeChanged { sz ->
-        val cols = maxOf(1, sz.width / 2)
+    Box(modifier.onSizeChanged { sz ->
+        val cols = 160
         if (cols != s.waveCols) {
             s.waveCols = cols
             s.reload()
         }
     }) {
-        val ch = w.getOrElse(0) { 0f }.toInt()
-        if (ch <= 0) return@Canvas
-        val cols = (w.size - 1) / (2 * ch)
-        if (cols <= 0) return@Canvas
-        val band = size.height / ch
-        val dx = size.width / cols
-        for (c in 0 until ch) {
-            val mid = band * c + band / 2
-            val amp = band / 2 * 0.92f
-            drawLine(th.line, androidx.compose.ui.geometry.Offset(0f, mid), androidx.compose.ui.geometry.Offset(size.width, mid), 1f)
-            for (k in 0 until cols) {
-                val lo = w[1 + 2 * (c * cols + k)]
-                val hi = w[2 + 2 * (c * cols + k)]
-                val x = k * dx + dx / 2
-                drawLine(th.text, androidx.compose.ui.geometry.Offset(x, mid - hi * amp),
-                    androidx.compose.ui.geometry.Offset(x, mid - lo * amp + 0.5f), maxOf(1f, dx * 0.8f))
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            val ch = w.getOrElse(0) { 0f }.toInt()
+            if (ch <= 0) return@Canvas
+            val cols = (w.size - 3) / ch
+            if (cols <= 0) return@Canvas
+            val laneH = size.height / ch
+            val dx = size.width / cols
+            val path = androidx.compose.ui.graphics.Path()
+            for (c in 0 until ch) {
+                val mid = laneH * (c + 0.5f)
+                val amp = laneH / 2 * 0.9f
+                fun h(k: Int) = maxOf(0.5f, w[3 + c * cols + k] * amp)
+                path.moveTo(0f, mid)
+                for (k in 0 until cols) { path.lineTo(k * dx, mid - h(k)); path.lineTo((k + 1) * dx, mid - h(k)) }
+                path.lineTo(size.width, mid)
+                for (k in cols - 1 downTo 0) { path.lineTo((k + 1) * dx, mid + h(k)); path.lineTo(k * dx, mid + h(k)) }
+                path.close()
+            }
+            drawPath(path, th.text)
+            val scrim = th.bg.copy(alpha = 0.6f)
+            drawRect(scrim, size = androidx.compose.ui.geometry.Size(size.width * w[1], size.height))
+            val x1 = size.width * w[2]
+            drawRect(scrim, androidx.compose.ui.geometry.Offset(x1, 0f), androidx.compose.ui.geometry.Size(size.width - x1, size.height))
+        }
+        val hd = s.heads
+        if (hd.isNotEmpty()) androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            for (k in 0 until hd.size / 2) {
+                val x = size.width * hd[2 * k]
+                drawRect(th.accent.copy(alpha = hd[2 * k + 1].coerceIn(0f, 1f)), androidx.compose.ui.geometry.Offset(x - density, 0f),
+                    androidx.compose.ui.geometry.Size(2 * density, size.height))
             }
         }
     }

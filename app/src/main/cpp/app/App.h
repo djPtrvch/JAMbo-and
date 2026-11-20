@@ -9,6 +9,7 @@
 #include "synth/Wavetable.h"
 #include "files/SampleStore.h"
 #include "model/Library.h"
+#include "sampler/Sampler.h"
 #include "sampler/SoundSnapshot.h"
 #include "model/History.h"
 #include "model/KnobDefaults.h"
@@ -37,6 +38,8 @@ struct AppAudio {
     virtual void publish(const Project& p, const SoundSnapshot::Options& o,
                          const std::map<std::string, SampleRef>& samples) = 0;
     virtual bool popOut(SeqOut& e) = 0;
+    /// Голоса сэмплера из колбэка (полосы воспроизведения окна сэмпла).
+    virtual bool popVoice(VoiceOut&) { return false; }
     /// Ход транспорта из колбэка (запись с REC).
     virtual PlayClock::State clock() const { return {}; }
     /// Время хоста (с, часы колбэка), чей звук слышен сейчас: сейчас минус задержка выхода.
@@ -410,6 +413,9 @@ public:
     bool libImportPreset(const std::string& folder, const std::string& name, const std::string& data);
     const SampleStore* sampleStore() const { return samples_.get(); }
     SampleRef sampleData(const std::string& key) const;
+    /// Полосы воспроизведения сэмпла key дорожки track: доля длины и непрозрачность (линия ноты тает за 1,2 с).
+    std::vector<std::pair<double, double>> playheads(int track, const std::string& key) const;
+    int headCount() const { return int(heads_.size()); }
     /// Звук окна: пока зажат шаг со своим звуком — его звук.
     std::string shownSound() const;
 
@@ -600,6 +606,11 @@ private:
     std::string libNote_;
     std::optional<std::string> libPreviewKey_;
     bool previewOn_ = false;
+    std::map<int, VoiceOut> heads_;
+    /// Голоса из колбэка → полосы воспроизведения.
+    void drainVoices();
+    /// Кадр ядра, который слышен сейчас (по времени хоста с поправкой на задержку выхода).
+    double heardFrame() const;
     void ensureLibrary();
     void libEdit(const std::function<void(Library&)>& change);
     std::vector<std::string> projectSampleKeys() const;

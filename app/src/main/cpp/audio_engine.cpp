@@ -123,6 +123,14 @@ void AudioEngine::publish(const jambo::Project& p, const jambo::SoundSnapshot::O
     core_->releaseRetired(nowSec());
 }
 
+bool AudioEngine::popVoice(jambo::VoiceOut& e) {
+    if (!core_) return false;
+    auto x = core_->sampler.out.pop();
+    if (!x) return false;
+    e = *x;
+    return true;
+}
+
 bool AudioEngine::popOut(jambo::SeqOut& e) {
     if (!core_) return false;
     auto x = core_->sequencer.out.pop();

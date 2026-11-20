@@ -131,40 +131,58 @@ FN(void, libNote)(JNIEnv* env, jobject, jstring text) {
     jniApp().setLibNote(s);
 }
 
-/// Форма волны звука окна (сэмпл): [каналов (0 — не сэмпл), затем по каналу n пар мин., макс.].
+/// Форма волны звука окна (сэмпл): [каналов (0 — не сэмпл), Start, End (доли), затем по каналу cols пиков по модулю].
 FN(jfloatArray, wave)(JNIEnv* env, jobject, jint cols) {
     std::lock_guard<std::mutex> g(jniLock());
     auto& m = jniApp();
-    std::vector<float> v{0};
     const std::string key = m.shownSound();
     const auto d = key.empty() ? nullptr : m.sampleData(key);
-    // Последняя форма — по сэмплу и числу столбцов (ревизия меняется на каждом повороте ручки).
+    // Последняя огибающая — по сэмплу и числу столбцов (ревизия меняется на каждом повороте ручки).
     static jambo::SampleRef lastData;
     static int lastCols = 0;
-    static std::vector<float> last{0};
-    if (d == lastData && cols == lastCols) v = last;
-    else if (d && cols > 0 && d->frames() > 0) {
-        const int ch = d->channels();
-        v[0] = float(ch);
-        const int f = d->frames();
-        for (int c = 0; c < ch; c++) {
-            const float* x = c == 0 ? d->left() : d->right();
-            for (int k = 0; k < cols; k++) {
-                const int a = int(int64_t(f) * k / cols), b = std::max(a + 1, int(int64_t(f) * (k + 1) / cols));
-                float lo = 0, hi = 0;
-                for (int i = a; i < b && i < f; i++) {
-                    lo = std::min(lo, x[i]);
-                    hi = std::max(hi, x[i]);
+    static std::vector<float> last;
+    if (!(d == lastData && cols == lastCols)) {
+        last.clear();
+        if (d && cols > 0 && d->frames() > 0) {
+            const int f = d->frames();
+            for (int c = 0; c < d->channels(); c++) {
+                const float* x = c == 0 ? d->left() : d->right();
+                for (int k = 0; k < cols; k++) {
+                    const int a = int(int64_t(f) * k / cols), b = std::max(a + 1, int(int64_t(f) * (k + 1) / cols));
+                    float pk = 0;
+                    for (int i = a; i < b && i < f; i++) pk = std::max(pk, std::fabs(x[i]));
+                    last.push_back(pk);
                 }
-                v.push_back(lo);
-                v.push_back(hi);
             }
         }
+        lastData = d;
+        lastCols = cols;
     }
-    lastData = d;
-    lastCols = cols;
-    last = v;
-    jfloatArray a = env->NewFloatArray(jsize(v.size()));
-    env->SetFloatArrayRegion(a, 0, jsize(v.size()), v.data());
-    return a;
+    std::vector<float> v{0, 0, 1};
+    if (!last.empty()) {
+        const auto& p = m.project().tracks[size_t(m.selectedTrack())].params;
+        const auto ps = p.find("start"), pe = p.find("end");
+        const double s = (ps == p.end() ? 0 : ps->second) / 100;
+        const double e = std::max(s, (pe == p.end() ? 100 : pe->second) / 100);
+        v = {float(d->channels()), float(s), float(e)};
+        v.insert(v.end(), last.begin(), last.end());
+    }
+    jfloatArray arr = env->NewFloatArray(jsize(v.size()));
+    env->SetFloatArrayRegion(arr, 0, jsize(v.size()), v.data());
+    return arr;
+}
+
+/// Полосы воспроизведения окна сэмпла (каждый кадр, пока звучат голоса): пары доля, непрозрачность.
+FN(jfloatArray, heads)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(jniLock());
+    auto& m = jniApp();
+    std::vector<float> v;
+    if (m.channel() == jambo::Channel::track)
+        for (const auto& [f, a] : m.playheads(m.selectedTrack(), m.shownSound())) {
+            v.push_back(float(f));
+            v.push_back(float(a));
+        }
+    jfloatArray arr = env->NewFloatArray(jsize(v.size()));
+    env->SetFloatArrayRegion(arr, 0, jsize(v.size()), v.data());
+    return arr;
 }

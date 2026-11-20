@@ -40,6 +40,7 @@ public:
     void publish(const jambo::Project& p, const jambo::SoundSnapshot::Options& o,
                  const std::map<std::string, jambo::SampleRef>& samples) override;
     bool popOut(jambo::SeqOut& e) override;
+    bool popVoice(jambo::VoiceOut& e) override;
 
     // Заполняет out (kInfoSize значений), см. порядок в audio_engine.cpp.
     static constexpr int kInfoSize = 20;

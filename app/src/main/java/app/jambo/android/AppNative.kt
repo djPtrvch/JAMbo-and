@@ -149,8 +149,10 @@ object AppNative {
     external fun libImportBytes(name: String, bytes: ByteArray, folder: String): Int
     external fun libImportPcm(name: String, key: String, pcm: FloatArray, channels: Int, rate: Int, folder: String): Int
     external fun libNote(text: String)
-    /** Форма волны окна: [каналов (0 — не сэмпл), по каналу cols пар мин., макс.]. */
+    /** Форма волны окна: [каналов (0 — не сэмпл), Start, End, по каналу cols пиков по модулю]. */
     external fun wave(cols: Int): FloatArray
+    /** Полосы воспроизведения окна сэмпла: пары доля, непрозрачность. */
+    external fun heads(): FloatArray
     fun act(code: Int, a: Int = 0, b: Int = 0) = act(code, a, b, 0.0)
 
     /** [ревизия, ход открытого клипа, маска мигания, мигание доли, акцент, игра]. */

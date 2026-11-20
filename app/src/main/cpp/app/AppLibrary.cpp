@@ -58,6 +58,42 @@ void App::ensureSamples() {
 
 SampleRef App::sampleData(const std::string& key) const { return samples_ ? samples_->data(key) : nullptr; }
 
+// MARK: — полосы воспроизведения (AppModelSound.swift: drainVoices, playheads)
+
+void App::drainVoices() {
+    VoiceOut e;
+    while (audio_->popVoice(e)) {
+        if (e.kind == VoiceOut::Kind::start) heads_[e.voice] = e;
+        else if (e.kind == VoiceOut::Kind::end) {
+            heads_.erase(e.voice);
+            if (e.voice == Sampler::previewVoice) previewOn_ = false;
+        }
+    }
+}
+
+double App::heardFrame() const {
+    const auto c = audio_->clock();
+    if (c.blockHost <= 0) return 0;
+    return c.blockFrame + (audio_->heardNow() - c.blockHost) * 48000.0;
+}
+
+std::vector<std::pair<double, double>> App::playheads(int track, const std::string& key) const {
+    std::vector<std::pair<double, double>> out;
+    if (key.empty() || heads_.empty()) return out;
+    const uint64_t h = SoundKey::hash(key);
+    const double now = heardFrame();
+    for (const auto& [_, v] : heads_) {
+        if (v.hash != h || (v.track != track && v.track >= 0)) continue;
+        const double dt = now - double(v.frame);
+        if (dt < 0) continue;
+        const double f = v.a + dt * v.rate / double(std::max(1, v.frames));
+        const double alpha = v.track < 0 ? 1 : 1 - dt / 48000.0 / 1.2;
+        const bool inside = v.rate >= 0 ? f < v.b : f > v.b;
+        if (inside && alpha > 0.02) out.push_back({f, alpha});
+    }
+    return out;
+}
+
 // MARK: — окно
 
 void App::openBrowser(const std::vector<int>& steps) {

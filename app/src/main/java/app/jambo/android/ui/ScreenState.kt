@@ -79,6 +79,8 @@ class ScreenState {
     /** Форма волны окна сэмпла (столбцов — waveCols, задаёт окно). */
     var waveCols = 0
     var wave by mutableStateOf(FloatArray(1)); private set
+    /** Полосы воспроизведения (каждый кадр, пока звучат голоса сэмплера). */
+    var heads by mutableStateOf(FloatArray(0)); private set
     /** Идёт IMPORT (файлов осталось). */
     var importing by mutableIntStateOf(0)
 
@@ -108,6 +110,7 @@ class ScreenState {
         flashMask = f[2]
         beatFlash = f[3]
         beatAccent = f[4]
+        if (f.getOrElse(6) { 0 } > 0 || heads.isNotEmpty()) AppNative.heads().let { if (!it.contentEquals(heads)) heads = it }
         if (mod[2] != 0) {
             AppNative.modNorms().let { if (!it.contentEquals(modNorms)) modNorms = it }
             AppNative.modTexts().let { if (!it.contentEquals(modTexts)) modTexts = it }

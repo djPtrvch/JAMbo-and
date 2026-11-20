@@ -453,12 +453,12 @@ FN(jstring, projectAct)(JNIEnv* env, jobject, jint code, jstring id, jstring tex
 }
 
 /// Кадр (каждый кадр экрана): [ревизия (младшие 31 бит), ход открытого клипа, маска мигания, мигание доли,
-/// акцент доли, игра].
+/// акцент доли, игра, голосов сэмплера].
 FN(jintArray, frame)(JNIEnv* env, jobject) {
     std::lock_guard<std::mutex> g(gLock);
     auto& m = app();
     return ints(env, {jint(m.revision() & 0x7fffffff), m.openPlayPos(), jint(m.flashMask()), m.beatFlash() ? 1 : 0,
-                      m.beatAccent() ? 1 : 0, m.playing() ? 1 : 0});
+                      m.beatAccent() ? 1 : 0, m.playing() ? 1 : 0, m.headCount()});
 }
 
 /// Верхняя панель: [BPM·10, UNDO, REDO, игра, метроном, REC].
