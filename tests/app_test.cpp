@@ -28,6 +28,8 @@ struct CoreAudio : AppAudio {
         o.tables = tables;
         core.publish(p, {}, o, now);
     }
+    Levels* levels() override { return &core.levels; }
+    const Levels* levels() const override { return &core.levels; }
     bool popOut(SeqOut& e) override {
         auto x = core.sequencer.out.pop();
         if (!x) return false;
@@ -306,9 +308,36 @@ void morphApp() {
     check(!app.project().tracks[0].step(0)->on && std::abs(app.knobState(6).norm - 0.6) < 1e-6,
           "app: UNDO не трогает MORPH");
 }
+void meter() {
+    CoreAudio a;
+    App app(&a);
+    app.openSoundMenu();
+    app.pickSynth(17);
+    app.keyDown(1, 0, 1);
+    std::vector<float> l(256), r(256);
+    for (int k = 0; k < 40; ++k) a.core.render(256, l.data(), r.data());
+    app.tick(1);
+    const auto b = app.meters().bars(app.meterChannel(), app.trackStereo(0));
+    check(app.meterChannel() == 0 && b.size() == 1 && b[0].level > 0.001f && app.meters().maxPeak[0] > 0.001f,
+          "app: измеритель — уровень дорожки (моно)");
+    app.keyUp(1);
+    app.resetMeterPeak();
+    check(app.meters().maxPeak[0] == 0, "app: тап по пику — сброс");
+    app.setVolDrag(true);
+    app.setMeterVol(0, -20);
+    app.setMeterVol(0, -24);
+    app.setVolDrag(false);
+    check(app.project().tracks[0].vol == -24 && app.meterVol(0) == -24, "app: регулятор — громкость дорожки");
+    app.undo();
+    check(app.project().tracks[0].vol == Params::volDef, "app: регулятор — одна запись UNDO");
+    app.selectChannel(Channel::master);
+    app.setMeterVol(app.meterChannel(), -6);
+    check(app.meterChannel() == Levels::master && app.project().outVol == -6, "app: MST — громкость выхода");
+}
 }  // namespace
 
 int runAppTests() {
+    meter();
     morphApp();
     fxPages();
     pages();

@@ -40,7 +40,7 @@ import app.jambo.android.AppNative
 
 /**
  * Главный экран (RootView.swift ветки swift JAMbo, сверху вниз): верхняя панель, центр (левая колонка | сетка ручек |
- * правая колонка | измеритель), строка дорожек, секвенсор, клавиатура. Измеритель — пустая панель до своей вехи; меню звука — поверх левой колонки.
+ * правая колонка | измеритель), строка дорожек, секвенсор, клавиатура. Меню звука — поверх левой колонки.
  */
 @Composable
 fun MainScreen(onMenu: () -> Unit) {
@@ -96,7 +96,7 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
                 RightColumn(s, Modifier.width(rightColumn()).fillMaxHeight()) { c ->
                     body?.let { b -> if (b.isAttached) pagesRect = b.localBoundingBoxOf(c) }
                 }
-                Box(Modifier.width(Layout.meterWidth.dp).fillMaxHeight().tile(th.panel, 4f))
+                MeterColumn(s, Modifier.fillMaxHeight())
             }
             TrackRow(s, Layout.step(width))
             SequencerRow(s)

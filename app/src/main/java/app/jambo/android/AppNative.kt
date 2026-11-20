@@ -49,6 +49,10 @@ object AppNative {
         const val SET_LATCHED = 124
         const val MORPH_PRESS = 125
         const val MORPH_RELEASE = 126
+        const val RESET_METER_PEAK = 130
+        const val RESET_LOUDNESS = 131
+        const val SET_METER_VOL = 132
+        const val VOL_DRAG = 133
         const val OPEN_PAGE = 110
         const val ADD_PAGE = 111
         const val PLAY_PAGES = 112
@@ -103,6 +107,8 @@ object AppNative {
     /** Кнопки правой колонки: [FX зажата, MOD зажата, FX toggle, MOD toggle, SHIFT, ручки FX, ручки MOD,
      *  SHIFT для ручек, MORPH горит, у MORPH линия MODE TAP]. */
     external fun side(): IntArray
+    /** Измеритель: [канал, стерео, заглушён, полос n, по полосе уровень и холд, клиппинг, LUFS, пик, громкость, палец]. */
+    external fun meter(now: Double): FloatArray
     /** Миниатюры MOD: по LFO1–3 и ENV [точек n, x n, y n, точка x, y] подряд. */
     external fun modMinis(): FloatArray
     external fun modMiniTitles(): Array<String>

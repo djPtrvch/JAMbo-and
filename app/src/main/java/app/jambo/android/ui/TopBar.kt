@@ -104,7 +104,7 @@ private fun PlayButton(s: ScreenState, on: Boolean, modifier: Modifier) {
 private fun BpmField(s: ScreenState, bpm: Double, modifier: Modifier) {
     val th = LocalTheme.current
     var active by remember { mutableStateOf(false) }
-    val text = if (bpm == Math.rint(bpm)) "${bpm.toInt()}" else "%.1f".format(bpm)
+    val text = if (bpm == Math.rint(bpm)) "${bpm.toInt()}" else String.format(java.util.Locale.US, "%.1f", bpm)
     Row(
         modifier.fillMaxHeight().tile(if (active) th.panel2 else th.panel).padding(horizontal = 12.dp)
             .pointerInput(Unit) {

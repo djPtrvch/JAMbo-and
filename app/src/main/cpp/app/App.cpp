@@ -251,6 +251,7 @@ void App::playEvent(const SeqOut& e) {
 void App::tick(double now) {
     now_ = now;
     stepMorphGlide(now);
+    tickMeters(now);
     const int before = openPlayPos();
     SeqOut e;
     while (audio_->popOut(e)) {

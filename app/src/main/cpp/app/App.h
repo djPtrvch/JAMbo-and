@@ -3,6 +3,7 @@
 // зовёт действия и читает данные для отрисовки; всё — в основном потоке (JNI — под мьютексом jni_bridge).
 #pragma once
 #include "engine/CoreEvent.h"
+#include "MeterState.h"
 #include "icons/EngineIcons.h"
 #include "synth/Wavetable.h"
 #include "model/History.h"
@@ -31,6 +32,9 @@ struct AppAudio {
     virtual bool popOut(SeqOut& e) = 0;
     /// Выход источника модуляции для интерфейса: дорожка·4 + (LFO1–3, ENV).
     virtual double modOut(int) const { return 0; }
+    /// Уровни колбэка (измеритель); nullptr — звука ещё нет.
+    virtual Levels* levels() { return nullptr; }
+    virtual const Levels* levels() const { return nullptr; }
     /// Фаза LFO (дорожка·3 + n) и ENV (дорожка·2: мс от запуска, гейт в мс) для миниатюр MOD.
     virtual double modPhase(int) const { return 0; }
     virtual double envOut(int i) const { return i % 2 == 0 ? -1 : 0; }
@@ -222,6 +226,20 @@ public:
     /// октава B, режим (undo — второй тап двойного: отменить первый); true — обработан.
     bool knobShiftTap(int slot, bool undo = false);
 
+    // Измеритель справа
+    int meterChannel() const;
+    const MeterState& meters() const { return meters_; }
+    float meterLufs() const;
+    void resetMeterPeak();
+    void resetLoudness();
+    /// Итоговая громкость канала измерителя (подпись VOL и регулятор).
+    double meterVol(int ch) const;
+    void setMeterVol(int ch, double db);
+    /// Палец на регуляторе: жест (одна запись UNDO) и подпись VOL.
+    void setVolDrag(bool on);
+    /// Стерео ли дорожка на метре (стерео где-то на дорожке — метр стерео).
+    bool trackStereo(int t) const;
+
     // Клавиатура
     int octave() const;
     int keyCount() const;
@@ -321,6 +339,10 @@ private:
     double modSource(int t, int lfo) const;
     /// Свои значения ручек по умолчанию (SHIFT + удержание — позже; пока пустые).
     KnobDefaults knobDefaults_;
+    MeterState meters_;
+    /// SETTINGS → LEVEL: RELATIVE (подстройка trim) или ABSOLUTE (по умолчанию).
+    bool levelRelative_ = false;
+    void tickMeters(double now);
     /// Таблицы WTABLE по ключу (встроенные строятся при первой нужде; свои — с библиотекой).
     std::map<std::string, std::shared_ptr<WtTable>> tables_;
     /// Таблица по ключу; своя (wt:…) — nullptr.

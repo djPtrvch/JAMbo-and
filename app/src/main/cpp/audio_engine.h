@@ -27,6 +27,8 @@ public:
     // jambo::AppAudio (основной поток; события и снимки — под produce_).
     void push(const jambo::CoreEvent& e) override;
     double modOut(int i) const override;
+    jambo::Levels* levels() override { return core_ ? &core_->levels : nullptr; }
+    const jambo::Levels* levels() const override { return core_ ? &core_->levels : nullptr; }
     double modPhase(int i) const override;
     double envOut(int i) const override;
     void publish(const jambo::Project& p, const std::map<std::string, std::shared_ptr<jambo::WtTable>>& tables) override;

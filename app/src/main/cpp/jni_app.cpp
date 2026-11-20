@@ -42,6 +42,7 @@ enum Act {
     openSoundMenu = 90, closeSoundMenu, pickSynth, cleanSampler, stepSoundToTrack, folderArrow,
     tick = 100,
     pagePress = 120, pageRelease, setShift, knobShiftTap, setLatched, morphPress, morphRelease,
+    resetMeterPeak = 130, resetLoudness, setMeterVol, volDrag,
     openPage = 110, addPage, playPages, movePage, pageAction, pageArrow, setClipRate,
 };
 
@@ -118,6 +119,10 @@ FN(jdouble, act)(JNIEnv*, jobject, jint code, jint a, jint b, jdouble x) {
     case setLatched: m.setLatched(a != 0, b != 0); break;
     case morphPress: m.morphPress(); break;
     case morphRelease: m.morphRelease(); break;
+    case resetMeterPeak: m.resetMeterPeak(); break;
+    case resetLoudness: m.resetLoudness(); break;
+    case setMeterVol: m.setMeterVol(m.meterChannel(), x); break;
+    case volDrag: m.setVolDrag(a != 0); break;
     case openPage: m.openPage(a); break;
     case addPage: m.addPage(); break;
     case playPages: m.playPages(a, b); break;
@@ -462,4 +467,23 @@ FN(jobjectArray, modMiniTitles)(JNIEnv* env, jobject) {
     std::vector<std::string> v;
     for (int n = 1; n <= 4; ++n) v.push_back(m.modMini(n).title);
     return strings(env, v);
+}
+
+/// Измеритель справа (каждый кадр): [канал, стерео, заглушён, полос n, по полосе: уровень, холд, клиппинг, LUFS,
+/// наибольший пик, громкость (dB), палец на регуляторе].
+FN(jfloatArray, meter)(JNIEnv* env, jobject, jdouble now) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    const int ch = m.meterChannel();
+    const bool track = ch < jambo::Levels::master;
+    const bool stereo = !track || m.trackStereo(ch);
+    const bool muted = track && ch < int(m.project().tracks.size()) && !m.project().audible(ch);
+    const auto bars = m.meters().bars(ch, stereo);
+    std::vector<jfloat> o{jfloat(ch), stereo ? 1.f : 0.f, muted ? 1.f : 0.f, jfloat(bars.size())};
+    for (const auto& b : bars) o.insert(o.end(), {b.level, b.hold});
+    o.insert(o.end(), {m.meters().clip(ch, now) ? 1.f : 0.f, m.meterLufs(), m.meters().maxPeak[size_t(ch)],
+                       jfloat(m.meterVol(ch)), m.meters().volDrag ? 1.f : 0.f});
+    jfloatArray r = env->NewFloatArray(jsize(o.size()));
+    env->SetFloatArrayRegion(r, 0, jsize(o.size()), o.data());
+    return r;
 }

@@ -8,7 +8,7 @@ class Theme(
     val bg: Color, val panel: Color, val panel2: Color, val trackBg: Color, val flash: Color, val accentSoft: Color,
     val root: Color, val line: Color, val text: Color, val dim: Color, val off: Color, val accent: Color,
     val onAccent: Color, val rec: Color, val gr: Color, val meterTrack: Color,
-    val accentText: Color, val icon: Color, val icon2: Color,
+    val accentText: Color, val icon: Color, val icon2: Color, val muteGrey: Color,
 ) {
     companion object {
         val dark = Theme(
@@ -17,6 +17,7 @@ class Theme(
             text = Color(0xFFECECEC), dim = Color(0xFF8A8A8A), off = Color(0xFF3D3D3D), accent = Color(0xFFFFC81E),
             onAccent = Color(0xFF111111), rec = Color(0xFFFF2B2B), gr = Color(0xFFFF8A3D), meterTrack = Color(0xFF3A3A3A),
             accentText = Color(0xFFFFC81E), icon = Color(0xFFE8E8E8), icon2 = Color(0xFF6C6C72),
+            muteGrey = Color(0xFF6B6B6B),
         )
         val light = Theme(
             bg = Color(0xFFE6E5E1), panel = Color(0xFFF7F6F3), panel2 = Color(0xFFFFFFFF), trackBg = Color(0xFFFFFFFF),
@@ -24,6 +25,7 @@ class Theme(
             text = Color(0xFF161616), dim = Color(0xFF77766F), off = Color(0xFFC4C3BE), accent = Color(0xFFF0B800),
             onAccent = Color(0xFF161616), rec = Color(0xFFE01418), gr = Color(0xFFF08A24), meterTrack = Color(0xFFCFCFCF),
             accentText = Color(0xFF8A6A00), icon = Color(0xFF161616), icon2 = Color(0xFF9B9AA0),
+            muteGrey = Color(0xFFA3A29D),
         )
     }
 }
