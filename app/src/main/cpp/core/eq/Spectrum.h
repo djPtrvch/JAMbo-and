@@ -14,6 +14,8 @@ public:
     static constexpr int mask = capacity - 1;
     SpectrumTap() : buf(capacity, 0.f) {}
     AtomicCounter written;
+    /// Кольцо целиком (для тестов: сверка съёмов отсчёт в отсчёт).
+    const std::vector<float>& ring() const { return buf; }
 
     /// Колбэк: n отсчётов стерео → моно (L + R)/2.
     void push(const float* l, const float* r, int n) {

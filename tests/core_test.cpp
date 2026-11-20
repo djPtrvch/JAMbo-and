@@ -325,6 +325,30 @@ void demoProject() {
 }
 }  // namespace
 
+/// Скоп мастера (LevelsTests.testScopeTaps): включённые точки съёма пишутся, выключенные — нет.
+void scopeTaps() {
+    AudioCore core;
+    Project p;
+    p.tracks[0].addSamples({"n"});
+    p.tracks[0].vol = 0;
+    FxRandom rnd(11);
+    std::vector<float> noise(96000);
+    for (auto& v : noise) v = float(rnd.next() * 2 - 1);
+    core.publish(p, {{"n", mono(noise)}});
+    auto& sc = core.master.scope;
+    sc.mask.store(1 << MasterScope::sat | 1 << MasterScope::lim | MasterScope::gonioBit);
+    core.events.push(CoreEvent::noteOn(0, 48, 1, 1));
+    std::vector<float> l(256), r(256);
+    for (int pos = 0; pos < 9600; pos += 256) core.render(std::min(256, 9600 - pos), l.data(), r.data());
+    std::vector<float> buf(4096);
+    sc.taps[MasterScope::lim].read(buf.data(), 4096, 9600);
+    float m = 0;
+    for (float v : buf) m = std::max(m, std::fabs(v));
+    check(sc.taps[MasterScope::sat].written.load() == 9600 && sc.taps[MasterScope::comp].written.load() == 0 &&
+              sc.gonioL.written.load() == 9600 && m < 0.9f && m > 0.1f,
+          "scope: точки съёма мастера");
+}
+
 int runCoreTests() {
     demoProject();
     oneStep();
@@ -335,6 +359,7 @@ int runCoreTests() {
     preview();
     throughMaster();
     levels();
+    scopeTaps();
     std::printf("core: %s (%d checks)\n", fails == 0 ? "all passed" : "FAILED", checks);
     return fails;
 }

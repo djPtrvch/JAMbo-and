@@ -1,6 +1,11 @@
 // Headphone Monitor: порт MonitorTests (без AudioCore и PhonesProfile), RoomTests, RoomHeadTests (без пакетов голов)
 // ветки swift JAMbo. Ресурсы комнат — ios/JAMbo.swiftpm/Resources (scripts/fetch-test-deps.sh).
+#include "engine/AudioCore.h"
+#include "engine/Levels.h"
+#include "engine/RefPlayer.h"
 #include "eq/EqCoeffs.h"
+#include "eq/Spectrum.h"
+#include "model/Project.h"
 #include "golden.h"
 #include "monitor/MonitorChain.h"
 #include "monitor/MonitorDesign.h"
@@ -546,6 +551,93 @@ void head() {
     for (int i = B * 40; i < n2; ++i) err += std::pow(a.l[size_t(i)] - b.l[size_t(i)], 2);
     check(10 * std::log10(err / energy(a.l, B * 40)) < -60, "head: выключение — как без HEAD");
 }
+/// Экспорт: при паузе цепочки выход колбэка бит в бит равен выходу без неё (съёмы до и после в одном AudioCore).
+void exportBitExact() {
+    const auto list = TranslationPreset::list(readText(res() + "TranslationPresets.json"));
+    const TranslationPreset* cr7 = nullptr;
+    for (const auto& t : list)
+        if (t.name == "Studio CR7") cr7 = &t;
+    const auto render = [&](bool paused) {
+        AudioCore core(true);
+        Project p;
+        p.tracks[0].addSamples({"s"});
+        std::vector<float> x(48000);
+        for (int i = 0; i < 48000; ++i) x[size_t(i)] = float(0.5 * std::sin(2 * M_PI * 220 * double(i) / 48000));
+        core.publish(p, {{"s", std::make_shared<SampleData>(x, nullptr)}});
+        MonitorSettings m;
+        m.translation = "Studio CR7";
+        const Eq e = sony();
+        const Eq cc = curve({100, 8000}, {3, -3});
+        core.monitor.publish(MonitorDesign::make(&e, m, &cc, cr7, nullptr, 0, 48000));
+        core.monitor.paused.store(paused ? 1 : 0);
+        core.spectra.channel.store(EqSpec::phonesChannel);
+        std::vector<float> bl(256), br(256);
+        for (int i = 0; i < 4; ++i) core.render(256, bl.data(), br.data());
+        core.events.push(CoreEvent::noteOn(0, 48, 1, 1));
+        for (int i = 0; i < 60; ++i) core.render(256, bl.data(), br.data());
+        return std::make_pair(core.spectra.pre.ring(), core.spectra.post.ring());
+    };
+    const auto exported = render(true);
+    float pk = 0;
+    for (float v : exported.first) pk = std::max(pk, std::fabs(v));
+    const auto monitored = render(false);
+    check(cr7 && pk > 0.01f && exported.second == exported.first && monitored.second != monitored.first,
+          "monitor: экспорт — бит в бит без цепочки");
+}
+
+/// Маршруты референса (4 сочетания): референс проходит ровно через выбранные блоки; переход — без щелчков.
+void refRouting() {
+    const int n = B;
+    const double hz = 1500;
+    const Eq cc = curve({1500}, {3});
+    const auto mon = MonitorDesign::make(nullptr, MonitorSettings(), &cc, nullptr, nullptr, 0, 48000);
+    const double monDb = MonitorDesign::response(mon, hz, 48000) + 20 * std::log10(mon[MonitorSpec::compAt]);
+    const float masterGain = 0.5f;
+    const auto level = [&](bool thruMaster, bool thruMonitor, int switchAt) {
+        RefPlayer ref;
+        MonitorChain chain(48000);
+        chain.publish(mon);
+        Levels levels;
+        ref.throughMaster.store(thruMaster ? 1 : 0);
+        ref.throughMonitor.store(thruMonitor ? 1 : 0);
+        std::vector<float> l(static_cast<size_t>(n)), r(static_cast<size_t>(n)), out;
+        for (int b = 0; b < 200; ++b) {
+            if (b == switchAt) {
+                ref.throughMaster.store(thruMaster ? 0 : 1);
+                ref.throughMonitor.store(thruMonitor ? 0 : 1);
+            }
+            for (int i = 0; i < n; ++i) {
+                const float v = float(0.2 * std::sin(2 * M_PI * hz * double(b * n + i) / 48000));
+                ref.outL[size_t(i)] = v;
+                ref.outR[size_t(i)] = v;
+                l[size_t(i)] = 0;
+                r[size_t(i)] = 0;
+            }
+            ref.mixPre(true, l.data(), r.data(), n, levels);
+            for (int i = 0; i < n; ++i) {
+                l[size_t(i)] *= masterGain;
+                r[size_t(i)] *= masterGain;
+            }
+            ref.mixPost(l.data(), r.data(), n);
+            chain.process(l.data(), r.data(), n, ref.throughMonitor.load() == 0);
+            out.insert(out.end(), l.begin(), l.end());
+        }
+        double pk = 0, jump = 0;
+        for (size_t i = out.size() - 9600; i < out.size(); ++i) pk = std::max(pk, double(std::fabs(out[i])));
+        for (size_t i = 1; i < out.size(); ++i) jump = std::max(jump, double(std::fabs(out[i] - out[i - 1])));
+        return std::make_pair(20 * std::log10(pk / 0.2), jump);
+    };
+    const double master = 20 * std::log10(double(masterGain));
+    bool ok = std::fabs(monDb) > 0.5;
+    const double maxStep = 0.2 * 2 * M_PI * hz / 48000 * 1.5;
+    for (bool tm : {false, true})
+        for (bool tn : {false, true}) {
+            const double want = (tm ? master : 0) + (tn ? monDb : 0);
+            ok = ok && near(level(tm, tn, -1).first, want, 0.05) && level(tm, tn, 100).second < maxStep * 1.6;
+        }
+    check(ok, "monitor: маршруты референса, переход без щелчков");
+}
+
 }  // namespace
 
 int runMonitorTests() {
@@ -559,6 +651,8 @@ int runMonitorTests() {
     levelCompensation();
     latency();
     head();
+    exportBitExact();
+    refRouting();
     std::printf("monitor: %s (%d checks)\n", fails == 0 ? "all passed" : "FAILED", checks);
     return fails;
 }
