@@ -26,7 +26,7 @@ public:
     void tap(int64_t touchNanos);           // время касания, CLOCK_MONOTONIC
     // jambo::AppAudio (основной поток; события и снимки — под produce_).
     void push(const jambo::CoreEvent& e) override;
-    void publish(const jambo::Project& p) override;
+    void publish(const jambo::Project& p, const std::map<std::string, std::shared_ptr<jambo::WtTable>>& tables) override;
     bool popOut(jambo::SeqOut& e) override;
 
     // Заполняет out (kInfoSize значений), см. порядок в audio_engine.cpp.

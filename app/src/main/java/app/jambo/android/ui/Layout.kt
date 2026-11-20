@@ -6,35 +6,38 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Раскладка по ширине экрана (Android-планшеты шире iPad: 16:10, 16:9). Середина — сетка ручек и кнопки над ней — по
- * размерам iPad; лишняя ширина — боковым колонкам поровну (не шире maxColumn); остаток (очень широкий экран) —
- * равномерно середине (midStretch). col — ширина боковой колонки.
+ * Раскладка по ширине экрана (решение пользователя 20.11): левая колонка — ровно до правого края 3-го шага
+ * секвенсора, правая зеркально — от левого края 14-го шага (вместе с зазором и измерителем справа — 3 шага).
+ * Середина — сетка ручек и кнопки над ней — остаток; midStretch — её растяжение против iPad.
  */
-class Dims(val col: Float, val midStretch: Float) {
+class Dims(val col: Float, val right: Float, val midStretch: Float) {
     companion object {
         /** Рабочая ширина iPad (без полей) и середина на нём. */
         const val ipadWidth = Layout.designWidth - 2 * Layout.side
         val ipadMid = ipadWidth - 2 * Layout.leftColumn - Layout.meterWidth - 3 * Layout.gap
-        const val maxColumn = 360f
 
         fun of(width: Float): Dims {
-            val extra = maxOf(0f, width - ipadWidth)
-            val col = minOf(maxColumn, Layout.leftColumn + extra / 2)
-            val mid = width - 2 * col - Layout.meterWidth - 3 * Layout.gap
-            return Dims(col, maxOf(1f, mid / ipadMid))
+            val three = 3 * Layout.step(width) + 2 * Layout.stepGap
+            val right = maxOf(60f, three - Layout.meterWidth - Layout.gap)
+            val mid = width - three - right - Layout.meterWidth - 3 * Layout.gap
+            return Dims(three, right, maxOf(0.5f, mid / ipadMid))
         }
     }
 }
 
-val LocalDims = staticCompositionLocalOf { Dims(Layout.leftColumn, 1f) }
+val LocalDims = staticCompositionLocalOf { Dims(Layout.leftColumn, Layout.leftColumn, 1f) }
 
 /** Ширина кнопки середины (v точек iPad). */
 @Composable
 fun mid(v: Float): Dp = (v * LocalDims.current.midStretch).dp
 
-/** Ширина боковой колонки. */
+/** Ширина левой колонки. */
 @Composable
 fun column(): Dp = LocalDims.current.col.dp
+
+/** Ширина правой колонки (без измерителя). */
+@Composable
+fun rightColumn(): Dp = LocalDims.current.right.dp
 
 /** Размеры раскладки (Layout.swift ветки swift JAMbo), dp. */
 object Layout {

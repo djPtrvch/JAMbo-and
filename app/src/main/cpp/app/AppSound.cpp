@@ -122,9 +122,8 @@ IconValues App::iconValues(int engine) const {
 EngineIcons::Elements App::iconElements(int engine, const IconValues& v) {
     if (engine == J::wtable) {
         // Кадр таблицы дорожки (встроенной; своя таблица — с библиотекой).
-        const std::string name = WavetableKey::name(track().table);
-        auto& tb = tables_[name];
-        if (!tb) tb = WtTable::builtin(name);
+        const WtTable* tb = table(track().table);
+        if (!tb) tb = table("");
         return EngineIcons::wtableIcon(v, EngineIcons::tableFrame(*tb));
     }
     // GRANULAR — по условному сэмплу (огибающая SOURCE — с загрузкой сэмплов).

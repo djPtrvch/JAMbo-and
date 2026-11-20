@@ -80,7 +80,7 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
                     body?.let { b -> if (b.isAttached) left = b.localBoundingBoxOf(c) }
                 })
                 KnobGrid(s, Modifier.weight(1f).fillMaxHeight())
-                Box(Modifier.width(column()).fillMaxHeight().tile(th.panel))
+                Box(Modifier.width(rightColumn()).fillMaxHeight().tile(th.panel))
                 Box(Modifier.width(Layout.meterWidth.dp).fillMaxHeight().tile(th.panel, 4f))
             }
             TrackRow(s, Layout.step(width))

@@ -26,7 +26,8 @@ namespace jambo {
 struct AppAudio {
     virtual ~AppAudio() = default;
     virtual void push(const CoreEvent& e) = 0;
-    virtual void publish(const Project& p) = 0;
+    /// Снимки проекта; tables — таблицы WTABLE дорожек по ключу.
+    virtual void publish(const Project& p, const std::map<std::string, std::shared_ptr<WtTable>>& tables) = 0;
     virtual bool popOut(SeqOut& e) = 0;
 };
 
@@ -172,8 +173,12 @@ private:
     std::optional<std::vector<int>> soundMenu_;
     /// Свои значения ручек по умолчанию (SHIFT + удержание — позже; пока пустые).
     KnobDefaults knobDefaults_;
-    /// Встроенные таблицы WTABLE для иконки (по имени).
-    std::map<std::string, std::unique_ptr<WtTable>> tables_;
+    /// Таблицы WTABLE по ключу (встроенные строятся при первой нужде; свои — с библиотекой).
+    std::map<std::string, std::shared_ptr<WtTable>> tables_;
+    /// Таблица по ключу; своя (wt:…) — nullptr.
+    const WtTable* table(const std::string& key);
+    /// Снимки в ядро: проект и нужные ему таблицы (AppModel.publishAudio).
+    void publishAudio();
 
     // Ход игры (LiveState.swift): позиции шагов, клип дорожки, мигание.
     std::vector<int> playPos_, cell_;

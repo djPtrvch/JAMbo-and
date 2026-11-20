@@ -62,7 +62,7 @@ fun TopBar(s: ScreenState, onMenu: () -> Unit) {
         RollIcon(Modifier.weight(1f))
         Later("EQ", Modifier.width(mid(Layout.topButton)))
         // PATTERNS и ARRANGE — ровно над правой колонкой, затем место измерителя.
-        Row(Modifier.width(column()).fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
+        Row(Modifier.width(rightColumn()).fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
             Later("PATTERNS", Modifier.weight(1f))
             Later("ARRANGE", Modifier.weight(1f))
         }

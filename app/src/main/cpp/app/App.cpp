@@ -7,7 +7,7 @@ namespace jambo {
 
 App::App(AppAudio* audio)
     : audio_(audio), playPos_(size_t(Params::maxTracks + SeqData::chans), -1), cell_(size_t(Params::maxTracks), -1) {
-    audio_->publish(project_);
+    publishAudio();
 }
 
 void App::loadProject(const Project& p) {
@@ -23,7 +23,7 @@ void App::loadProject(const Project& p) {
     used_.clear();
     project_ = p;
     audio_->push(CoreEvent::tempo(p.bpm));
-    audio_->publish(project_);
+    publishAudio();
     bump();
 }
 
@@ -87,7 +87,7 @@ void App::editSeq(const std::function<void(Track&)>& change) {
 
 void App::mutatePlay(const std::function<void(Project&)>& change, bool publish) {
     change(project_);
-    if (publish) audio_->publish(project_);
+    if (publish) publishAudio();
     bump();
 }
 
@@ -131,8 +131,32 @@ void App::restore(const Project& snap) {
     changed();
 }
 
+const WtTable* App::table(const std::string& key) {
+    if (key.rfind("wt:", 0) == 0) return nullptr;
+    auto& tb = tables_[key];
+    if (!tb) tb = WtTable::builtin(WavetableKey::name(key));
+    return tb.get();
+}
+
+void App::publishAudio() {
+    // Таблицы, нужные проекту: дорожек, их папок (стрелки переключают без паузы), звуков клипов.
+    std::vector<std::string> keys;
+    for (const auto& t : project_.tracks) {
+        keys.push_back(t.table);
+        for (const auto& it : t.folder.items)
+            if (it.preset && it.preset->table) keys.push_back(*it.preset->table);
+        if (t.home) keys.push_back(t.home->table);
+        for (const auto& c : t.clips)
+            if (c && c->src) keys.push_back(c->src->table);
+    }
+    std::map<std::string, std::shared_ptr<WtTable>> tables;
+    for (const auto& k : keys)
+        if (table(k)) tables[k] = tables_[k];
+    audio_->publish(project_, tables);
+}
+
 void App::changed() {
-    audio_->publish(project_);
+    publishAudio();
     bump();
 }
 

@@ -93,10 +93,13 @@ void AudioEngine::tap(int64_t touchNanos) {
     tapSeq_.fetch_add(1);
 }
 
-void AudioEngine::publish(const jambo::Project& p) {
+void AudioEngine::publish(const jambo::Project& p,
+                          const std::map<std::string, std::shared_ptr<jambo::WtTable>>& tables) {
     ensureCore();
     std::lock_guard<std::mutex> g(produce_);
-    core_->publish(p, {}, {}, nowSec());
+    jambo::SoundSnapshot::Options o;
+    o.tables = tables;
+    core_->publish(p, {}, o, nowSec());
     core_->releaseRetired(nowSec());
 }
 

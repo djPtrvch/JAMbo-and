@@ -1,6 +1,7 @@
 // Состояние приложения (app/App): правки шагов и ручек, UNDO, клавиатура, ход игры — через настоящее ядро.
 #include "app/App.h"
 #include "engine/AudioCore.h"
+#include <cmath>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -22,7 +23,11 @@ struct CoreAudio : AppAudio {
     double now = 0;
     CoreAudio() { core.installSynth(); }
     void push(const CoreEvent& e) override { core.events.push(e); }
-    void publish(const Project& p) override { core.publish(p, {}, {}, now); }
+    void publish(const Project& p, const std::map<std::string, std::shared_ptr<WtTable>>& tables) override {
+        SoundSnapshot::Options o;
+        o.tables = tables;
+        core.publish(p, {}, o, now);
+    }
     bool popOut(SeqOut& e) override {
         auto x = core.sequencer.out.pop();
         if (!x) return false;
@@ -139,6 +144,22 @@ void sound() {
     app.stepSoundToTrack();
     app.holdStep(3, false);
     check(!app.project().tracks[0].step(3)->sound, "app: TRACK — звук дорожки");
+    // WTABLE звучит: таблица дорожки уходит в снимок звука.
+    {
+        CoreAudio b;
+        App w(&b);
+        w.openSoundMenu();
+        w.pickSynth(19);
+        w.keyDown(1, 0, 1);
+        std::vector<float> l(256), r(256);
+        float peak = 0;
+        for (int k = 0; k < 40; ++k) {
+            b.core.render(256, l.data(), r.data());
+            for (float x : l) peak = std::max(peak, std::abs(x));
+        }
+        w.keyUp(1);
+        check(peak > 0.01f, "app: WTABLE звучит (таблица в снимке)");
+    }
     app.openSoundMenu();
     app.cleanSampler();
     check(app.project().tracks[0].sample.empty() && !app.soundMenu(), "app: SAMPLER — без звука");
