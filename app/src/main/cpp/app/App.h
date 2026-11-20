@@ -7,6 +7,8 @@
 #include "MeterState.h"
 #include "MasterMeters.h"
 #include "ScopeState.h"
+#include "MixAnalysis.h"
+#include "MixStereo.h"
 #include "master/MasterChain.h"
 #include "icons/EngineIcons.h"
 #include "synth/Wavetable.h"
@@ -395,6 +397,16 @@ public:
     void setScopeWidth(int w) { scope_.width = std::max(1, w); }
     const std::array<bool, 4>& scopeOn() const { return scopeOn_; }
     void toggleScope(int k);
+    /// Вид полос MIX: 0 LEVEL, 1 PAN, 2 FREQ, 3 MASK (MixMode).
+    int mixMode() const { return mixMode_; }
+    void setMixMode(int m);
+    const MixAnalysis& mixAnalysis() const { return mixAn_; }
+    /// Стерео по полосам и история громкости мастера (при MIX справа); тап — сброс.
+    const BandStereo& bandStereo() const { return bandStereo_; }
+    const LoudHistory& loudHistory() const { return loudHist_; }
+    void resetBandStereo() { bandStereo_.reset(); }
+    void resetLoudHistory();
+    const Levels* levelsNow() const { return audio_->levels(); }
 
     // Библиотека (AppLibrary.cpp)
     /// Хранилище сэмплов (base/Samples) и дерево библиотеки (base/Library.json).
@@ -642,6 +654,11 @@ private:
     std::map<int, VoiceOut> heads_;
     MasterMeters masterMeters_;
     ScopeState scope_;
+    MixAnalysis mixAn_;
+    BandStereo bandStereo_;
+    LoudHistory loudHist_;
+    int mixMode_ = 0;
+    void tickMixAnalysis();
     std::array<bool, 4> scopeOn_{true, false, false, false};
     void tickMasterMeters(double now);
     /// Голоса из колбэка → полосы воспроизведения.

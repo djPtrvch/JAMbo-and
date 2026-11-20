@@ -82,13 +82,14 @@ class ScreenState {
     /** Полосы воспроизведения (каждый кадр, пока звучат голоса сэмплера). */
     var heads by mutableStateOf(FloatArray(0)); private set
     /** Мастер: bypass и точки скопа (по ревизии); индикация и скоп — каждый кадр при MIX и MST. */
-    var masterInfo by mutableStateOf(IntArray(8)); private set
+    var masterInfo by mutableStateOf(IntArray(9)); private set
     var masterBars by mutableStateOf(FloatArray(21)); private set
     var scope by mutableStateOf(FloatArray(2)); private set
     var scopeWidth = 200
     var mixBars by mutableStateOf(FloatArray(1)); private set
-    /** Вид обзора MIX: 0 LEVEL, 1 PAN, 2 FREQ, 3 MASK (MixMode). */
-    var mixMode by mutableIntStateOf(0)
+    var mixStereo by mutableStateOf(FloatArray(0)); private set
+    /** Вид обзора MIX: 0 LEVEL, 1 PAN, 2 FREQ, 3 MASK (MixMode, в C++). */
+    val mixMode get() = masterInfo.getOrElse(8) { 0 }
     /** Идёт IMPORT (файлов осталось). */
     var importing by mutableIntStateOf(0)
 
@@ -106,7 +107,10 @@ class ScreenState {
         if (tracks[2] != 0) {
             scope = AppNative.scopeData(scopeWidth)
             if (tracks[2] == 2) masterBars = AppNative.masterBars(nowSeconds)
-            if (tracks[2] == 1) mixBars = AppNative.mixBars()
+            if (tracks[2] == 1) {
+                mixBars = AppNative.mixBars()
+                mixStereo = AppNative.mixStereo()
+            }
         }
         val dt = nowSeconds - lastFrame
         lastFrame = nowSeconds

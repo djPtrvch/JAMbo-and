@@ -128,7 +128,7 @@ fun ScopeButton(s: ScreenState, k: Int, modifier: Modifier) {
 /**
  * Скоп мастера (MasterScopeView.swift): сверху гониометр (конечный выход; точки L/R, повёрнутые на 45°, послесвечение)
  * с корреляцией под ним, ниже осциллоскоп за ~1 с (SAT белая всегда, COMP, CLIP, LIM — по кнопкам, 60 %). osc = false
- * (при MIX) — только гониометр; место ниже — для стерео по полосам и истории громкости (позже).
+ * (при MIX) — вместо осциллоскопа стерео по полосам, ниже — история громкости (MixStereoViews.kt).
  */
 @Composable
 fun MasterScope(s: ScreenState, modifier: Modifier, osc: Boolean = true) {
@@ -142,7 +142,11 @@ fun MasterScope(s: ScreenState, modifier: Modifier, osc: Boolean = true) {
         if (osc) Box(Modifier.weight(0.4f).fillMaxWidth().tile(th.panel).onSizeChanged { s.scopeWidth = maxOf(1, (it.width / density)).toInt() }) {
             Canvas(Modifier.fillMaxSize()) { drawOsc(s.scope, th) }
         }
-        else Spacer(Modifier.weight(0.4f))
+        else {
+            // При MIX на месте осциллоскопа — стерео по полосам, под ними (на месте кнопок) — история громкости.
+            BandStereoView(s, Modifier.weight(0.4f).fillMaxWidth())
+            LoudHistoryView(s, Modifier.height((2 * Side.pairHeight + Layout.gap).dp).fillMaxWidth())
+        }
     }
 }
 

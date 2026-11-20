@@ -79,9 +79,9 @@ fun LeftColumn(s: ScreenState, modifier: Modifier) {
                 ButtonPair { MasterButton(s, 1, Modifier.weight(1f)); MasterButton(s, 2, Modifier.weight(1f)) }
                 ButtonPair { MasterButton(s, 0, Modifier.weight(1f)); MasterButton(s, 3, Modifier.weight(1f)) }
             } else {
-                // Вид полос MIX: LEVEL, PAN / MASK, FREQ (MASK и FREQ — с анализом спектров, позже).
+                // Вид полос MIX: LEVEL, PAN / MASK, FREQ.
                 ButtonPair { MixModeButton(s, "LEVEL", 0, Modifier.weight(1f)); MixModeButton(s, "PAN", 1, Modifier.weight(1f)) }
-                ButtonPair { SideButton("MASK", Modifier.weight(1f), enabled = false); SideButton("FREQ", Modifier.weight(1f), enabled = false) }
+                ButtonPair { MixModeButton(s, "MASK", 3, Modifier.weight(1f)); MixModeButton(s, "FREQ", 2, Modifier.weight(1f)) }
             }
         }
     }

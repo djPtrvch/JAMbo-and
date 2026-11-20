@@ -10,22 +10,26 @@ static jfloatArray floats(JNIEnv* env, const std::vector<float>& v) {
     return a;
 }
 
-/// Мастер: [bypass SAT, COMP, CLIP, LIM, точки скопа SAT, COMP, CLIP, LIM].
+/// Мастер: [bypass SAT, COMP, CLIP, LIM, точки скопа SAT, COMP, CLIP, LIM, вид полос MIX].
 FN(jintArray, masterInfo)(JNIEnv* env, jobject) {
     std::lock_guard<std::mutex> g(jniLock());
     auto& m = jniApp();
     std::vector<jint> v;
     for (int k = 0; k < 4; k++) v.push_back(m.masterBypass(k) ? 1 : 0);
     for (int k = 0; k < 4; k++) v.push_back(m.scopeOn()[size_t(k)] ? 1 : 0);
+    v.push_back(m.mixMode());
     return jniInts(env, v);
 }
 
-/// code 1 — кнопка модуля k (с SHIFT — BYPASS), 2 — точка скопа k.
+/// code 1 — кнопка модуля k (с SHIFT — BYPASS), 2 — точка скопа k, 3 — вид полос MIX, 4 — сброс стерео по полосам, 5 — сброс истории громкости.
 FN(void, masterAct)(JNIEnv*, jobject, jint code, jint k) {
     std::lock_guard<std::mutex> g(jniLock());
     auto& m = jniApp();
     if (code == 1) m.masterButton(k);
     else if (code == 2) m.toggleScope(k);
+    else if (code == 3) m.setMixMode(k);
+    else if (code == 4) m.resetBandStereo();
+    else if (code == 5) m.resetLoudHistory();
 }
 
 /// Индикация (каждый кадр при MST): по блоку COMP, CLIP, LIM — [IN dB, OUT dB, GR dB, IN красный, OUT красный,
@@ -86,7 +90,7 @@ FN(jfloatArray, scopeData)(JNIEnv* env, jobject, jint width) {
 }
 
 /// Обзор MIX (каждый кадр при MIX): [дорожек n, по дорожке L, R, холд L, холд R (доли шкалы −60…0 dBFS), перегруз,
-/// слышна, линейные L и R (PAN)].
+/// слышна, линейные L и R (PAN), LOUD (доля), FREQ: низ, верх, пик (−1 — тишина), мешающая, 30 сил MASK, 30 «заглушают»].
 FN(jfloatArray, mixBars)(JNIEnv* env, jobject) {
     std::lock_guard<std::mutex> g(jniLock());
     auto& m = jniApp();
@@ -101,6 +105,38 @@ FN(jfloatArray, mixBars)(JNIEnv* env, jobject) {
                            m.project().audible(t) ? 1.f : 0.f});
         v.push_back(l);
         v.push_back(r);
+        const auto& an = m.mixAnalysis();
+        v.push_back(frac(an.loud(t)));
+        const auto sp = an.span(t);
+        v.insert(v.end(), {sp ? sp->lo : -1.f, sp ? sp->hi : -1.f, sp ? sp->peak : -1.f});
+        const auto mk = an.mask(t);
+        v.push_back(float(mk.who));
+        v.insert(v.end(), mk.strength.begin(), mk.strength.end());
+        for (bool b : mk.buried) v.push_back(b ? 1.f : 0.f);
+    }
+    return floats(env, v);
+}
+
+/// Справа при MIX: [по полосе LOW, MID, HIGH: есть сигнал, корреляция, ширина %; short-term, интегральная (LUFS, −999 —
+/// нет), PLR (−999 — нет), LRA (−1 — нет), 300 значений short-term от старых к новым (−999 — тишина)].
+FN(jfloatArray, mixStereo)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(jniLock());
+    auto& m = jniApp();
+    const auto& b = m.bandStereo();
+    std::vector<float> v;
+    for (size_t k = 0; k < 3; k++) v.insert(v.end(), {b.live[k] ? 1.f : 0.f, b.corr[k], b.width[k]});
+    const auto& h = m.loudHistory();
+    float st = -INFINITY, in = -INFINITY;
+    if (const auto* lv = m.levelsNow()) {
+        st = lv->mixLoudness.shortTerm.load();
+        in = lv->mixLoudness.integrated.load();
+    }
+    auto fin = [](float x) { return std::isfinite(x) ? x : -999.f; };
+    const float plr = h.peak > 0 && std::isfinite(in) ? 20 * std::log10(h.peak) - in : -999.f;
+    v.insert(v.end(), {fin(st), fin(in), plr, float(h.lra)});
+    for (int k = 0; k < jambo::LoudHistory::points; k++) {
+        const float x = h.values[size_t((h.head + k) % jambo::LoudHistory::points)];
+        v.push_back(std::isfinite(x) && x > -70 ? x : -999.f);
     }
     return floats(env, v);
 }

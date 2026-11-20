@@ -158,14 +158,17 @@ object AppNative {
 
     /** Мастер (jni_master.cpp): [bypass SAT, COMP, CLIP, LIM, точки скопа SAT, COMP, CLIP, LIM]. */
     external fun masterInfo(): IntArray
-    /** code 1 — кнопка модуля k (с SHIFT — BYPASS), 2 — точка скопа k. */
+    /** code 1 — кнопка модуля k (с SHIFT — BYPASS), 2 — точка скопа k, 3 — вид полос MIX. */
     external fun masterAct(code: Int, k: Int)
     /** По блоку COMP, CLIP, LIM: [IN dB, OUT dB, GR dB, IN красный, OUT красный, bypass, риска dB]. */
     external fun masterBars(now: Double): FloatArray
     /** [корреляция (−9 — тишина), n, n пар side, mid, по точке 0…3: w, w мин., w макс.]. */
     external fun scopeData(width: Int): FloatArray
-    /** Обзор MIX: [n, по дорожке L, R, холд L, холд R (доли), перегруз, слышна, линейные L, R]. */
+    /** Обзор MIX: [n, по дорожке (73): L, R, холд L, холд R (доли), перегруз, слышна, линейные L, R, LOUD, FREQ низ,
+     *  верх, пик (−1 — тишина), мешающая, 30 сил MASK, 30 «заглушают»]. */
     external fun mixBars(): FloatArray
+    /** Справа при MIX: [3 × (сигнал, корреляция, ширина %), short-term, интегральная, PLR, LRA, 300 short-term]. */
+    external fun mixStereo(): FloatArray
     fun act(code: Int, a: Int = 0, b: Int = 0) = act(code, a, b, 0.0)
 
     /** [ревизия, ход открытого клипа, маска мигания, мигание доли, акцент, игра]. */

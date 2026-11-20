@@ -16,9 +16,12 @@ void App::tickMasterMeters(double now) {
             if (on[size_t(k)]) mask |= 1L << k;
         sc.mask.store(mask);
         scope_.tick(sc, on);
+        if (channel_ == Channel::mix) bandStereo_.tick(sc);
     } else if (sc.mask.load() != 0) {
         sc.mask.store(0);
     }
+    tickMixAnalysis();
+    if (Levels* lv = audio_->levels()) loudHist_.tick(lv->mixLoudness, meters_.framePeak(Levels::master), playing_, now);
     if (channel_ != Channel::master) return;
     masterMeters_.comp.tick(m->compTele, project_.cmpBypass, now);
     masterMeters_.clip.tick(m->clipTele, project_.clipBypass, now);
@@ -48,6 +51,35 @@ void App::toggleMasterBypass(int m) {
 void App::masterButton(int m) {
     if (m < 0 || m > 3 || channel_ != Channel::master) return;
     if (shiftHeld_) toggleMasterBypass(m);
+}
+
+void App::resetLoudHistory() {
+    loudHist_.reset();
+    if (Levels* lv = audio_->levels()) lv->mixLoudness.resetRequests.store(lv->mixLoudness.resetRequests.load() + 1);
+    if (channel_ != Channel::track) resetLoudness();
+}
+
+void App::setMixMode(int m) {
+    if (m < 0 || m > 3 || m == mixMode_) return;
+    mixMode_ = m;
+    bump();
+}
+
+/// FREQ, MASK и LOUD — только пока видны (MIX, не PAN).
+void App::tickMixAnalysis() {
+    Levels* lv = audio_->levels();
+    if (!lv) return;
+    TrackTaps& taps = lv->trackTaps;
+    if (channel_ == Channel::mix && mixMode_ != 1) {
+        if (taps.on.load() == 0) taps.on.store(1);
+        const int n = std::min(TrackTaps::tracks, int(project_.tracks.size()));
+        std::vector<bool> aud;
+        for (int t = 0; t < n; t++) aud.push_back(project_.audible(t));
+        mixAn_.tick(taps, n, aud, mixMode_ == 3);
+    } else if (taps.on.load() != 0) {
+        taps.on.store(0);
+        mixAn_.reset();
+    }
 }
 
 void App::toggleScope(int k) {
