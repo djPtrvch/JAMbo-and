@@ -25,7 +25,7 @@ class ScreenState {
     var knobTexts by mutableStateOf(Array(32) { "" }); private set
     var keys by mutableStateOf(IntArray(2)); private set
     var keyLabels by mutableStateOf(emptyArray<String>()); private set
-    var piano by mutableStateOf(IntArray(10)); private set
+    var piano by mutableStateOf(IntArray(11)); private set
     var projects by mutableStateOf(IntArray(3)); private set
     var projectRows by mutableStateOf(arrayOf("")); private set
     var settings by mutableStateOf(IntArray(5)); private set

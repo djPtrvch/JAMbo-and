@@ -454,13 +454,14 @@ FN(jobjectArray, keyLabels)(JNIEnv* env, jobject) {
 }
 
 /// Клавиатура и CHORD: [CHORD вкл., тип аккорда, октав (1, 2), VELOCITY, OVERDUB, гамма, корневая нота, SWING·10,
-/// SWING от·10, до·10].
+/// SWING от·10, до·10, клавиш одной октавы (по ним — колонки экрана)].
 FN(jintArray, piano)(JNIEnv* env, jobject) {
     std::lock_guard<std::mutex> g(gLock);
     auto& m = app();
     return ints(env, {m.chordOn(), m.chordKind(), m.pianoOctaves(), m.velocity(), m.overdub(), m.project().scale,
                       m.project().root, jint(std::lround(m.trackSwing() * 10)),
-                      jint(std::lround(jambo::Params::swing().min * 10)), jint(std::lround(jambo::Params::swing().max * 10))});
+                      jint(std::lround(jambo::Params::swing().min * 10)), jint(std::lround(jambo::Params::swing().max * 10)),
+                      jambo::Scales::keyCount(m.project().scale, 1)});
 }
 
 /// Подписи меню клавиатуры: [тип аккорда, SWING].
