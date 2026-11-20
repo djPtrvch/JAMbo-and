@@ -138,13 +138,14 @@ fun ScopeButton(s: ScreenState, k: Int, modifier: Modifier) {
 @Composable
 fun MasterScope(s: ScreenState, modifier: Modifier, osc: Boolean = true) {
     val th = LocalTheme.current
+    val dens = androidx.compose.ui.platform.LocalDensity.current.density
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(Modifier.weight(0.6f).fillMaxWidth().tile(th.panel)) {
             val text = rememberTextMeasurer()
             val dim = TextStyle(color = th.dim, fontSize = 9.tsp())
             Canvas(Modifier.fillMaxSize()) { drawGonio(s.scope, th, text, dim) }
         }
-        if (osc) Box(Modifier.weight(0.4f).fillMaxWidth().tile(th.panel).onSizeChanged { s.scopeWidth = maxOf(1, (it.width / density)).toInt() }) {
+        if (osc) Box(Modifier.weight(0.4f).fillMaxWidth().tile(th.panel).onSizeChanged { s.scopeWidth = maxOf(1, (it.width / dens).toInt()) }) {
             Canvas(Modifier.fillMaxSize()) { drawOsc(s.scope, th) }
         }
         else {
