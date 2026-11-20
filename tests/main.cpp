@@ -38,6 +38,8 @@ int runEqCoreTests();
 int runArrangeTests();
 
 int main() {
+    // Построчно: в логе CI видно, на каком тесте остановились.
+    std::setvbuf(stdout, nullptr, _IOLBF, 0);
     int fails = 0, total = 0;
     std::printf("%-28s %10s %10s %10s  %s\n", "case", "sample dB", "band dB", "rms dBFS", "result");
     std::vector<golden::Result> all = runFx();
