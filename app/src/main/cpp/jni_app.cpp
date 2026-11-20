@@ -41,6 +41,7 @@ enum Act {
     setSource = 85, knobFinger, assignSource, assignStart, setAssign,
     openSoundMenu = 90, closeSoundMenu, pickSynth, cleanSampler, stepSoundToTrack, folderArrow,
     tick = 100,
+    pagePress = 120, pageRelease, setShift, knobShiftTap, setLatched,
     openPage = 110, addPage, playPages, movePage, pageAction, pageArrow, setClipRate,
 };
 
@@ -110,6 +111,11 @@ FN(jdouble, act)(JNIEnv*, jobject, jint code, jint a, jint b, jdouble x) {
     case stepSoundToTrack: m.stepSoundToTrack(); break;
     case folderArrow: m.folderArrow(a); break;
     case tick: m.tick(x); break;
+    case pagePress: m.pagePress(jambo::App::GridPage(a)); break;
+    case pageRelease: m.pageRelease(jambo::App::GridPage(a)); break;
+    case setShift: m.setShift(a != 0); break;
+    case knobShiftTap: return m.knobShiftTap(a, b != 0) ? 1 : 0;
+    case setLatched: m.setLatched(a != 0, b != 0); break;
     case openPage: m.openPage(a); break;
     case addPage: m.addPage(); break;
     case playPages: m.playPages(a, b); break;
@@ -419,3 +425,12 @@ FN(jintArray, clipRates)(JNIEnv* env, jobject) {
 }
 
 FN(jobjectArray, clipRateNames)(JNIEnv* env, jobject) { return strings(env, jambo::Clip::rateNames()); }
+
+/// Кнопки правой колонки: [FX зажата, MOD зажата, FX toggle, MOD toggle, SHIFT, ручки FX, ручки MOD].
+FN(jintArray, side)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    using P = jambo::App::GridPage;
+    return ints(env, {m.pageOn(P::fx), m.pageOn(P::mod), m.latched(P::fx), m.latched(P::mod), m.shiftHeld(), m.fxMode(),
+                      m.modMode()});
+}

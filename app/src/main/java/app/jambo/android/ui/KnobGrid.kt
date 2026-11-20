@@ -45,6 +45,8 @@ private class KnobTurn(val slot: Int, val startY: Float, var lastY: Float, var a
     var consumed = false
     /** Назначение источника (1–4): накопитель — степень −1…+1. */
     var lfo = 0
+    /** SHIFT + касание: при отпускании — тап (Filter — тип, Dly Time и Speed LFO — по темпу / свободно…). */
+    var shiftTap = false
 }
 
 private class KnobTouches(val s: ScreenState) {
@@ -53,15 +55,22 @@ private class KnobTouches(val s: ScreenState) {
 
     fun down(id: PointerId, slot: Int, y: Float, now: Long) {
         val turn = KnobTurn(slot, y, y, s.act(Act.KNOB_START, slot))
+        val shift = s.side[4] != 0
+        val mix = s.tracks[2] == 1
         val t = lastTap[slot]
         if (t != null && now - t < 350) {
             lastTap.remove(slot)
+            // SHIFT + двойной тап снимает все p-lock: режим, переключённый первым тапом, — обратно.
+            if (shift) s.act(Act.KNOB_SHIFT_TAP, slot, 1)
             // С зажатым LFO/ENV — снять назначение этого источника.
             s.act(Act.KNOB_DOUBLE_TAP, slot)
             turn.consumed = true
         } else {
             lastTap[slot] = now
+            if (shift && !mix) turn.shiftTap = true
         }
+        // С зажатой SHIFT ручки не крутятся.
+        if (shift) turn.consumed = true
         // Удерживаемый LFO/ENV (без зажатого шага) — степень назначения −1…+1.
         val src = s.act(Act.ASSIGN_SOURCE, slot).toInt()
         if (src > 0) {
@@ -79,6 +88,7 @@ private class KnobTouches(val s: ScreenState) {
         if (!t.moved) {
             if (abs(y - t.startY) < DEAD) return
             t.moved = true
+            t.shiftTap = false
             t.lastY = y
             return
         }
@@ -95,6 +105,7 @@ private class KnobTouches(val s: ScreenState) {
 
     fun up(id: PointerId) {
         val turn = turns.remove(id) ?: return
+        if (turn.shiftTap) s.act(Act.KNOB_SHIFT_TAP, turn.slot, 0)
         if (turns.values.none { it.slot == turn.slot }) s.act(Act.KNOB_FINGER, turn.slot, 0)
         s.act(Act.END_GESTURE)
     }

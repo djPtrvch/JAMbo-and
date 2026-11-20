@@ -27,6 +27,7 @@ class ScreenState {
     var keyLabels by mutableStateOf(emptyArray<String>()); private set
     var sound by mutableStateOf(IntArray(6)); private set
     var pages by mutableStateOf(IntArray(7)); private set
+    var side by mutableStateOf(IntArray(7)); private set
     /** Меню страницы: номер страницы (−1 — закрыто) и низ её миниатюры в колонке. */
     var pageMenu by mutableIntStateOf(-1)
     var pageMenuY by mutableStateOf(0f)
@@ -75,6 +76,7 @@ class ScreenState {
         AppNative.knobTexts().let { if (!it.contentEquals(knobTexts)) knobTexts = it }
         AppNative.keys().let { if (!it.contentEquals(keys)) keys = it }
         AppNative.keyLabels().let { if (!it.contentEquals(keyLabels)) keyLabels = it }
+        AppNative.side().let { if (!it.contentEquals(side)) side = it }
         AppNative.pages().let { if (!it.contentEquals(pages)) pages = it }
         AppNative.sound().let { if (!it.contentEquals(sound)) sound = it }
         AppNative.iconValues().let { if (!it.contentEquals(iconValues)) iconValues = it }

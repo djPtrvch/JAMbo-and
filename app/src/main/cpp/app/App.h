@@ -175,6 +175,24 @@ public:
     /// Источники, назначенные на ручки, которые держит палец (обводка их кнопок).
     std::set<int> fingerSources() const;
 
+    // FX и MOD (удержание или toggle), SHIFT
+    enum class GridPage { fx, mod };
+    /// Ручки показывают FX / MOD: зажата кнопка на дорожке (из FX и MOD — нажатая последней).
+    bool fxMode() const;
+    bool modMode() const;
+    bool pageOn(GridPage p) const { return p == GridPage::fx ? fxHeld_ : modHeld_; }
+    bool latched(GridPage p) const { return p == GridPage::fx ? latchFx_ : latchMod_; }
+    /// Режим toggle (настройки браузера — их хранит экран).
+    void setLatched(bool fx, bool mod);
+    /// Нажатие FX или MOD: SHIFT + нажатие — режим toggle кнопки (и обратно); в toggle — вкл./выкл.; иначе удержание.
+    void pagePress(GridPage p);
+    void pageRelease(GridPage p);
+    bool shiftHeld() const { return shiftHeld_; }
+    void setShift(bool on);
+    /// SHIFT + тап по ручке: Dly Time и Speed LFO — по темпу / свободно, RATE, Filter — тип, ANALOG — модуляция,
+    /// октава B, режим (undo — второй тап двойного: отменить первый); true — обработан.
+    bool knobShiftTap(int slot, bool undo = false);
+
     // Клавиатура
     int octave() const;
     int keyCount() const;
@@ -225,8 +243,31 @@ private:
     int lastSource_ = 0;
     std::optional<std::pair<int, double>> lastSourceTap_;
     std::optional<int> heldSource() const;
-    /// Назначения ставятся на ручки дорожки (FX — позже; не на MOD, MIX, MST).
-    bool canAssign() const { return channel_ == Channel::track; }
+    bool fxHeld_ = false, modHeld_ = false, latchFx_ = false, latchMod_ = false, shiftHeld_ = false;
+    GridPage lastPage_ = GridPage::fx;
+    /// Клип-лидер (гамма, нота и общие FX — его; запуск клипов — с сеткой паттернов).
+    int lead_ = 0;
+    /// Параметры, которые строятся по проекту (SC Source с именами дорожек, Speed LFO по темпу) — по слоту.
+    mutable std::array<ParamDef, 16> dynParams_;
+    void setPageHeld(GridPage p, bool on);
+    const ParamDef& fxParam(int slot) const;
+    const ParamDef& modParam(int slot) const;
+    /// Значение ручки без p-lock: FX клипа, иначе ручка дорожки.
+    double baseValue(const ParamDef& p) const;
+    void setFx(const ParamDef& p, double v);
+    /// Общие FX (Duck) — в клип лидера; гамма и нота — в активные клипы играющих (AppModel.writeLead).
+    void writeLead(Project& p) const;
+    bool delaySynced() const;
+    bool lfoSynced(int l) const;
+    int lfoSpeedIndex(int slot) const;
+    bool rateStretch() const;
+    int filterType() const;
+    void filterShiftTap(bool undo);
+    bool analogShiftTap(const std::string& id, bool undo);
+    /// Двойной тап без шага: к значению по умолчанию (свои значения по умолчанию — позже).
+    void resetKnob(int slot);
+    /// Назначения ставятся на ручки дорожки и FX (не на MOD, MIX, MST).
+    bool canAssign() const { return channel_ == Channel::track && !modMode(); }
     void sourceTapped(int s, double now);
     std::pair<double, double> sourceRange(const ModAssign& a) const;
     double modSource(int t, int lfo) const;

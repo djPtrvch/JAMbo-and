@@ -1,6 +1,6 @@
 // App: источники LFO1–3 и ENV — назначение на ручки дорожки (порт части AppModelMod.swift и KnobGrid.swift, ветка
 // swift JAMbo). Удерживать источник и вращать ручку — степень −100…+100 %; на ручку — один источник; снять —
-// удерживать тот же источник и дважды тапнуть по ручке. FX, MOD и MORPH — с правой колонкой.
+// удерживать тот же источник и дважды тапнуть по ручке. MORPH — позже.
 #include "App.h"
 #include <algorithm>
 
@@ -53,7 +53,7 @@ std::optional<ModAssign> App::assign(int slot) const {
     if (!canAssign()) return std::nullopt;
     const ParamDef* p = param(slot);
     if (!p) return std::nullopt;
-    const auto& as = track().assigns;
+    const auto& as = fxMode() ? project_.fxAssigns : track().assigns;
     const auto it = as.find(p->id);
     if (it == as.end()) return std::nullopt;
     return it->second;
@@ -63,8 +63,15 @@ void App::setAssign(int slot, int lfo, double amount) {
     if (!canAssign()) return;
     const ParamDef* p = param(slot);
     if (!p) return;
-    const ModAssign a(lfo, std::min(1.0, std::max(-1.0, amount)));
+    const double am = std::min(1.0, std::max(-1.0, amount));
     const std::string id = p->id;
+    if (fxMode()) {
+        // FX — общий: источник — LFO/ENV дорожки, выбранной при назначении.
+        const ModAssign a(lfo, am, selected_);
+        edit([&](Project& pr) { pr.fxAssigns[id] = a; });
+        return;
+    }
+    const ModAssign a(lfo, am);
     editTrack([&](Track& t) { t.assigns[id] = a; });
 }
 
@@ -72,10 +79,15 @@ void App::clearAssign(int slot, int lfo) {
     if (!canAssign()) return;
     const ParamDef* p = param(slot);
     if (!p) return;
-    const auto& as = track().assigns;
-    const auto it = as.find(p->id);
-    if (it == as.end() || it->second.lfo != lfo) return;
     const std::string id = p->id;
+    if (fxMode()) {
+        const auto it = project_.fxAssigns.find(id);
+        if (it != project_.fxAssigns.end() && it->second.lfo == lfo) edit([&](Project& pr) { pr.fxAssigns.erase(id); });
+        return;
+    }
+    const auto& as = track().assigns;
+    const auto it = as.find(id);
+    if (it == as.end() || it->second.lfo != lfo) return;
     editTrack([&](Track& t) { t.assigns.erase(id); });
 }
 

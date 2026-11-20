@@ -1,7 +1,9 @@
 // App: шаги, ручки с p-lock, клавиатура (порт AppModelEdits.swift, AppModelPiano.swift, части AppModelSound.swift,
 // ветка swift JAMbo). Без MORPH, FX/MOD, LFO/ENV, кривых аранжировки, CHORD и записи с REC — позже.
 #include "App.h"
+#include "model/AnalogMod.h"
 #include "model/FilterType.h"
+#include "model/SynthEngines.h"
 #include "model/Scales.h"
 #include <algorithm>
 
@@ -118,15 +120,15 @@ const ParamDef* App::param(int slot) const {
     if (slot < 0 || slot >= 16) return nullptr;
     switch (channel_) {
     case Channel::track: {
+        if (modMode()) return &modParam(slot);
+        if (fxMode()) return &fxParam(slot);
         const ParamDef& p = Params::grid(track().sample)[size_t(slot)];
+        if (p.id == "rate" && rateStretch()) return &Params::rateTstr();
+        if (p.id == "filter") return &Params::filterDef(filterType());
         if (p.id.empty()) return nullptr;
-        if (p.id == "filter") {
-            const auto& pm = track().params;
-            const auto it = pm.find(Params::filterTypeId);
-            const int type = FilterType::effective(it == pm.end() ? FilterType::of(nullptr) : FilterType::of(it->second),
-                                                   track().sample);
-            return &Params::filterDef(type);
-        }
+        // ANALOG: AMOUNT вместо DETUNE при модуляции, WAVE B с «−1» при октаве ниже.
+        const int e = SynthKey::engine(track().sample);
+        if (e >= 0) return &AnalogMod::knob(p, e, track().params);
         return &p;
     }
     case Channel::mix:
@@ -173,9 +175,7 @@ KnobState App::knobState(int slot) const {
         const auto it = project_.master.find(p->id);
         base = it == project_.master.end() ? p->def : it->second;
     } else {
-        const auto& pm = track().params;
-        const auto it = pm.find(p->id);
-        if (it != pm.end()) base = it->second;
+        base = baseValue(*p);
         lock = lockOf(track());
         st.col4 = slot / 4 == 3;
     }
@@ -215,9 +215,7 @@ double App::knobStart(int slot) const {
         return p->toNorm(it == project_.master.end() ? p->def : it->second);
     }
     if (auto v = heldLock(track())) return p->toNorm(*v);
-    const auto& pm = track().params;
-    const auto it = pm.find(p->id);
-    return p->toNorm(it == pm.end() ? p->def : it->second);
+    return p->toNorm(baseValue(*p));
 }
 
 void App::setKnob(int slot, double norm) {
@@ -239,7 +237,9 @@ void App::setKnob(int slot, double norm) {
         edit([&](Project& pr) { pr.master[id] = v; });
         return;
     }
-    if (held_.empty()) {
+    if (held_.empty() && fxMode()) {
+        setFx(*p, v);
+    } else if (held_.empty()) {
         const int i = selected_;
         edit([&](Project& pr) { pr.tracks[size_t(i)].params[id] = v; });
     } else {
@@ -249,28 +249,33 @@ void App::setKnob(int slot, double norm) {
     }
 }
 
-/// Двойной тап: с зажатым шагом — снять p-lock; без — значение по умолчанию (свои значения по умолчанию — позже).
+/// Двойной тап: с зажатым шагом — снять p-lock; с SHIFT — снять все p-lock дорожки; без — значение по умолчанию
+/// (свои значения по умолчанию — позже).
 void App::knobDoubleTap(int slot) {
-    const ParamDef* p = param(slot);
-    if (!p) return;
-    const std::string id = p->id;
-    const double def = p->def;
     if (channel_ == Channel::mix) {
-        if (held_.empty()) return;  // меню дорожки — позже
+        const ParamDef* p = param(slot);
+        if (!p || held_.empty()) return;  // меню дорожки — позже
+        const std::string id = p->id;
         for (int i : held_) used_.insert(i);
         const auto held = held_;
         editSeq([&](Track& t) { for (int i : held) t.clearLock(i, id); });
         return;
     }
-    if (channel_ == Channel::master) {
-        edit([&](Project& pr) { pr.master[id] = def; });
+    if (channel_ == Channel::master && !shiftHeld_) {
+        resetKnob(slot);
+        return;
+    }
+    const ParamDef* p = param(slot);
+    if (!p || channel_ != Channel::track) return;
+    if (shiftHeld_) {
+        editTrack([](Track& t) { t.clearAllLocks(); });
         return;
     }
     if (held_.empty()) {
-        const int i = selected_;
-        edit([&](Project& pr) { pr.tracks[size_t(i)].params[id] = def; });
+        resetKnob(slot);
         return;
     }
+    const std::string id = p->id;
     for (int i : held_) used_.insert(i);
     const auto held = held_;
     editTrack([&](Track& t) { for (int i : held) t.clearLock(i, id); });

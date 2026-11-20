@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -26,7 +27,7 @@ import app.jambo.android.PageAct
 
 /**
  * Правая колонка (SideColumns.swift ветки swift JAMbo): у дорожки — стрелки страниц ◀ ▶ ▲ ▼, миниатюры страниц, FX и
- * MOD, SHIFT и MORPH (FX, MOD, SHIFT, MORPH — следующей вехой, пока серые). MIX и MST (скоп мастера) — позже.
+ * MOD, SHIFT и MORPH (MORPH — позже, серая). MIX и MST (скоп мастера) — позже.
  * onPages — место колонки миниатюр (меню страницы встаёт под миниатюрой).
  */
 @Composable
@@ -44,10 +45,29 @@ fun RightColumn(s: ScreenState, modifier: Modifier, onPages: (LayoutCoordinates)
                 PageArrows(s, Modifier.height(bar.dp))
                 PagesColumn(s, Modifier.weight(1f).fillMaxWidth().onGloballyPositioned(onPages))
             }
-            ButtonPair { SideButton("FX", Modifier.weight(1f), enabled = false); SideButton("MOD", Modifier.weight(1f), enabled = false) }
-            ButtonPair { SideButton("SHIFT", Modifier.weight(1f), enabled = false); SideButton("MORPH", Modifier.weight(1f), enabled = false) }
+            // FX слева, MOD справа.
+            ButtonPair { PageButton(s, "FX", 0, Modifier.weight(1f)); PageButton(s, "MOD", 1, Modifier.weight(1f)) }
+            ButtonPair {
+                HoldButton("SHIFT", s.side[4] != 0, Modifier.weight(1f)) { on -> s.act(Act.SET_SHIFT, if (on) 1 else 0) }
+                SideButton("MORPH", Modifier.weight(1f), enabled = false)
+            }
         }
     }
+}
+
+/** FX и MOD: удержание или (SHIFT + нажатие) режим toggle — тогда внутри вторая чёрная линия контура. */
+@Composable
+private fun PageButton(s: ScreenState, title: String, page: Int, modifier: Modifier) {
+    val latch = s.side[2 + page] != 0
+    val line = if (latch) androidx.compose.ui.graphics.Color.Black else androidx.compose.ui.graphics.Color.Transparent
+    HoldButton(title, s.side[page] != 0, modifier.drawWithContent {
+        drawContent()
+        val i = 3.dp.toPx()
+        drawRoundRect(line, androidx.compose.ui.geometry.Offset(i, i),
+            androidx.compose.ui.geometry.Size(size.width - 2 * i, size.height - 2 * i),
+            androidx.compose.ui.geometry.CornerRadius((Layout.radius - 3).dp.toPx()),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
+    }) { on -> s.act(if (on) Act.PAGE_PRESS else Act.PAGE_RELEASE, page) }
 }
 
 /** Стрелки страниц ◀ ▶ ▲ ▼ над миниатюрами — для открытой страницы (в белой обводке — все играющие): ◀ ▶ — шаги

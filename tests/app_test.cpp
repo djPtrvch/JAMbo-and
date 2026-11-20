@@ -215,9 +215,55 @@ void pages() {
     app.setClipRate(Clip::rates()[0]);
     check(app.clipRate() == Clip::rates()[0], "app: SPEED клипа");
 }
+void fxPages() {
+    CoreAudio a;
+    App app(&a);
+    app.openSoundMenu();
+    app.pickSynth(17);
+    // FX — удержание: ручки — общие эффекты; поворот — FX клипа дорожки.
+    app.pagePress(App::GridPage::fx);
+    check(app.fxMode() && app.knobState(0).param && app.knobState(0).param->id.rfind("rev.", 0) == 0, "app: FX — ручки эффектов");
+    app.setKnob(0, 0.9);
+    check(std::abs(app.project().fxValue(0, app.knobState(0).param->id) - app.knobState(0).param->fromNorm(0.9)) < 1e-9,
+          "app: FX — поворот меняет эффект");
+    // LFO на ручку FX — назначение в fxAssigns с дорожкой-источником.
+    app.setSource(1, true, 0);
+    app.setAssign(0, 1, 0.3);
+    app.setSource(1, false, 0.1);
+    const std::string id0 = app.knobState(0).param->id;
+    check(app.project().fxAssigns.count(id0) && app.project().fxAssigns.at(id0).track == 0, "app: LFO на ручку FX");
+    app.pageRelease(App::GridPage::fx);
+    check(!app.fxMode() && app.knobState(0).param->id == "harm", "app: отпустили FX — ручки дорожки");
+    // SHIFT + нажатие MOD — режим toggle; тап — вкл., ещё тап — выкл.
+    app.setShift(true);
+    app.pagePress(App::GridPage::mod);
+    app.setShift(false);
+    check(app.latched(App::GridPage::mod) && !app.modMode(), "app: SHIFT + MOD — toggle");
+    app.pagePress(App::GridPage::mod);
+    app.pageRelease(App::GridPage::mod);
+    check(app.modMode() && !app.knobState(0).assign, "app: MOD включён тапом, назначений нет");
+    app.pagePress(App::GridPage::mod);
+    check(!app.modMode(), "app: MOD выключен тапом");
+    // SHIFT + тап по Filter — следующий тип; SHIFT + двойной тап — снять все p-lock.
+    int fs = 0;
+    for (int k = 0; k < 16; ++k)
+        if (app.knobState(k).param && app.knobState(k).param->id == "filter") fs = k;
+    const ParamDef* f0 = app.knobState(fs).param;
+    check(app.knobShiftTap(fs) && app.knobState(fs).param != f0, "app: SHIFT + тап по Filter — тип");
+    app.toggleStep(0);
+    app.holdStep(0, true);
+    app.setKnob(1, 0.2);
+    app.holdStep(0, false);
+    check(!app.project().tracks[0].step(0)->locks.empty(), "app: p-lock поставлен");
+    app.setShift(true);
+    app.knobDoubleTap(1);
+    app.setShift(false);
+    check(app.project().tracks[0].step(0)->locks.empty(), "app: SHIFT + двойной тап — все p-lock сняты");
+}
 }  // namespace
 
 int runAppTests() {
+    fxPages();
     pages();
     mod();
     sound();

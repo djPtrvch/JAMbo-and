@@ -21,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -46,6 +48,16 @@ fun MainScreen(onMenu: () -> Unit) {
     val s = remember { ScreenState() }
     LaunchedEffect(Unit) {
         while (true) withFrameNanos { s.frame(it / 1e9) }
+    }
+    // Режим toggle FX и MOD — в настройках устройства, общий для проектов.
+    val ctx = LocalContext.current
+    LaunchedEffect(Unit) {
+        val prefs = ctx.getSharedPreferences("jambo", 0)
+        s.act(AppNative.Act.SET_LATCHED, if (prefs.getBoolean("latchFx", false)) 1 else 0,
+            if (prefs.getBoolean("latchMod", false)) 1 else 0)
+        snapshotFlow { Pair(s.side[2] != 0, s.side[3] != 0) }.collect { (fx, mod) ->
+            prefs.edit().putBoolean("latchFx", fx).putBoolean("latchMod", mod).apply()
+        }
     }
     // Фон темы — и под вырезом камеры; раскладка — внутри безопасной зоны.
     BoxWithConstraints(Modifier.fillMaxSize().background(th.bg).windowInsetsPadding(WindowInsets.displayCutout)) {

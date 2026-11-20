@@ -42,6 +42,11 @@ object AppNative {
         const val STEP_SOUND_TO_TRACK = 94
         const val FOLDER_ARROW = 95
         const val TICK = 100
+        const val PAGE_PRESS = 120
+        const val PAGE_RELEASE = 121
+        const val SET_SHIFT = 122
+        const val KNOB_SHIFT_TAP = 123
+        const val SET_LATCHED = 124
         const val OPEN_PAGE = 110
         const val ADD_PAGE = 111
         const val PLAY_PAGES = 112
@@ -93,6 +98,8 @@ object AppNative {
     /** Миниатюры: [страниц, играют от, до, открыты от, до, скорость клипа, есть копия, по странице: duplicate, 16 ячеек]. */
     external fun pages(): IntArray
     external fun clipRates(): IntArray
+    /** Кнопки правой колонки: [FX зажата, MOD зажата, FX toggle, MOD toggle, SHIFT, ручки FX, ручки MOD]. */
+    external fun side(): IntArray
     external fun clipRateNames(): Array<String>
     /** Короткие имена движков по номеру. */
     external fun engineNames(): Array<String>
