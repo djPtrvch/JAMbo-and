@@ -76,7 +76,7 @@ fun TopBar(s: ScreenState, onMenu: () -> Unit) {
         Later("EQ", Modifier.width(side))
         // PATTERNS и ARRANGE — ровно над правой колонкой, затем место измерителя.
         Row(Modifier.width(rightColumn()).fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-            Later("PATTERNS", Modifier.weight(1f))
+            Toggle("PATTERNS", s.grid[0] != 0, Modifier.weight(1f)) { s.act(Act.TOGGLE_PATTERNS) }
             Later("ARRANGE", Modifier.weight(1f))
         }
         Spacer(Modifier.width(Layout.meterWidth.dp))
@@ -134,6 +134,15 @@ private fun DragField(
 /** Пикселей на dp (плотность раскладки). */
 @Composable
 private fun density(): Float = androidx.compose.ui.platform.LocalDensity.current.density
+
+/** Кнопка окна (PATTERNS): горит, пока открыто. */
+@Composable
+private fun Toggle(title: String, on: Boolean, modifier: Modifier, action: () -> Unit) {
+    val th = LocalTheme.current
+    Box(modifier.fillMaxHeight().tile(if (on) th.text else th.panel2).pointerTap(action), contentAlignment = Alignment.Center) {
+        Text(title, color = if (on) th.bg else th.text, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+    }
+}
 
 /** Кнопка следующих этапов: подпись серая, не нажимается. */
 @Composable

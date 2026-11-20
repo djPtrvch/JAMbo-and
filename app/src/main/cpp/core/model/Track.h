@@ -230,6 +230,14 @@ struct Track {
     bool clipFilled(int k) const { return k >= 0 && k < int(clips.size()) && clips[size_t(k)].has_value(); }
     /// Клип с пустым паттерном (одна пустая страница) в ячейку k.
     void putEmptyClip(int k, std::optional<int> scale, std::optional<int> root);
+    /// Копия клипа k: у клипа со своим звуком — его звук сейчас (у активного правки ещё в звуке дорожки).
+    std::optional<Clip> clipCopy(int k) const;
+    /// Играющие страницы клипа k.
+    std::optional<PageRange> clipRange(int k) const;
+    /// Клип в ячейку k (вместо прежнего) — независимая копия.
+    void setClip(int k, const std::optional<Clip>& c);
+    /// DELETE клипа: одна пустая страница (16 шагов, скорость ×1); гамма, нота, FX и свой звук клипа остаются.
+    void clearClip(int k);
 
     // Правки страниц, шагов, p-lock, MORPH (TrackEdits.swift): TrackEdits.cpp
     /// Изменение числа страниц: при полной длине длина растёт; если играли все — играют все.

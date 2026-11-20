@@ -113,6 +113,24 @@ struct Project {
     int visibleRows() const;
     /// Пустых ячеек нет: в видимых строках у каждой дорожки клип.
     void fillRows();
+    bool canAddRow() const { return visibleRows() < rowLimit(); }
+    /// «+» под строками: COPY PLAYING — копии клипов играющих (и слышимых) дорожек, остальным — пустые паттерны.
+    void addRow();
+    /// DUPLICATE строки: копия встаёт под ней, строки ниже сдвигаются вниз.
+    void duplicateRow(int k);
+    /// DELETE строки: её клипы убираются, строки ниже сдвигаются вверх; дорожка, игравшая её, останавливается.
+    void deleteRow(int k);
+    /// Перенос строки a на место b (строки между сдвигаются).
+    void moveRow(int a, int b);
+    /// Скопированная строка: клипы дорожек и сцена.
+    struct RowClip {
+        std::vector<std::optional<Clip>> clips;
+        SceneRow scene;
+    };
+    RowClip copyRow(int k) const;
+    void pasteRow(int k, const RowClip& clip);
+    void setScene(int k, const std::string& name, int repeats);
+    std::string sceneName(int k) const;
     /// Слышна ли дорожка (mute / solo); номер вне дорожек — не слышна.
     bool audible(int i) const;
     /// Гамма и нота клипа k дорожки t (Transition.swift); без своих — проекта.

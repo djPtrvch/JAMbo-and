@@ -82,6 +82,8 @@ struct CoreEvent {
     static CoreEvent metronome(bool on) { auto e = make(Kind::metronome); e.on = on; return e; }
     static CoreEvent metronomeGain(float g) { auto e = make(Kind::metronomeGain); e.f = g; return e; }
     static CoreEvent launch(int t, int slot) { auto e = make(Kind::launch); e.a = t; e.b = slot; return e; }
+    /// Правка строк при игре: ход дорожек — по новому проекту.
+    static CoreEvent adoptPlay() { return make(Kind::adoptPlay); }
     static CoreEvent scene(int row, bool atPass) { auto e = make(Kind::scene); e.a = row; e.on = atPass; return e; }
     static CoreEvent arrange(bool on, int from) { auto e = make(Kind::arrange); e.on = on; e.a = from; return e; }
     static CoreEvent returnToArrange(int t) { auto e = make(Kind::returnToArrange); e.a = t; return e; }

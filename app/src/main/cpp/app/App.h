@@ -157,6 +157,8 @@ public:
     int clipRate() const;
     void setClipRate(int r);
     std::vector<ThumbCell> thumb(int page) const;
+    /// Миниатюра страницы page клипа k дорожки i (ячейка сетки паттернов).
+    std::vector<ThumbCell> clipThumb(int i, int k, int page) const;
     const Track& shownSeq() const { return seq(); }
 
     // Звук дорожки (левая колонка)
@@ -292,6 +294,48 @@ public:
     void setOctave(int o);
     /// Ноты с MIDI-входа — на выбранную дорожку (как клавиша; id — номер ноты со сдвигом).
     void midiNote(int note, int velocity);
+
+    // Сетка паттернов (AppGrid.cpp)
+    bool patternView() const { return patternView_; }
+    void togglePatterns();
+    void tapCell(int i, int k);
+    /// Удержание: пустая — только выбор; заполненная — правка без запуска.
+    void holdCell(int i, int k);
+    /// Тап по строке: при игре — с начала такта (повторный — отмена), без игры — сразу.
+    void queueScene(int k, bool atPass = false);
+    void copyClip(int i, int k);
+    void pasteClip(int i, int k);
+    bool hasClipClipboard() const { return clipClipboard_.has_value(); }
+    void deleteClip(int i, int k);
+    /// Перетаскивание: независимая копия клипа в другую ячейку.
+    void dropClip(int ai, int ak, int bi, int bk);
+    void addRow();
+    void duplicateRow(int k);
+    void moveRow(int a, int b);
+    void deleteRow(int k);
+    void copyRow(int k);
+    void pasteRow(int k);
+    bool hasRowClipboard() const { return rowClipboard_.has_value(); }
+    void setScene(int k, const std::string& name, int repeats);
+    /// Меню сетки: START FROM ROW, AT THE END, + ADDS, ▲ ▼ ARROWS; LOOP ROW (переключение).
+    enum class GridOption { start, endStop, plusCopy, arrowSwitch, rowLoop };
+    void setGridOption(GridOption o, int v);
+    /// Окно строк: 8 строк сетки, «+» — тоже строка окна; rows — строка проекта (−1 — «+» или пусто).
+    struct GridWindow {
+        std::vector<int> rows;
+        int plusRow = -1, top = 0, maxTop = 0;
+    };
+    GridWindow gridWindow() const;
+    /// ▲ (−1) / ▼ (+1): VIEW — окно на строку; SWITCH при игре — ещё и переход строки в конце прохода.
+    void gridArrow(int dir);
+    void setGridTop(int top);
+    /// Ожидание у дорожки (Launcher::none, stop или ячейка); играющая и ожидающая строки.
+    int queued(int t) const { return queued_[size_t(t)]; }
+    int sceneRow() const { return sceneRow_; }
+    int sceneQueued() const { return sceneQueued_; }
+    /// Доля прохода играющего клипа k дорожки i; проход строки: номер и доля.
+    double cellProgress(int i, int k) const;
+    std::pair<int, double> scenePass() const;
 
     // Проекты (AppProjects.cpp)
     /// Папка проектов: открыть Autosave, иначе последний проект, иначе новый (при первом запуске — firstRun).
@@ -437,6 +481,28 @@ private:
     bool beatFlash_ = false, beatAccent_ = false;
     double beatUntil_ = 0;
 
+    bool patternView_ = false;
+    int gridTop_ = 0;
+    std::optional<Clip> clipClipboard_;
+    std::optional<Project::RowClip> rowClipboard_;
+    std::array<int, Params::maxTracks> queued_ = [] {
+        std::array<int, Params::maxTracks> a{};
+        a.fill(-2);
+        return a;
+    }();
+    int sceneRow_ = -1, sceneStart_ = 0, sceneLen_ = 16, sceneQueued_ = -1;
+    std::array<int, Params::maxTracks> startOrder_{};
+    int startSeq_ = 0;
+    std::vector<int> pendingStarts_;
+    void started(int t);
+    void applyPendingLead();
+    void leadStopped(int t);
+    void applyLead(int i);
+    void queueClip(int i, int k);
+    /// Открыть клип k дорожки i для правки (без UNDO).
+    void openClip(int i, int k);
+    /// Стоп: ожидания и строки сброшены (LiveState.stopped).
+    void liveStopped();
     std::unique_ptr<ProjectStore> store_;
     ProjectSession session_;
     std::vector<ProjectInfo> projectList_;

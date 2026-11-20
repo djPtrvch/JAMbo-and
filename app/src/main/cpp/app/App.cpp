@@ -1,5 +1,6 @@
 // App: транспорт, правки и UNDO, выбор дорожки, ход игры (порт AppModel.swift и LiveState.swift, ветка swift JAMbo).
 #include "App.h"
+#include "sequencer/Launcher.h"
 #include "sequencer/SeqData.h"
 #include <algorithm>
 
@@ -17,6 +18,11 @@ void App::loadProject(const Project& p) {
     }
     history_.reset();
     endRecTake();
+    liveStopped();
+    lead_ = 0;
+    startOrder_.fill(0);
+    pendingStarts_.clear();
+    gridTop_ = 0;
     selected_ = 0;
     channel_ = Channel::track;
     viewPage_ = 0;
@@ -33,7 +39,7 @@ void App::loadProject(const Project& p) {
 void App::togglePlay() {
     playing_ = !playing_;
     endRecTake();
-    if (!playing_) trackStart_.fill(0);
+    liveStopped();
     if (playing_) {
         audio_->push(CoreEvent::arrange(false, 0));
     } else {
@@ -236,6 +242,7 @@ void App::playEvent(const SeqOut& e) {
         if (slot >= Params::patternSlots) {
             if (project_.tracks[size_t(t)].stopped != stopped)
                 mutatePlay([&](Project& p) { p.tracks[size_t(t)].stopped = stopped; }, false);
+            if (stopped) leadStopped(t); else started(t);
             return;
         }
         const bool other = project_.tracks[size_t(t)].slot != slot;
@@ -243,6 +250,7 @@ void App::playEvent(const SeqOut& e) {
             if (p.tracks[size_t(t)].slot != slot) p.tracks[size_t(t)].activate(slot);
             p.tracks[size_t(t)].stopped = stopped;
         }, other);
+        if (stopped) leadStopped(t); else started(t);
         if (t == selected_) {
             held_.clear();
             viewPage_ = std::min(viewPage_, int(seq().pages().size()) - 1);
@@ -250,7 +258,7 @@ void App::playEvent(const SeqOut& e) {
     } else if (e.kind == SeqOut::Kind::ended && playing_) {
         playing_ = false;
         endRecTake();
-        trackStart_.fill(0);
+        liveStopped();
         bump();
     }
 }
@@ -276,8 +284,28 @@ void App::tick(double now) {
             break;
         case SeqOut::Kind::clip:
             if (e.track < int(cell_.size())) cell_[size_t(e.track)] = e.on ? -1 : e.a;
-            if (e.track < Params::maxTracks) trackStart_[size_t(e.track)] = e.b;
+            if (e.track < Params::maxTracks) {
+                trackStart_[size_t(e.track)] = e.b;
+                if (queued_[size_t(e.track)] != Launcher::none) {
+                    queued_[size_t(e.track)] = Launcher::none;
+                    bump();
+                }
+            }
             playEvent(e);
+            break;
+        case SeqOut::Kind::queue:
+            if (e.track < Params::maxTracks) queued_[size_t(e.track)] = e.a;
+            bump();
+            break;
+        case SeqOut::Kind::scene:
+            sceneRow_ = e.a;
+            sceneStart_ = e.b;
+            sceneLen_ = e.c;
+            bump();
+            break;
+        case SeqOut::Kind::sceneQueue:
+            sceneQueued_ = e.a;
+            bump();
             break;
         case SeqOut::Kind::ended: playEvent(e); break;
         case SeqOut::Kind::beat:
@@ -295,6 +323,7 @@ void App::tick(double now) {
         flashMask_ = 0;
         beatFlash_ = false;
     }
+    applyPendingLead();
     // Ход открытого клипа — p-lock играющего шага на ручках: данные перечитываются; мигание — в кадре экрана.
     if (before != openPlayPos()) bump();
 }

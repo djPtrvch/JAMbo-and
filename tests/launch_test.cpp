@@ -1,5 +1,6 @@
 // Запуск клипов и строк через ядро: порт LaunchTests (ветка swift JAMbo) — без testLaunchesDuringMix (переход MIX —
-// Project::mixed ещё не перенесён) и без чисто модельных (правки строк и клипов).
+// Project::mixed ещё не перенесён); правки строк и клипов — testSceneTapStartsAtBarAndSwitchAtPass (модельная часть),
+// testMoveRow, testClipCopyAcrossTracksCarriesSteps, testRowEditsFollowBlocks (ArrangeTests).
 #include "engine/AudioCore.h"
 #include "model/Project.h"
 #include "sequencer/Launcher.h"
@@ -202,7 +203,115 @@ void scenesRun() {
 }
 }  // namespace
 
+Page& pg(Track& t, int k, int page = 0) { return t.clips[size_t(k)]->pages[size_t(page)]; }
+
+void rowEdits() {
+    Project p = project();
+    p.rows = 3;
+    p.fillRows();
+    bool full = true;
+    for (int k = 0; k < 3; ++k)
+        for (const auto& t : p.tracks) full = full && t.clipFilled(k);
+    check(full, "rows: пустых ячеек нет");
+    check(p.tracks[0].clips[2]->pages.size() == 1, "rows: новый клип — свой пустой паттерн");
+    pg(p.tracks[0], 0)[0].on = true;
+    p.tracks[1].stopped = true;
+    check(!p.plusCopy, "rows: по умолчанию NEW PATTERNS");
+    p.plusCopy = true;
+    p.addRow();
+    check(p.tracks[0].clips[3] == p.tracks[0].clips[0], "rows: COPY PLAYING — копия играющего клипа");
+    check(!pg(p.tracks[1], 3)[0].on, "rows: остановленная — пустой паттерн");
+    pg(p.tracks[0], 3)[1].locks["pan"] = 10;
+    check(!pg(p.tracks[0], 0)[1].locks.count("pan"), "rows: копия независима");
+    p.setScene(1, "  Chorus  ", 99);
+    check(p.scenes[1].name == "Chorus" && p.scenes[1].repeats == 64, "rows: setScene");
+    p.duplicateRow(1);
+    check(p.scenes[2].name == "Chorus" && p.visibleRows() == 5, "rows: DUPLICATE");
+    p.tracks[0].activate(2);
+    check(p.tracks[0].open == 2, "rows: открытый идёт за активным");
+    p.deleteRow(2);
+    check(p.tracks[0].stopped && p.visibleRows() == 4 && p.sceneName(0) == "1", "rows: DELETE строки");
+    Track t = p.tracks[2];
+    pg(t, 1)[0].on = true;
+    for (int i = 0; i < 3; ++i) t.clips[1]->pages.push_back(emptyPage());
+    t.clips[1]->length = 64;
+    t.clips[1]->playTo = 3;
+    pg(t, 0)[0].on = true;
+    t.clearClip(1);
+    const auto r = t.clips[1]->range();
+    check(!pg(t, 1)[0].on && t.clips[1]->pages.size() == 1 && t.clips[1]->length == 16 && r.lower == 0 && r.upper == 0,
+          "rows: DELETE клипа — одна пустая страница");
+    check(pg(t, 0)[0].on, "rows: другие клипы не тронуты");
+}
+
+void moveRows() {
+    Project p;
+    p.rows = 4;
+    p.fillRows();
+    for (int k = 0; k < 4; ++k) pg(p.tracks[0], k)[size_t(k)].on = true;
+    p.setScene(0, "A", 2);
+    p.setScene(3, "D", 1);
+    p.tracks[0].activate(0);
+    p.tracks[1].activate(2);
+    p.arrStart = 3;
+    p.moveRow(0, 2);
+    check(p.scenes[2].name == "A" && p.scenes[2].repeats == 2 && pg(p.tracks[0], 2)[0].on && pg(p.tracks[0], 0)[1].on,
+          "moveRow: строка и клипы на новом месте");
+    check(p.tracks[0].slot == 2 && p.tracks[0].open == 2 && p.tracks[1].slot == 1 && p.arrStart == 3,
+          "moveRow: активные ячейки за строками");
+    p.moveRow(3, 0);
+    check(p.scenes[0].name == "D" && p.arrStart == 0 && p.tracks[0].slot == 3, "moveRow: строка старта за строкой");
+    p.moveRow(1, 9);
+    check(p.scenes[0].name == "D", "moveRow: за пределы — без изменений");
+}
+
+void clipCopyAcross() {
+    Project p;
+    pg(p.tracks[3], 0)[4].on = true;
+    pg(p.tracks[3], 0)[4].locks["filter"] = 20;
+    p.rows = 4;
+    p.fillRows();
+    const auto c = p.tracks[3].clips[0];
+    p.tracks[5].setClip(2, c);
+    p.tracks[3].setClip(3, c);
+    check(pg(p.tracks[5], 2)[4].on && pg(p.tracks[5], 2)[4].locks["filter"] == 20 && pg(p.tracks[3], 3)[4].on,
+          "clips: копия в другой столбец — с шагами");
+    p.tracks[3].clearClip(0);
+    check(pg(p.tracks[3], 3)[4].on, "clips: копия не очищается с исходным");
+}
+
+void rowBlocks() {
+    Project p;
+    p.addRow();
+    p.addRow();
+    p.addRow();
+    for (int k = 0; k < 3; ++k) {
+        ArrBlock b;
+        b.clip = k;
+        b.start = 16 * k;
+        b.length = 16;
+        p.tracks[0].placeBlock(b);
+    }
+    auto ids = [&] {
+        std::vector<int> v;
+        for (const auto& b : p.tracks[0].blocks) v.push_back(b.clip);
+        return v;
+    };
+    p.deleteRow(1);
+    check(ids() == std::vector<int>{0, 1}, "rows: блок удалённого клипа уходит");
+    p.moveRow(0, 1);
+    check(ids() == std::vector<int>{1, 0}, "rows: moveRow — блоки за строками");
+    p.duplicateRow(0);
+    check(ids() == std::vector<int>{2, 0}, "rows: duplicateRow — блоки");
+    p.pasteRow(0, p.copyRow(1));
+    check(ids() == std::vector<int>{2}, "rows: PASTE — блоки заменённого клипа уходят");
+}
+
 int runLaunchTests() {
+    rowEdits();
+    moveRows();
+    clipCopyAcross();
+    rowBlocks();
     moveTrack();
     queued();
     speed();

@@ -95,6 +95,21 @@ bool App::canDuplicate(int i) const {
 
 bool App::canDelete(int) const { return seq().pages().size() > 1; }
 
+std::vector<ThumbCell> App::clipThumb(int i, int k, int page) const {
+    // Свой паттерн клипа: миниатюра читает его, как открытый.
+    Track t = project_.tracks[size_t(i)];
+    t.open = k;
+    const int n = Params::stepsPerPage;
+    std::vector<ThumbCell> out(static_cast<size_t>(n));
+    if (page >= int(t.pages().size())) return out;
+    const int len = t.pageLen(page);
+    for (int s = 0; s < n; ++s) {
+        const Step& st = t.pages()[size_t(page)][size_t(s)];
+        out[size_t(s)] = {st.on, !st.on && t.isTail(page * n + s), s >= len};
+    }
+    return out;
+}
+
 std::vector<ThumbCell> App::thumb(int page) const {
     const int n = Params::stepsPerPage;
     const Track& t = seq();

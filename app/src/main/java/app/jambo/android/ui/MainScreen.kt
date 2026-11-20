@@ -110,7 +110,8 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
     Box(Modifier.fillMaxSize().padding(horizontal = Layout.side.dp).onGloballyPositioned { body = it; s.body = it }) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
             TopBar(s) { s.mainMenu = !s.mainMenu }
-            Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
+            if (s.grid[0] != 0) PatternGrid(s, Modifier.weight(1f).fillMaxWidth(), width)
+            else Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
                 LeftColumn(s, Modifier.width(column()).fillMaxHeight().onGloballyPositioned { c ->
                     body?.let { b -> if (b.isAttached) left = b.localBoundingBoxOf(c) }
                 })

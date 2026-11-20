@@ -29,6 +29,11 @@ class ScreenState {
     var projects by mutableStateOf(IntArray(3)); private set
     var projectRows by mutableStateOf(arrayOf("")); private set
     var settings by mutableStateOf(IntArray(5)); private set
+    var grid by mutableStateOf(IntArray(18)); private set
+    var sceneNames by mutableStateOf(emptyArray<String>()); private set
+    /** Ход сетки (каждый кадр, пока открыта) и фаза мигания ожидающих ячеек. */
+    var gridLive by mutableStateOf(IntArray(2)); private set
+    var blink by mutableStateOf(false); private set
     val morphReturnNames: Array<String> by lazy { AppNative.morphReturnNames() }
     /** Меню бутерброда открыто. */
     var mainMenu by mutableStateOf(false)
@@ -82,6 +87,11 @@ class ScreenState {
             AppNative.modNorms().let { if (!it.contentEquals(modNorms)) modNorms = it }
             AppNative.modTexts().let { if (!it.contentEquals(modTexts)) modTexts = it }
         }
+        if (grid[0] != 0) {
+            AppNative.gridLive().let { if (!it.contentEquals(gridLive)) gridLive = it }
+            val b = (System.nanoTime() / 250_000_000L) % 2 == 0L
+            if (b != blink) blink = b
+        }
         if (f[0] == revision) return
         revision = f[0]
         AppNative.top().let { if (!it.contentEquals(top)) top = it }
@@ -99,6 +109,8 @@ class ScreenState {
         AppNative.projects().let { if (!it.contentEquals(projects)) projects = it }
         AppNative.projectRows().let { if (!it.contentEquals(projectRows)) projectRows = it }
         AppNative.settings().let { if (!it.contentEquals(settings)) settings = it }
+        AppNative.grid().let { if (!it.contentEquals(grid)) grid = it }
+        AppNative.sceneNames().let { if (!it.contentEquals(sceneNames)) sceneNames = it }
         AppNative.pianoTexts().let { if (!it.contentEquals(pianoTexts)) pianoTexts = it }
         AppNative.side().let { if (!it.contentEquals(side)) side = it }
         AppNative.pages().let { if (!it.contentEquals(pages)) pages = it }

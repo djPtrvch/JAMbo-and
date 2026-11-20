@@ -46,6 +46,8 @@ enum Act {
     openPage = 110, addPage, playPages, movePage, pageAction, pageArrow, setClipRate,
     setScale = 140, setRoot, toggleChord, setChordKind, setPianoSettings, setRecordSettings, setSwing,
     flushAutosave = 150, refreshProjects, setMorphSettings, setLevelRelative,
+    togglePatterns = 160, tapCell, holdCell, queueScene, copyClip, pasteClip, deleteClip, dropClip, addRow,
+    duplicateRow, moveRow, deleteRow, copyRow, pasteRow, setGridOption, gridArrow, setGridTop,
 };
 
 jintArray ints(JNIEnv* env, const std::vector<jint>& v) {
@@ -152,6 +154,23 @@ FN(jdouble, act)(JNIEnv*, jobject, jint code, jint a, jint b, jdouble x) {
     case refreshProjects: m.refreshProjects(); break;
     case setMorphSettings: m.setMorphSettings(a, b != 0); break;
     case setLevelRelative: m.setLevelRelative(a != 0); break;
+    case togglePatterns: m.togglePatterns(); break;
+    case tapCell: m.tapCell(a, b); break;
+    case holdCell: m.holdCell(a, b); break;
+    case queueScene: m.queueScene(a); break;
+    case copyClip: m.copyClip(a, b); break;
+    case pasteClip: m.pasteClip(a, b); break;
+    case deleteClip: m.deleteClip(a, b); break;
+    case dropClip: m.dropClip(a, b, int(x) / 100, int(x) % 100); break;
+    case addRow: m.addRow(); break;
+    case duplicateRow: m.duplicateRow(a); break;
+    case moveRow: m.moveRow(a, b); break;
+    case deleteRow: m.deleteRow(a); break;
+    case copyRow: m.copyRow(a); break;
+    case pasteRow: m.pasteRow(a); break;
+    case setGridOption: m.setGridOption(jambo::App::GridOption(a), b); break;
+    case gridArrow: m.gridArrow(a); break;
+    case setGridTop: m.setGridTop(a); break;
     default: break;
     }
     return 0;
@@ -164,6 +183,81 @@ FN(void, openStorage)(JNIEnv* env, jobject, jstring dir) {
     const std::string d = c ? c : "";
     if (c) env->ReleaseStringUTFChars(dir, c);
     app().openStorage(d, starterProject());
+}
+
+/// Сетка паттернов: [открыта, дорожек, верх окна, макс. верх, строка «+» окна (−1), строк в окне, видимых строк,
+/// игра, есть копия клипа, есть копия строки, строка старта, AT THE END STOP, + ADDS COPY, ARROWS SWITCH, LOOP ROW,
+/// играющая строка, ожидающая, можно добавить строку]; затем по строке окна: строка проекта (−1), по дорожке —
+/// ячейка: [биты заполнена 1, играет 2, открыта 4, ожидает 8; страниц n; по странице: триги | хвосты << 16,
+/// за длиной]; затем по строке окна — повторы.
+FN(jintArray, grid)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    const auto& p = m.project();
+    const auto w = m.gridWindow();
+    const int n = int(p.tracks.size());
+    std::vector<jint> v{m.patternView(), n, w.top, w.maxTop, w.plusRow, int(w.rows.size()), p.visibleRows(),
+                        m.playing(), m.hasClipClipboard(), m.hasRowClipboard(), std::min(p.arrStart, p.visibleRows() - 1),
+                        p.arrEndStop, p.plusCopy, p.arrowSwitch, p.rowLoop, m.sceneRow(), m.sceneQueued(), p.canAddRow()};
+    for (int k : w.rows) {
+        v.push_back(k);
+        for (int i = 0; i < n; ++i) {
+            const auto& t = p.tracks[size_t(i)];
+            const bool filled = k >= 0 && t.clipFilled(k);
+            const int q = m.queued(i);
+            int bits = filled ? 1 : 0;
+            if (filled && t.slot == k && !t.stopped) bits |= 2;
+            if (m.channel() == jambo::Channel::track && i == m.selectedTrack() && k == t.open) bits |= 4;
+            if (k >= 0 && (q == k || (t.slot == k && q == -1))) bits |= 8;
+            v.push_back(bits);
+            const auto r = filled ? t.clipRange(k) : std::nullopt;
+            v.push_back(r ? r->upper - r->lower + 1 : 0);
+            if (!r) continue;
+            for (int pg = r->lower; pg <= r->upper; ++pg) {
+                int on = 0, out = 0;
+                const auto cells = m.clipThumb(i, k, pg);
+                for (size_t s = 0; s < cells.size(); ++s) {
+                    if (cells[s].on) on |= 1 << s;
+                    if (cells[s].tail) on |= 1 << (s + 16);
+                    if (cells[s].outside) out |= 1 << s;
+                }
+                v.push_back(on);
+                v.push_back(out);
+            }
+        }
+    }
+    for (int k : w.rows) v.push_back(k >= 0 ? p.scenes[size_t(k)].repeats : 0);
+    return ints(env, v);
+}
+
+/// Имена строк проекта (все видимые; без имени — номер) и имя выбранной в окне строки — по запросу.
+FN(jobjectArray, sceneNames)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& p = app().project();
+    std::vector<std::string> v;
+    for (int k = 0; k < p.visibleRows(); ++k) v.push_back(p.sceneName(k));
+    for (int k = 0; k < p.visibleRows(); ++k) v.push_back(p.scenes[size_t(k)].name);
+    return strings(env, v);
+}
+
+/// Ход сетки (каждый кадр, пока открыта): [проход строки, доля·1000, по дорожке доля играющей ячейки·1000].
+FN(jintArray, gridLive)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    const auto& p = m.project();
+    const auto sp = m.scenePass();
+    std::vector<jint> v{sp.first, jint(sp.second * 1000)};
+    for (int i = 0; i < int(p.tracks.size()); ++i)
+        v.push_back(jint(m.cellProgress(i, p.tracks[size_t(i)].slot) * 1000));
+    return ints(env, v);
+}
+
+FN(void, setScene)(JNIEnv* env, jobject, jint k, jstring name, jint repeats) {
+    std::lock_guard<std::mutex> g(gLock);
+    const char* c = env->GetStringUTFChars(name, nullptr);
+    const std::string n = c ? c : "";
+    if (c) env->ReleaseStringUTFChars(name, c);
+    app().setScene(k, n, repeats);
 }
 
 /// SETTINGS: [QUANTIZE, OVERDUB, MORPH RETURN, MORPH MODE HOLD, LEVEL RELATIVE].

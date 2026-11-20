@@ -72,7 +72,32 @@ object AppNative {
         const val REFRESH_PROJECTS = 151
         const val SET_MORPH_SETTINGS = 152
         const val SET_LEVEL_RELATIVE = 153
+        const val TOGGLE_PATTERNS = 160
+        const val TAP_CELL = 161
+        const val HOLD_CELL = 162
+        const val QUEUE_SCENE = 163
+        const val COPY_CLIP = 164
+        const val PASTE_CLIP = 165
+        const val DELETE_CLIP = 166
+        const val DROP_CLIP = 167
+        const val ADD_ROW = 168
+        const val DUPLICATE_ROW = 169
+        const val MOVE_ROW = 170
+        const val DELETE_ROW = 171
+        const val COPY_ROW = 172
+        const val PASTE_ROW = 173
+        const val SET_GRID_OPTION = 174
+        const val GRID_ARROW = 175
+        const val SET_GRID_TOP = 176
     }
+
+    /** Сетка паттернов (формат — grid в jni_app.cpp). */
+    external fun grid(): IntArray
+    /** Имена строк (без имени — номер), затем сами имена (пустые — без имени). */
+    external fun sceneNames(): Array<String>
+    /** [проход строки, доля·1000, по дорожке доля играющей ячейки·1000] — каждый кадр. */
+    external fun gridLive(): IntArray
+    external fun setScene(k: Int, name: String, repeats: Int)
 
     /** Папка проектов: открыть Autosave, иначе последний проект. */
     external fun openStorage(dir: String)
@@ -189,4 +214,13 @@ object ProjectAct {
     const val OPEN = 5
     const val NAMED = 6
     const val RANDOM_NAME = 7
+}
+
+/** Настройки сетки (App::GridOption). */
+object GridOpt {
+    const val START = 0
+    const val END_STOP = 1
+    const val PLUS_COPY = 2
+    const val ARROW_SWITCH = 3
+    const val ROW_LOOP = 4
 }

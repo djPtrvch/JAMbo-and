@@ -399,6 +399,43 @@ void chords() {
     check(app.trackSwing() == 60 && app.canUndo(), "app: SWING дорожки");
 }
 
+void grid() {
+    CoreAudio a;
+    App app(&a);
+    Project p;
+    p.rows = 2;
+    p.fillRows();
+    p.tracks[1].clips[1]->scale = 1;
+    p.tracks[1].clips[1]->root = 9;
+    app.loadProject(p);
+    app.tapCell(1, 1);
+    check(app.project().tracks[1].slot == 1 && !app.project().tracks[1].stopped && app.selectedTrack() == 1,
+          "grid: тап без игры — клип сразу");
+    check(app.project().scale == 1 && app.project().root == 9, "grid: лидер — гамма и нота клипа");
+    app.tapCell(1, 1);
+    check(app.project().tracks[1].stopped, "grid: тап по играющей — стоп");
+    app.queueScene(0);
+    check(!app.project().tracks[0].stopped && app.project().tracks[1].slot == 0, "grid: строка — все дорожки");
+    const auto w = app.gridWindow();
+    check(w.rows[0] == 0 && w.rows[1] == 1 && w.plusRow == 2 && w.maxTop == 0, "grid: окно строк");
+    app.addRow();
+    check(app.project().visibleRows() == 3 && app.project().tracks[5].clipFilled(2), "grid: «+» — строка");
+    app.copyClip(0, 0);
+    app.pasteClip(3, 2);
+    check(app.project().tracks[3].clipFilled(2) && app.canUndo(), "grid: copy / paste");
+    app.togglePlay();
+    a.run(3000);
+    app.tick(1);
+    app.tapCell(2, 1);
+    a.run(256);
+    app.tick(1.1);
+    check(app.queued(2) == 1, "grid: при игре — ожидание");
+    a.run(100000);
+    app.tick(3);
+    check(app.queued(2) == -2 && app.project().tracks[2].slot == 1, "grid: запуск с конца прохода");
+    app.togglePlay();
+}
+
 void projects() {
     const std::string dir = (std::filesystem::temp_directory_path() / "jambo-app-projects").string();
     std::filesystem::remove_all(dir);
@@ -439,6 +476,7 @@ void projects() {
 }
 
 int runAppTests() {
+    grid();
     projects();
     chords();
     rec();
