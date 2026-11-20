@@ -86,7 +86,7 @@ private fun EngineColumn(
 private fun MenuTitle(text: String) {
     val th = LocalTheme.current
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Text(text, color = th.dim, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.4.sp, maxLines = 1)
+        Text(text, color = th.dim, fontSize = 10.tsp(), fontWeight = FontWeight.Bold, letterSpacing = 0.4.sp, maxLines = 1)
     }
 }
 
@@ -103,6 +103,6 @@ fun MenuItem(
         modifier.fillMaxWidth().heightIn(min = 40.dp).tile(if (current) th.accent else th.panel, 8f).then(tap),
         contentAlignment = Alignment.Center,
     ) {
-        Text(title, color = fg, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(title, color = fg, fontSize = 13.tsp(), fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }

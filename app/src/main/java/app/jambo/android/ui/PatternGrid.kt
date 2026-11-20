@@ -319,9 +319,9 @@ private fun SceneCell(s: ScreenState, d: GridData, r: Int, k: Int, ui: GridUi, m
     Box(modifier.alpha(if (blinkOff || lifted) 0.35f else 1f).framed(if (filled) th.panel2 else th.panel, line, 6f)) {
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)) {
-            Text(s.sceneNames.getOrElse(k) { "${k + 1}" }, color = if (filled) th.text else th.off, fontSize = 12.sp,
+            Text(s.sceneNames.getOrElse(k) { "${k + 1}" }, color = if (filled) th.text else th.off, fontSize = 12.tsp(),
                 fontWeight = FontWeight.SemiBold, maxLines = 1)
-            Text(badge, color = th.dim, fontSize = 10.sp)
+            Text(badge, color = th.dim, fontSize = 10.tsp())
         }
         if (playing) ProgressBar(s.gridLive.getOrElse(1) { 0 } / 1000f, Modifier.align(Alignment.BottomStart))
     }
@@ -332,7 +332,7 @@ private fun SceneCell(s: ScreenState, d: GridData, r: Int, k: Int, ui: GridUi, m
 private fun PlusCell(modifier: Modifier) {
     val th = LocalTheme.current
     Box(modifier.border(1.dp, th.line, RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
-        Text("+", color = th.dim, fontSize = 20.sp)
+        Text("+", color = th.dim, fontSize = 20.isp())
     }
 }
 

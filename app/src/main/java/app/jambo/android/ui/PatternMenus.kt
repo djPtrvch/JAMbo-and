@@ -46,7 +46,7 @@ fun GridSide(s: ScreenState, d: GridData, g: GridGeom, modifier: Modifier, ui: G
         val loop = d.rowLoop
         Box(Modifier.fillMaxWidth().height(g.rowH.dp).tile(if (loop) th.accent else th.panel2, 6f)
             .pointerTap { s.act(Act.SET_GRID_OPTION, GridOpt.ROW_LOOP) }, contentAlignment = Alignment.Center) {
-            Text("⟳", color = if (loop) th.onAccent else th.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text("⟳", color = if (loop) th.onAccent else th.text, fontSize = 20.isp(), fontWeight = FontWeight.Bold)
         }
         if (d.maxTop > 0) {
             val sw = d.arrowSwitch && d.playing
@@ -60,7 +60,7 @@ fun GridSide(s: ScreenState, d: GridData, g: GridGeom, modifier: Modifier, ui: G
 private fun Arrow(t: String, on: Boolean, g: GridGeom, action: () -> Unit) {
     val th = LocalTheme.current
     Box(Modifier.fillMaxWidth().height(g.rowH.dp).tile(th.panel2, 6f).pointerTap(action), contentAlignment = Alignment.Center) {
-        Text(t, color = if (on) th.text else th.text.copy(alpha = 0.35f), fontSize = 16.sp)
+        Text(t, color = if (on) th.text else th.text.copy(alpha = 0.35f), fontSize = 16.isp())
     }
 }
 
@@ -123,14 +123,14 @@ private fun RowMenu(s: ScreenState, d: GridData, k: Int, modifier: Modifier, clo
     val act = { code: Int -> close(); s.act(code, k); Unit }
     Panel(modifier) {
         BasicTextField(name, { if (it.length <= 12 || it.length <= name.length) name = it }, singleLine = true,
-            textStyle = TextStyle(color = th.text, fontSize = 16.sp), cursorBrush = SolidColor(th.text),
+            textStyle = TextStyle(color = th.text, fontSize = 16.tsp()), cursorBrush = SolidColor(th.text),
             modifier = Modifier.fillMaxWidth().height(44.dp).tile(th.panel, 6f).border(1.dp, th.text, RoundedCornerShape(6.dp))
                 .padding(horizontal = 10.dp, vertical = 12.dp))
         Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("REPEATS", color = th.dim, fontSize = 10.sp, letterSpacing = 0.8.sp, modifier = Modifier.weight(1f))
+            Text("REPEATS", color = th.dim, fontSize = 10.tsp(), letterSpacing = 0.8.sp, modifier = Modifier.weight(1f))
             MenuItem("−", Modifier.width(44.dp)) { reps = maxOf(1, reps - 1) }
-            Text("×$reps", color = th.text, fontSize = 17.sp, modifier = Modifier.width(44.dp))
+            Text("×$reps", color = th.text, fontSize = 17.tsp(), modifier = Modifier.width(44.dp))
             MenuItem("+", Modifier.width(44.dp)) { reps = minOf(64, reps + 1) }
         }
         MenuChoices(listOf("DUPLICATE" to false, "COPY" to false), enabled = listOf(d.canAddRow, true)) {

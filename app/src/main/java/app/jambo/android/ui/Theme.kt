@@ -40,3 +40,13 @@ val LocalTextScale = staticCompositionLocalOf { 1f }
 /** Размер шрифта с масштабом подписей. */
 @androidx.compose.runtime.Composable
 fun Number.tsp(): androidx.compose.ui.unit.TextUnit = (this.toFloat() * LocalTextScale.current).sp
+
+/** Масштаб значков-символов (стрелки, луп, «+»): на телефоне — заметно крупнее подписей (решение пользователя 22.11). */
+val LocalIconScale = staticCompositionLocalOf { 1f }
+
+/** Размер символа-значка с масштабом значков. */
+@androidx.compose.runtime.Composable
+fun Number.isp(): androidx.compose.ui.unit.TextUnit = (this.toFloat() * LocalIconScale.current).sp
+
+/** Масштаб подписей для рисования на холсте (вне композиции); ставит MainScreen. */
+@Volatile var canvasTextScale = 1f

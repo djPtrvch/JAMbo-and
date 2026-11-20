@@ -107,7 +107,7 @@ fun MeterColumn(s: ScreenState, modifier: Modifier) {
 @Composable
 private fun Label(text: String, onTap: () -> Unit) {
     val th = LocalTheme.current
-    Text(text, color = th.dim, fontSize = 9.sp, lineHeight = 10.sp, textAlign = TextAlign.Center,
+    Text(text, color = th.dim, fontSize = 9.tsp(), lineHeight = 10.tsp(), textAlign = TextAlign.Center,
         modifier = Modifier.fillMaxWidth().pointerTap(onTap))
 }
 

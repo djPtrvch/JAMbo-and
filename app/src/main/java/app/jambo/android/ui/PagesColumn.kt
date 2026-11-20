@@ -320,6 +320,6 @@ private fun PlusThumb(modifier: Modifier) {
             drawRoundRect(th.line, Offset(w / 2, w / 2), Size(size.width - w, size.height - w), CornerRadius(6.dp.toPx()),
                 style = Stroke(w, pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx()))))
         }
-        Text("+", color = th.dim, fontSize = 20.sp)
+        Text("+", color = th.dim, fontSize = 20.isp())
     }
 }

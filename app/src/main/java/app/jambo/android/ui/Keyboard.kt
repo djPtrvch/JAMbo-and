@@ -141,7 +141,7 @@ private fun OctavePair(s: ScreenState, modifier: Modifier) {
     }, verticalArrangement = Arrangement.spacedBy(Layout.stepGap.dp)) {
         for (t in listOf("▲", "▼")) {
             Box(Modifier.weight(1f).fillMaxWidth().tile(th.panel2), contentAlignment = Alignment.Center) {
-                Text(t, color = th.text, fontSize = 14.sp)
+                Text(t, color = th.text, fontSize = 14.isp())
             }
         }
     }

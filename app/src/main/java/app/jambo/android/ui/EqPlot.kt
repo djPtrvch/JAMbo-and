@@ -176,7 +176,7 @@ private fun drawGrid(d: DrawScope, g: EqGeom, th: Theme, text: androidx.compose.
         val y = g.y(db.toDouble())
         d.drawLine(if (db == 0) strong else grid, Offset(0f, y), Offset(g.w, y), 1f)
     }
-    val style = TextStyle(color = th.dim, fontSize = 11.sp)
+    val style = TextStyle(color = th.dim, fontSize = (11 * canvasTextScale).sp)
     for ((f, l) in listOf(100.0 to "100 Hz", 1000.0 to "1 kHz", 10000.0 to "10 kHz")) {
         val r = text.measure(l, style)
         d.drawText(r, topLeft = Offset(g.x(f) + 4 * d.density, g.h - r.size.height - 4 * d.density))
@@ -253,7 +253,7 @@ private fun drawPoints(d: DrawScope, s: ScreenState, g: EqGeom, th: Theme, text:
         if (dynOn) d.drawCircle(msColor.copy(alpha = 0.7f), r - d.density, point(s, g, k, false), style = Stroke(1.5f * d.density))
         d.drawCircle(if (!on) th.muteGrey else if (sel) th.accent else msColor, r, c)
         if (sel && on && ms > 0) d.drawCircle(msColor, r + 2.5f * d.density, c, style = Stroke(3 * d.density))
-        val t = text.measure("${k + 1}", TextStyle(color = if (sel) th.onAccent else th.bg, fontSize = if (sel) 13.sp else 11.sp,
+        val t = text.measure("${k + 1}", TextStyle(color = if (sel) th.onAccent else th.bg, fontSize = ((if (sel) 13 else 11) * canvasTextScale).sp,
             fontWeight = FontWeight.SemiBold))
         d.drawText(t, topLeft = Offset(c.x - t.size.width / 2, c.y - t.size.height / 2))
     }
@@ -269,7 +269,7 @@ private fun drawTip(d: DrawScope, s: ScreenState, g: EqGeom, t: EqTouch, th: The
     val note = noteName((69 + 12 * ln(f / 440) / ln(2.0)).roundToInt().coerceAtLeast(0))
     val gain = if (eqHasGain(s.eq[5 + 6 * k + 2])) "%+.1f dB".format(java.util.Locale.US, b[5 * k + 1]) else "—"
     val r = text.measure("$hz · $note\n$gain · Q ${"%.2f".format(java.util.Locale.US, b[5 * k + 2])}",
-        TextStyle(color = th.text, fontSize = 13.sp, textAlign = TextAlign.Center))
+        TextStyle(color = th.text, fontSize = (13 * canvasTextScale).sp, textAlign = TextAlign.Center))
     val pad = 9 * d.density
     val w = r.size.width + 2 * pad
     val h = r.size.height + 10 * d.density

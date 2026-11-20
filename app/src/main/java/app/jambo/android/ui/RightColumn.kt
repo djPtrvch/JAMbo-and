@@ -107,10 +107,10 @@ private fun MorphButton(s: ScreenState, modifier: Modifier) {
 @Composable
 private fun PageArrows(s: ScreenState, modifier: Modifier) {
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-        SideButton("◀", Modifier.weight(1f)) { s.act(Act.PAGE_ARROW, PageAct.LEFT) }
-        SideButton("▶", Modifier.weight(1f)) { s.act(Act.PAGE_ARROW, PageAct.RIGHT) }
-        SideButton("▲", Modifier.weight(1f)) { s.act(Act.PAGE_ARROW, PageAct.UP) }
-        SideButton("▼", Modifier.weight(1f)) { s.act(Act.PAGE_ARROW, PageAct.DOWN) }
+        SideButton("◀", Modifier.weight(1f), icon = true) { s.act(Act.PAGE_ARROW, PageAct.LEFT) }
+        SideButton("▶", Modifier.weight(1f), icon = true) { s.act(Act.PAGE_ARROW, PageAct.RIGHT) }
+        SideButton("▲", Modifier.weight(1f), icon = true) { s.act(Act.PAGE_ARROW, PageAct.UP) }
+        SideButton("▼", Modifier.weight(1f), icon = true) { s.act(Act.PAGE_ARROW, PageAct.DOWN) }
     }
 }
 
@@ -132,7 +132,7 @@ fun PageMenu(s: ScreenState, page: Int, modifier: Modifier, close: () -> Unit) {
         PageItem("PASTE", pg[6] != 0) { run(PageAct.PASTE) }
         PageItem("CLEAR", true) { run(PageAct.CLEAR) }
         PageItem("DELETE", pg[0] > 1, red = true) { run(PageAct.DELETE) }
-        Text("SPEED", color = th.dim, fontSize = 9.sp)
+        Text("SPEED", color = th.dim, fontSize = 9.tsp())
         for (row in 0 until 2) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (col in 0 until 3) {
@@ -153,7 +153,7 @@ private fun PageItem(title: String, enabled: Boolean, red: Boolean = false, acti
     val color = if (!enabled) th.off else if (red) th.rec else th.text
     val tap = if (enabled) Modifier.pointerTap(action) else Modifier
     Box(Modifier.fillMaxWidth().height(36.dp).tile(th.panel, 8f).then(tap), contentAlignment = androidx.compose.ui.Alignment.Center) {
-        Text(title, color = color, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text(title, color = color, fontSize = 13.tsp(), fontWeight = FontWeight.Bold)
     }
 }
 
@@ -163,6 +163,6 @@ fun InkButton(title: String, active: Boolean, modifier: Modifier, height: Float 
     val th = LocalTheme.current
     Box(modifier.height(height.dp).tile(if (active) th.accent else th.panel).pointerTap(action),
         contentAlignment = androidx.compose.ui.Alignment.Center) {
-        Text(title, color = if (active) th.onAccent else th.text, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(title, color = if (active) th.onAccent else th.text, fontSize = 13.tsp(), fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }

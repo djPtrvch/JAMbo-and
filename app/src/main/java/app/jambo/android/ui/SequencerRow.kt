@@ -191,7 +191,7 @@ private fun StepCell(bits: Int, label: String, col: Int, playing: Boolean, look:
         ) {
             Box(Modifier.fillMaxSize().background(fill, RoundedCornerShape(inner.dp)), contentAlignment = Alignment.Center) {
                 if (look.showLabel && label.isNotEmpty()) {
-                    Text(label, color = th.bg, fontSize = if (look.pages > 1) 10.sp else 11.sp, fontWeight = FontWeight.Bold,
+                    Text(label, color = th.bg, fontSize = if (look.pages > 1) 10.tsp() else 11.tsp(), fontWeight = FontWeight.Bold,
                         maxLines = 1)
                 }
             }

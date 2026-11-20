@@ -45,13 +45,13 @@ import androidx.compose.ui.window.Dialog
 /** Заголовок раздела меню (menu-head): 12, жирный, разрядка 0,1em. */
 @Composable
 fun MenuHead(title: String) {
-    Text(title, color = LocalTheme.current.text, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+    Text(title, color = LocalTheme.current.text, fontSize = 12.tsp(), fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
 }
 
 /** Пояснение в меню: 12, цвет dim. */
 @Composable
 fun MenuNote(text: String) {
-    Text(text, color = LocalTheme.current.dim, fontSize = 12.sp)
+    Text(text, color = LocalTheme.current.dim, fontSize = 12.tsp())
 }
 
 /** Стрелка назад и заголовок вложенного меню. */
@@ -61,9 +61,9 @@ fun MenuBackHeader(title: String, back: () -> Unit) {
     Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.width(40.dp).fillMaxHeight().pointerTap(back), contentAlignment = Alignment.Center) {
-            Text("‹", color = th.text, fontSize = 26.sp)
+            Text("‹", color = th.text, fontSize = 26.isp())
         }
-        Text(title, color = th.text, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+        Text(title, color = th.text, fontSize = 14.tsp(), fontWeight = FontWeight.Bold, maxLines = 1,
             overflow = TextOverflow.Ellipsis)
     }
 }
@@ -98,10 +98,10 @@ fun SwipeRow(
             Row(Modifier.align(Alignment.CenterEnd).fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (rename != null) {
                     Box(Modifier.width(button.dp).fillMaxHeight().tile(th.panel2, 8f).pointerTap { setOpen(false); rename() },
-                        contentAlignment = Alignment.Center) { Text("EDIT", color = th.text, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                        contentAlignment = Alignment.Center) { Text("EDIT", color = th.text, fontSize = 11.tsp(), fontWeight = FontWeight.Bold) }
                 }
                 Box(Modifier.width(button.dp).fillMaxHeight().tile(th.rec, 8f).pointerTap { setOpen(false); delete() },
-                    contentAlignment = Alignment.Center) { Text("🗑", color = Color.White, fontSize = 16.sp) }
+                    contentAlignment = Alignment.Center) { Text("🗑", color = Color.White, fontSize = 16.tsp()) }
             }
         }
         val bg = if (current) th.accent else th.panel
@@ -120,10 +120,10 @@ fun SwipeRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Text(title, color = fg, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (subtitle != null) Text(subtitle, color = if (current) th.onAccent else th.dim, fontSize = 10.sp, maxLines = 1)
+                Text(title, color = fg, fontSize = 13.tsp(), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (subtitle != null) Text(subtitle, color = if (current) th.onAccent else th.dim, fontSize = 10.tsp(), maxLines = 1)
             }
-            if (meta != null && shown > -1) Text(meta, color = fg, fontSize = 11.sp, maxLines = 1)
+            if (meta != null && shown > -1) Text(meta, color = fg, fontSize = 11.tsp(), maxLines = 1)
         }
     }
 }
@@ -137,10 +137,10 @@ fun InputDialog(title: String, initial: String, limit: Int, cancel: () -> Unit, 
     Dialog(onDismissRequest = cancel) {
         Column(Modifier.width(320.dp).background(th.bg, RoundedCornerShape(12.dp)).border(1.dp, th.line, RoundedCornerShape(12.dp))
             .padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(title, color = th.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(title, color = th.text, fontSize = 14.tsp(), fontWeight = FontWeight.Bold)
             BasicTextField(
                 value, { v -> if (v.text.length <= limit || v.text.length <= value.text.length) value = v },
-                singleLine = true, textStyle = TextStyle(color = th.text, fontSize = 15.sp), cursorBrush = SolidColor(th.text),
+                singleLine = true, textStyle = TextStyle(color = th.text, fontSize = 15.tsp()), cursorBrush = SolidColor(th.text),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { enter(value.text) }),
                 modifier = Modifier.fillMaxWidth().focusRequester(focus).border(1.dp, th.text, RoundedCornerShape(8.dp))
@@ -162,7 +162,7 @@ fun ChoiceDialog(text: String, note: String?, buttons: List<Triple<String, Boole
     Dialog(onDismissRequest = cancel) {
         Column(Modifier.width(320.dp).background(th.bg, RoundedCornerShape(12.dp)).border(1.dp, th.line, RoundedCornerShape(12.dp))
             .padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(text, color = th.text, fontSize = 14.sp)
+            Text(text, color = th.text, fontSize = 14.tsp())
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 for ((t, on, a) in buttons) MenuItem(t, Modifier.weight(1f), enabled = on) { a() }
             }

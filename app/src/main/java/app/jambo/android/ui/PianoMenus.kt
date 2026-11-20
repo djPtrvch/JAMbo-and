@@ -158,12 +158,12 @@ private fun Modifier.anchorBottom(bottom: Float): Modifier = this.layout { m, c 
 
 @Composable
 private fun Hint(text: String) {
-    Text(text, color = LocalTheme.current.dim, fontSize = 11.sp)
+    Text(text, color = LocalTheme.current.dim, fontSize = 11.tsp())
 }
 
 @Composable
 fun FieldLabel(title: String) {
-    Text(title, color = LocalTheme.current.dim, fontSize = 9.sp, letterSpacing = 0.8.sp)
+    Text(title, color = LocalTheme.current.dim, fontSize = 9.tsp(), letterSpacing = 0.8.sp)
 }
 
 /** Вкл./выкл. — рычажок, как в iOS (строка 48, подпись слева, переключатель 51×31: выключен — серый, включён —
@@ -174,7 +174,7 @@ fun ToggleRow(title: String, on: Boolean, change: (Boolean) -> Unit) {
     val x by animateDpAsState(if (on) 22.dp else 2.dp, label = "toggle")
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).pointerTap { change(!on) }.padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        Text(title, color = th.text, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Text(title, color = th.text, fontSize = 13.tsp(), fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
         Box(Modifier.size(51.dp, 31.dp).background(if (on) th.accent else th.meterTrack, RoundedCornerShape(16.dp))) {
             Box(Modifier.offset(x, 2.dp).size(27.dp).shadow(2.dp, CircleShape).background(Color.White, CircleShape))
         }
@@ -191,8 +191,8 @@ private fun SwingSlider(s: ScreenState) {
     val n = if (hi > lo) ((p[7] / 10.0 - lo) / (hi - lo)).toFloat().coerceIn(0f, 1f) else 0f
     Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row {
-            Text("SWING", color = th.text, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text(s.pianoTexts[1], color = th.text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text("SWING", color = th.text, fontSize = 13.tsp(), fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(s.pianoTexts[1], color = th.text, fontSize = 13.tsp(), fontWeight = FontWeight.Bold)
         }
         BoxWithConstraints(Modifier.fillMaxWidth().height(24.dp).pointerInput(lo, hi) {
             awaitEachGesture {

@@ -54,7 +54,7 @@ fun ModPreview(modifier: Modifier) {
             val (xs, ys, dot) = minis[k]
             val env = k == 3
             Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(titles.getOrElse(k) { "" }, color = th.dim, fontSize = 10.sp, maxLines = 1)
+                Text(titles.getOrElse(k) { "" }, color = th.dim, fontSize = 10.tsp(), maxLines = 1)
                 Canvas(Modifier.weight(1f).fillMaxWidth()) {
                     val h = size.height
                     val pad = 3.dp.toPx()

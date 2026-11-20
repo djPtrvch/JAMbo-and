@@ -96,7 +96,7 @@ private fun EqBar(s: ScreenState, ui: EqUi, origin: Float, modifier: Modifier) {
     val w2 = maxOf(0f, (listen - qRight - 3 * g) / 2)
     Box(modifier) {
         Box(Modifier.width(52.dp).fillMaxHeight(), contentAlignment = Alignment.Center) {
-            Text("${t[0]}\nEQ", color = th.dim, fontSize = 11.sp, letterSpacing = 0.9.sp, textAlign = TextAlign.Center, maxLines = 2)
+            Text("${t[0]}\nEQ", color = th.dim, fontSize = 11.tsp(), letterSpacing = 0.9.sp, textAlign = TextAlign.Center, maxLines = 2)
         }
         val at = { x: Float, w: Float -> Modifier.offset(x.dp, 0.dp).width(w.dp).fillMaxHeight() }
         val bands = s.eqBands
@@ -171,8 +171,8 @@ private fun EqField(
             },
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(label, color = th.dim, fontSize = 9.sp, letterSpacing = 0.8.sp)
-        Text(value, color = if (enabled) th.text else th.off, fontSize = 16.sp, maxLines = 1)
+        Text(label, color = th.dim, fontSize = 9.tsp(), letterSpacing = 0.8.sp)
+        Text(value, color = if (enabled) th.text else th.off, fontSize = 16.tsp(), maxLines = 1)
     }
 }
 
@@ -183,7 +183,7 @@ private fun EqTool(title: String, enabled: Boolean, active: Boolean, modifier: M
     val fg = if (!enabled) th.off else if (active) th.onAccent else th.text
     Box(modifier.tile(if (active) th.accent else th.panel2).then(if (enabled) Modifier.pointerTap(action) else Modifier),
         contentAlignment = Alignment.Center) {
-        Text(title, color = fg, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp, maxLines = 1)
+        Text(title, color = fg, fontSize = 12.tsp(), fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp, maxLines = 1)
     }
 }
 

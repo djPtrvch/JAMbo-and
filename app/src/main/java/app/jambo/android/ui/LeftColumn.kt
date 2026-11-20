@@ -118,14 +118,14 @@ fun ButtonPair(content: @Composable RowScope.() -> Unit) {
 @Composable
 fun SideButton(
     title: String, modifier: Modifier, enabled: Boolean = true, lit: Boolean = false, accent: Boolean = false,
-    onTap: (() -> Unit)? = null,
+    icon: Boolean = false, onTap: (() -> Unit)? = null,
 ) {
     val th = LocalTheme.current
     val fg = if (accent) th.onAccent else if (lit) th.bg else if (enabled) th.text else th.off
     val bg = if (accent) th.accent else if (lit) th.text else th.panel2
     val tap = if (onTap != null && enabled) Modifier.pointerTap(onTap) else Modifier
     Box(modifier.fillMaxHeight().tile(bg).then(tap), contentAlignment = Alignment.Center) {
-        Text(title, color = fg, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp, maxLines = 1)
+        Text(title, color = fg, fontSize = if (icon) 13.isp() else 13.tsp(), fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp, maxLines = 1)
     }
 }
 
@@ -142,10 +142,10 @@ private fun FolderArrows(s: ScreenState, modifier: Modifier) {
     val th = LocalTheme.current
     val total = s.sound[1]
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp), verticalAlignment = Alignment.CenterVertically) {
-        SideButton("◀", Modifier.width(56.dp), enabled = total > 0) { s.act(Act.FOLDER_ARROW, -1) }
-        Text(s.soundTexts[3], color = th.dim, fontSize = 11.sp, modifier = Modifier.weight(1f),
+        SideButton("◀", Modifier.width(56.dp), enabled = total > 0, icon = true) { s.act(Act.FOLDER_ARROW, -1) }
+        Text(s.soundTexts[3], color = th.dim, fontSize = 11.tsp(), modifier = Modifier.weight(1f),
             textAlign = TextAlign.Center)
-        SideButton("▶", Modifier.width(56.dp), enabled = total > 0) { s.act(Act.FOLDER_ARROW, 1) }
+        SideButton("▶", Modifier.width(56.dp), enabled = total > 0, icon = true) { s.act(Act.FOLDER_ARROW, 1) }
     }
 }
 
@@ -186,7 +186,7 @@ private fun SoundWindow(s: ScreenState, modifier: Modifier) {
                     Spacer(Modifier.weight(1f))
                 }
                 Column(Modifier.padding(top = if (synth) 14.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (r in rows) Text(r, color = th.text, fontSize = 11.sp, letterSpacing = 0.44.sp, maxLines = 1)
+                    for (r in rows) Text(r, color = th.text, fontSize = 11.tsp(), letterSpacing = 0.44.sp, maxLines = 1)
                 }
                 Spacer(Modifier.height(8.dp))
             }
@@ -203,5 +203,5 @@ private fun SoundTitle(main: String, detail: String, preset: String, modifier: M
         if (detail.isNotEmpty()) withStyle(SpanStyle(color = th.text)) { append(" — $detail") }
         if (preset.isNotEmpty()) withStyle(SpanStyle(color = th.text)) { append(" — $preset") }
     }
-    Text(text, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 2, modifier = modifier)
+    Text(text, fontSize = 13.tsp(), fontWeight = FontWeight.Bold, maxLines = 2, modifier = modifier)
 }
