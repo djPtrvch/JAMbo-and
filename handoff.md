@@ -21,7 +21,7 @@
 Не перенесено (по ходу): слежение ударных за нотами (pitchKey), шаги Pitch/Start/End (stepByTap), свои значения по умолчанию (SHIFT + удержание), FX-картинки в окне, своя таблица WTABLE и GRANULAR по сэмплу (с библиотекой), стерео-сэмплы на метре, настройки (MORPH RETURN/HOLD, LEVEL RELATIVE, QUANTIZE/OVERDUB — пока по умолчанию), writeLead без лидера (lead_ = 0 до сетки паттернов), меню дорожки в MIX.
 
 ## Дальше — по пунктам (решение пользователя 20.11: идём по порядку)
-1. SCALE и ROOT (вертикальное движение, тап — меню выбора), CHORD (строка аккордов, прогрессии) и меню клавиатуры под CHORD (1 / 2 OCTAVES, VELOCITY и др. — по Swift: ChordMenu.swift, Menus.swift PianoMenu, AppModelChords.swift).
+1. ~~SCALE и ROOT, CHORD, меню клавиатуры~~ — сделано (AppPiano.cpp, core/model/Chords, PianoMenus.kt; на устройстве не проверено): SCALE/ROOT — палец вверх-вниз 24 dp на пункт, тап — меню; CHORD — тап вкл./выкл. (у дорожки свой, не в проекте), долгое нажатие — окно типов, подписи клавиш «Em · i»; меню под CHORD — 1/2 OCTAVES, SWING, KEY VELOCITY (сила по месту на клавише — акселерометра iPad нет), OVERDUB (SharedPreferences). Не перенесено: ARP (ARPEGGIATOR, окно ARP), RANDOM (SHIFT + CHORD, стили ударных, ансамбль), раздел PART, Capture (две стрелки октавы).
 2. Меню бутерброда: PROJECTS (сохранение и открытие проектов на диске — ProjectSession, формат как у iPad) и SETTINGS (настройки, которые сейчас по умолчанию).
 3. Сетка паттернов (PATTERNS): запуск клипов и строк, лидер (lead_).
 4. EQ (окно EQ дорожки и мастера).
