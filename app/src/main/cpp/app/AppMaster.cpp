@@ -7,6 +7,8 @@ namespace jambo {
 void App::tickMasterMeters(double now) {
     MasterChain* m = audio_->master();
     if (!m) return;
+    // Спектры сатуратора пишутся, только пока его окно на экране.
+    if (masterWin() != 0 && m->satOn.load() != 0) m->satOn.store(0);
     // Скоп — только пока виден (MST и MIX; при MIX — без осциллоскопа).
     MasterScope& sc = m->scope;
     if (channel_ != Channel::track) {
@@ -21,6 +23,7 @@ void App::tickMasterMeters(double now) {
         sc.mask.store(0);
     }
     tickMixAnalysis();
+    tickMakeup();
     if (Levels* lv = audio_->levels()) loudHist_.tick(lv->mixLoudness, meters_.framePeak(Levels::master), playing_, now);
     if (channel_ != Channel::master) return;
     masterMeters_.comp.tick(m->compTele, project_.cmpBypass, now);
@@ -51,6 +54,7 @@ void App::toggleMasterBypass(int m) {
 void App::masterButton(int m) {
     if (m < 0 || m > 3 || channel_ != Channel::master) return;
     if (shiftHeld_) toggleMasterBypass(m);
+    else openMasterWindow(m);
 }
 
 void App::resetLoudHistory() {

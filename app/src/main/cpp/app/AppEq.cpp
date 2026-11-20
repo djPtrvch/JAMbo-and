@@ -21,6 +21,8 @@ void App::toggleEqView() {
     eqView_ = !eqView_;
     if (eqView_) patternView_ = false;
     if (eqView_ || patternView_) browser_.reset();
+    if (eqView_ && channel_ == Channel::master) closeMasterWindow();
+    if (eqView_) mixerOpen_ = false;
     eqBand_ = -1;
     syncSpectra();
     bump();

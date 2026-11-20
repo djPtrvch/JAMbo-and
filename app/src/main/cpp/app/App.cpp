@@ -195,6 +195,7 @@ void App::selectTrack(int i) {
     const int before = eqChannel();
     selected_ = i;
     channel_ = Channel::track;
+    if (masterUnity_) setUnity(false);
     held_.clear();
     if (eqView_ && eqChannel() != before) {
         eqBand_ = -1;
@@ -207,6 +208,7 @@ void App::selectTrack(int i) {
 void App::selectChannel(Channel c) {
     const int before = eqChannel();
     channel_ = c;
+    if (c != Channel::master && masterUnity_) setUnity(false);
     if (eqView_ && eqChannel() != before) {
         eqBand_ = -1;
         syncSpectra();

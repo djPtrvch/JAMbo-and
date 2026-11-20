@@ -9,6 +9,8 @@
 #include "ScopeState.h"
 #include "MixAnalysis.h"
 #include "MixStereo.h"
+#include "MasterWin.h"
+#include "model/MasterPresets.h"
 #include "master/MasterChain.h"
 #include "icons/EngineIcons.h"
 #include "synth/Wavetable.h"
@@ -408,6 +410,44 @@ public:
     void resetLoudHistory();
     const Levels* levelsNow() const { return audio_->levels(); }
 
+    // Окна модулей мастера (AppMasterWin.cpp): SAT 0, COMP 1, CLIP 2, LIM 3 — на месте центра при MST.
+    std::optional<int> masterWin() const { return channel_ == Channel::master ? masterWin_ : std::nullopt; }
+    void openMasterWindow(int m);
+    /// Тап по MIX или MST в строке дорожек: выбор; второй за 0,35 с — закрыть окно модуля мастера или окно микшера.
+    void tapChannel(Channel c);
+    /// Окно микшера при MIX (тап по обзору полос): фейдеры над дорожками.
+    bool mixerOpen() const { return channel_ == Channel::mix && mixerOpen_; }
+    void setMixerOpen(bool on);
+    void closeMasterWindow();
+    bool masterUnity() const { return masterUnity_; }
+    void setUnity(bool on);
+    /// Параметры модуля в строке окна (по порядку полей).
+    static std::vector<const ParamDef*> masterFields(int m);
+    double masterParam(const ParamDef& p) const { return masterValue(p.id, p.def); }
+    /// Значение из поля или дисплея окна (в пределах, с шагом; внутри жеста — одна запись UNDO).
+    void setMaster(const ParamDef& p, double v);
+    void tapRatio();
+    void tapSatType();
+    void tapRelease(const ParamDef& p);
+    /// AUTO MAKEUP: 4 с замера громкости до и после компрессора; тап при замере — отмена, по выставленному — назад.
+    void tapMakeup();
+    std::string makeupLabel(const std::string& plain) const;
+    /// Пресеты модулей (MasterPresets.json рядом с библиотекой).
+    const MasterPresetBook& masterPresets() const { return masterPresets_; }
+    void saveMasterPreset(int m, const std::string& name, std::optional<int> over = std::nullopt);
+    void loadMasterPreset(int m, int k);
+    void renameMasterPreset(int m, int k, const std::string& name);
+    void deleteMasterPreset(int m, int k);
+    void moveMasterPreset(int m, int from, int to);
+    /// SAVE DEFAULT: параметры модуля — свои значения по умолчанию (KnobDefaults.json).
+    void saveMasterDefault(int m);
+    bool masterDefaultFlash(int m) const { return defaultFlash_ == m && now_ < defaultFlashUntil_; }
+    /// История телеметрии дисплея модуля m (COMP, CLIP, LIM) и спектры сатуратора.
+    TeleHistory& teleHistory(int m) { return teleHist_[size_t(std::max(1, std::min(3, m)) - 1)]; }
+    SatSpectrumState& satSpectrum() { return satSpec_; }
+    MasterChain* masterChain() { return audio_->master(); }
+    double nowSec() const { return now_; }
+
     // Библиотека (AppLibrary.cpp)
     /// Хранилище сэмплов (base/Samples) и дерево библиотеки (base/Library.json).
     void openLibraryStorage(const std::string& base);
@@ -656,6 +696,24 @@ private:
     ScopeState scope_;
     MixAnalysis mixAn_;
     BandStereo bandStereo_;
+    std::optional<int> masterWin_;
+    bool mixerOpen_ = false;
+    double mixTapAt_ = -1;
+    bool masterUnity_ = false;
+    MasterPresetBook masterPresets_;
+    std::string masterPresetsPath_, knobDefaultsPath_;
+    int makeupState_ = 0;
+    std::optional<double> makeupManual_;
+    double makeupApplied_ = 0, makeupDue_ = 0;
+    int makeupRun_ = 0;
+    std::map<std::string, double> releaseManual_;
+    std::array<TeleHistory, 3> teleHist_;
+    SatSpectrumState satSpec_;
+    int defaultFlash_ = -1;
+    double defaultFlashUntil_ = 0;
+    void tickMakeup();
+    void loadAppFiles();
+    bool makeupLive() const;
     LoudHistory loudHist_;
     int mixMode_ = 0;
     void tickMixAnalysis();

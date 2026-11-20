@@ -16,6 +16,10 @@ namespace jambo {
 void App::openLibraryStorage(const std::string& base) {
     samples_ = std::make_unique<SampleStore>(base + "/Samples");
     libStore_ = std::make_unique<LibraryStore>(base + "/Library.json");
+    // Пресеты модулей мастера и свои значения по умолчанию — общие для проектов, рядом с библиотекой.
+    masterPresetsPath_ = base + "/MasterPresets.json";
+    knobDefaultsPath_ = base + "/KnobDefaults.json";
+    loadAppFiles();
 }
 
 void App::ensureLibrary() {
@@ -105,6 +109,8 @@ void App::openBrowser(const std::vector<int>& steps) {
     patternView_ = false;
     eqView_ = false;
     soundMenu_.reset();
+    masterWin_.reset();
+    mixerOpen_ = false;
     bump();
 }
 

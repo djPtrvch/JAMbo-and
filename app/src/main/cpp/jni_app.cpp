@@ -100,7 +100,7 @@ FN(jdouble, act)(JNIEnv*, jobject, jint code, jint a, jint b, jdouble x) {
     case beginGesture: m.beginGesture(); break;
     case endGesture: m.endGesture(); break;
     case selectTrack: m.selectTrack(a); break;
-    case selectChannel: m.selectChannel(jambo::Channel(a)); break;
+    case selectChannel: m.tapChannel(jambo::Channel(a)); break;
     case swipe: m.swipe(a, b != 0); break;
     case holdStep: m.holdStep(a, b != 0); break;
     case toggleStep: m.toggleStep(a); break;

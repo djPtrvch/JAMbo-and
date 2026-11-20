@@ -31,6 +31,7 @@ add_library(jambo SHARED
   jni_app.cpp
   jni_lib.cpp
   jni_master.cpp
+  jni_masterwin.cpp
   ${CORE_SOURCES}
   ${APP_SOURCES}
 )
