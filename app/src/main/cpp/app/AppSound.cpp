@@ -85,6 +85,52 @@ SoundInfo App::soundInfo() const {
     return s;
 }
 
+IconValues App::iconValues(int engine) const {
+    IconValues v;
+    if (engine < 0 || engine >= int(Params::synthGrids().size()) || Params::synthGrids()[size_t(engine)].empty()) return v;
+    const auto& grid = Params::synthGrids()[size_t(engine)];
+    const auto norm = [&](int slot) {
+        const ParamDef& p = grid[size_t(slot)];
+        return p.toNorm(synthValue(p));
+    };
+    // Ручки движка — строка 1 (места 0…3), Decay — 2.2 (место 5).
+    v.h = norm(0);
+    v.t = norm(1);
+    v.m = norm(2);
+    v.q = norm(3);
+    v.d = norm(5);
+    if (engine == J::analog) {
+        // С зажатым шагом пресет-лока — значения его пресета.
+        const Track& t = track();
+        const ParamMap* held = nullptr;
+        if (auto h = firstHeld())
+            if (const Step* st = t.step(*h)) held = &st->locks;
+        const auto get = [&](const char* id) {
+            if (held) {
+                const auto it = held->find(id);
+                if (it != held->end()) return it->second;
+            }
+            const auto it = t.params.find(id);
+            return it == t.params.end() ? 0.0 : it->second;
+        };
+        v.am = AnalogMod::mode(get(AnalogMod::modId));
+        v.ao = get(AnalogMod::octId) >= 0.5;
+    }
+    return v;
+}
+
+EngineIcons::Elements App::iconElements(int engine, const IconValues& v) {
+    if (engine == J::wtable) {
+        // Кадр таблицы дорожки (встроенной; своя таблица — с библиотекой).
+        const std::string name = WavetableKey::name(track().table);
+        auto& tb = tables_[name];
+        if (!tb) tb = WtTable::builtin(name);
+        return EngineIcons::wtableIcon(v, EngineIcons::tableFrame(*tb));
+    }
+    // GRANULAR — по условному сэмплу (огибающая SOURCE — с загрузкой сэмплов).
+    return EngineIcons::elements(engine, v);
+}
+
 // MARK: — меню звука
 
 void App::openSoundMenu() {

@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
@@ -116,8 +118,8 @@ private fun FolderArrows(s: ScreenState, modifier: Modifier) {
 
 /**
  * Окно звука (SampleWindow.swift, SynthWindow.swift): у синта — имя движка (жёлтым; у WTABLE и GRANULAR — после тире
- * таблица или сэмпл, у пресета — его имя), место иконки и строки ручек 1.1–1.4 «подпись · значение»; у сэмпла — имя
- * и нота. Тап — меню звука (с зажатым шагом — звук этих шагов). Иконка движка, форма волны, MIX и MST — позже.
+ * таблица или сэмпл, у пресета — его имя), живая иконка и строки ручек 1.1–1.4 «подпись · значение»; у сэмпла — имя
+ * и нота. Тап — меню звука (с зажатым шагом — звук этих шагов). Форма волны сэмпла, MIX и MST — позже.
  */
 @Composable
 private fun SoundWindow(s: ScreenState, modifier: Modifier) {
@@ -130,13 +132,25 @@ private fun SoundWindow(s: ScreenState, modifier: Modifier) {
         val rows = t.drop(4)
         Column(Modifier.fillMaxSize().padding(8.dp)) {
             SoundTitle(t[0], t[1], t[2], Modifier.padding(top = 6.dp))
-            Column(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 6.dp)) {
-                // Место иконки (синт) или формы волны (сэмпл) — до 144 точек.
-                Spacer(Modifier.weight(1f))
-                Column(Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            val synth = s.sound[0] >= 0
+            Column(
+                Modifier.weight(1f).fillMaxWidth().padding(horizontal = 6.dp),
+                verticalArrangement = if (synth) Arrangement.Center else Arrangement.Top,
+            ) {
+                if (synth) {
+                    // Иконка — до 144 точек, ужимается по высоте окна (сдвиг на 3 вниз — по проверке на iPad).
+                    Box(Modifier.fillMaxWidth().weight(1f, fill = false).heightIn(max = 144.dp), contentAlignment = Alignment.Center) {
+                        SynthIcon(s, Modifier.offset(y = 3.dp))
+                    }
+                    Spacer(Modifier.height(8.dp))
+                } else {
+                    // Место формы волны сэмпла (с загрузкой сэмплов).
+                    Spacer(Modifier.weight(1f))
+                }
+                Column(Modifier.padding(top = if (synth) 14.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (r in rows) Text(r, color = th.text, fontSize = 11.sp, letterSpacing = 0.44.sp, maxLines = 1)
                 }
-                Spacer(Modifier.height(if (s.sound[0] >= 0) 0.dp else 8.dp))
+                Spacer(Modifier.height(8.dp))
             }
         }
     }

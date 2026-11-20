@@ -22,6 +22,7 @@ class ScreenState {
     var keys by mutableStateOf(IntArray(2)); private set
     var keyLabels by mutableStateOf(emptyArray<String>()); private set
     var sound by mutableStateOf(IntArray(6)); private set
+    var iconValues by mutableStateOf(FloatArray(8) { -1f }); private set
     var soundTexts by mutableStateOf(arrayOf("", "", "", "")); private set
     /** Меню звука: колонки и имена движков (не меняются). */
     val engines: IntArray by lazy { AppNative.engines() }
@@ -60,6 +61,7 @@ class ScreenState {
         AppNative.keys().let { if (!it.contentEquals(keys)) keys = it }
         AppNative.keyLabels().let { if (!it.contentEquals(keyLabels)) keyLabels = it }
         AppNative.sound().let { if (!it.contentEquals(sound)) sound = it }
+        AppNative.iconValues().let { if (!it.contentEquals(iconValues)) iconValues = it }
         AppNative.soundTexts().let { if (!it.contentEquals(soundTexts)) soundTexts = it }
     }
 

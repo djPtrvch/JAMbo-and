@@ -265,3 +265,71 @@ FN(jobjectArray, engineNames)(JNIEnv* env, jobject) {
     }
     return strings(env, v);
 }
+
+/// Значения иконки окна звука: [движок (−1 — нет), h, t, m, q, d, am, ao].
+FN(jfloatArray, iconValues)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    const int e = m.soundInfo().engine;
+    const auto v = m.iconValues(e);
+    const jfloat a[8] = {jfloat(e), jfloat(v.h), jfloat(v.t), jfloat(v.m), jfloat(v.q), jfloat(v.d), jfloat(v.am),
+                         v.ao ? 1.f : 0.f};
+    jfloatArray r = env->NewFloatArray(8);
+    env->SetFloatArrayRegion(r, 0, 8, a);
+    return r;
+}
+
+/// Элементы иконки (поле 64×64) подряд: [вид, цвет (0 основной, 1 серый), прозрачность, заливка, пунктир, …]:
+/// 0 прямоугольники — контур, n, по 4 числа; 1 волна — n, x0, x1, верх n, низ n; 2 контур — n, по (команда, x, y);
+/// 3 текст — x, y, размер, длина, коды символов; 4 окружность — cx, cy, r.
+FN(jfloatArray, icon)(JNIEnv* env, jobject, jint engine, jfloat h, jfloat t, jfloat mm, jfloat q, jfloat d, jint am,
+                      jboolean ao) {
+    std::lock_guard<std::mutex> g(gLock);
+    jambo::IconValues v;
+    v.h = h, v.t = t, v.m = mm, v.q = q, v.d = d, v.am = am, v.ao = ao;
+    const auto els = app().iconElements(engine, v);
+    std::vector<jfloat> o;
+    for (const auto& e : els) {
+        const auto head = [&](int kind) {
+            o.insert(o.end(), {jfloat(kind), e.ink == jambo::IconInk::secondary ? 1.f : 0.f, jfloat(e.opacity.value_or(1)),
+                               e.fill ? 1.f : 0.f, e.dash ? 1.f : 0.f});
+        };
+        if (e.text) {
+            head(3);
+            // UTF-8 → коды символов (× — два байта).
+            std::vector<jfloat> cp;
+            const std::string& s = *e.text;
+            for (size_t i = 0; i < s.size();) {
+                const unsigned char c = (unsigned char)s[i];
+                if (c < 0x80) { cp.push_back(c); i += 1; }
+                else if ((c >> 5) == 6 && i + 1 < s.size()) { cp.push_back(((c & 0x1f) << 6) | (s[i + 1] & 0x3f)); i += 2; }
+                else if ((c >> 4) == 14 && i + 2 < s.size()) {
+                    cp.push_back(((c & 0x0f) << 12) | ((s[i + 1] & 0x3f) << 6) | (s[i + 2] & 0x3f));
+                    i += 3;
+                } else i += 1;
+            }
+            o.insert(o.end(), {jfloat(e.textX), jfloat(e.textY), jfloat(e.textSize), jfloat(cp.size())});
+            o.insert(o.end(), cp.begin(), cp.end());
+        } else if (!e.wave.empty()) {
+            head(1);
+            const size_t n = std::min(e.wave.size(), e.waveBot.size());
+            o.insert(o.end(), {jfloat(n), jfloat(e.waveX0), jfloat(e.waveX1)});
+            for (size_t i = 0; i < n; ++i) o.push_back(jfloat(e.wave[i]));
+            for (size_t i = 0; i < n; ++i) o.push_back(jfloat(e.waveBot[i]));
+        } else if (!e.rects.empty()) {
+            head(0);
+            o.insert(o.end(), {e.contour ? 1.f : 0.f, jfloat(e.rects.size())});
+            for (const auto& r : e.rects) o.insert(o.end(), {jfloat(r.x), jfloat(r.y), jfloat(r.w), jfloat(r.h)});
+        } else if (e.circle) {
+            head(4);
+            o.insert(o.end(), {jfloat(std::get<0>(*e.circle)), jfloat(std::get<1>(*e.circle)), jfloat(std::get<2>(*e.circle))});
+        } else {
+            head(2);
+            o.push_back(jfloat(e.cmds.size()));
+            for (const auto& c : e.cmds) o.insert(o.end(), {jfloat(c.kind), jfloat(c.x), jfloat(c.y)});
+        }
+    }
+    jfloatArray r = env->NewFloatArray(jsize(o.size()));
+    env->SetFloatArrayRegion(r, 0, jsize(o.size()), o.data());
+    return r;
+}

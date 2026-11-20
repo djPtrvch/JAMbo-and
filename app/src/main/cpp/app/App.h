@@ -3,6 +3,8 @@
 // зовёт действия и читает данные для отрисовки; всё — в основном потоке (JNI — под мьютексом jni_bridge).
 #pragma once
 #include "engine/CoreEvent.h"
+#include "icons/EngineIcons.h"
+#include "synth/Wavetable.h"
 #include "model/History.h"
 #include "model/KnobDefaults.h"
 #include "model/Params.h"
@@ -12,6 +14,7 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <memory>
 #include <optional>
 #include <set>
 #include <string>
@@ -105,6 +108,10 @@ public:
 
     // Звук дорожки (левая колонка)
     SoundInfo soundInfo() const;
+    /// Значения иконки движка: ручки 1.1–1.4 и Decay 2.2 (0…1) с p-lock зажатого или играющего шага.
+    IconValues iconValues(int engine) const;
+    /// Элементы иконки (WTABLE — по таблице дорожки).
+    EngineIcons::Elements iconElements(int engine, const IconValues& v);
     /// Меню звука открыто; шаги, для которых (пусто — для дорожки).
     const std::optional<std::vector<int>>& soundMenu() const { return soundMenu_; }
     /// Тап по окну звука: меню (зажаты шаги — для них; пальцы потом можно убрать).
@@ -165,6 +172,8 @@ private:
     std::optional<std::vector<int>> soundMenu_;
     /// Свои значения ручек по умолчанию (SHIFT + удержание — позже; пока пустые).
     KnobDefaults knobDefaults_;
+    /// Встроенные таблицы WTABLE для иконки (по имени).
+    std::map<std::string, std::unique_ptr<WtTable>> tables_;
 
     // Ход игры (LiveState.swift): позиции шагов, клип дорожки, мигание.
     std::vector<int> playPos_, cell_;

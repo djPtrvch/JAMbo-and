@@ -67,6 +67,10 @@ object AppNative {
     external fun soundTexts(): Array<String>
     /** Колонки меню звука: [число DRUMS, номера…, число SYNTH, номера…]. */
     external fun engines(): IntArray
+    /** Значения иконки окна звука: [движок (−1 — нет), h, t, m, q, d, am, ao]. */
+    external fun iconValues(): FloatArray
+    /** Элементы иконки (формат — icon в jni_app.cpp). */
+    external fun icon(engine: Int, h: Float, t: Float, m: Float, q: Float, d: Float, am: Int, ao: Boolean): FloatArray
     /** Короткие имена движков по номеру. */
     external fun engineNames(): Array<String>
 }
