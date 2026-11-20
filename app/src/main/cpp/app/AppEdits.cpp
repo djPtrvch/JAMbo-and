@@ -238,10 +238,33 @@ void App::setKnob(int slot, double norm) {
         return;
     }
     if (held_.empty() && fxMode()) {
-        setFx(*p, v);
+        // MORPH: Reverb, Delay, Drive — как ручки дорожки (исходное, точка, RETURN; без UNDO); SHIFT + MORPH — у всех.
+        if (morph_ && Project::trackFx(id)) {
+            const bool all = morphAllNow();
+            const int i = selected_;
+            const ParamDef def = *p;
+            editMorph([&](Project& pr) {
+                pr.morphFx(i, id);
+                pr.setFx(i, id, v);
+                if (all) pr.morphShiftFx(i, def, norm);
+            });
+        } else {
+            setFx(*p, v);
+        }
     } else if (held_.empty()) {
         const int i = selected_;
-        edit([&](Project& pr) { pr.tracks[size_t(i)].params[id] = v; });
+        if (morph_) {
+            // MORPH — без UNDO; на все дорожки — сдвиг той же ручки на ту же долю хода.
+            const bool all = morphAllNow();
+            const ParamDef def = *p;
+            editMorph([&](Project& pr) {
+                pr.tracks[size_t(i)].morphParam(id);
+                pr.tracks[size_t(i)].params[id] = v;
+                if (all) pr.morphShift(i, def, norm);
+            });
+        } else {
+            edit([&](Project& pr) { pr.tracks[size_t(i)].params[id] = v; });
+        }
     } else {
         for (int i : held_) used_.insert(i);
         const auto held = held_;
@@ -261,13 +284,13 @@ void App::knobDoubleTap(int slot) {
         editSeq([&](Track& t) { for (int i : held) t.clearLock(i, id); });
         return;
     }
-    if (channel_ == Channel::master && !shiftHeld_) {
+    if (channel_ == Channel::master && !knobShift()) {
         resetKnob(slot);
         return;
     }
     const ParamDef* p = param(slot);
     if (!p || channel_ != Channel::track) return;
-    if (shiftHeld_) {
+    if (knobShift()) {
         editTrack([](Track& t) { t.clearAllLocks(); });
         return;
     }

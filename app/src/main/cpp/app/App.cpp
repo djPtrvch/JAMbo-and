@@ -122,6 +122,8 @@ void App::restore(const Project& snap) {
         t.open = cur->open;
         t.settleSound();
     }
+    // MORPH — без UNDO: накрученное в режиме остаётся, снимок меняет только то, к чему MORPH вернётся.
+    p.keepMorph(project_);
     const bool bpmChanged = p.bpm != project_.bpm;
     project_ = std::move(p);
     held_.clear();
@@ -247,6 +249,8 @@ void App::playEvent(const SeqOut& e) {
 }
 
 void App::tick(double now) {
+    now_ = now;
+    stepMorphGlide(now);
     const int before = openPlayPos();
     SeqOut e;
     while (audio_->popOut(e)) {

@@ -288,6 +288,8 @@ struct Track {
     void morphParam(const std::string& id);
     void morphAssign(const std::string& id);
     void undoMorph();
+    /// Снимок дорожки (this) с MORPH дорожки cur: исходное — значение снимка без его MORPH, сейчас — как у cur.
+    void keepMorph(const Track& cur);
 
     // Правки нот пианоролла (RollEdits.swift): RollEdits.cpp
     void addRollNote(int index, int pitch, int len, std::optional<double> vel);

@@ -47,6 +47,8 @@ object AppNative {
         const val SET_SHIFT = 122
         const val KNOB_SHIFT_TAP = 123
         const val SET_LATCHED = 124
+        const val MORPH_PRESS = 125
+        const val MORPH_RELEASE = 126
         const val OPEN_PAGE = 110
         const val ADD_PAGE = 111
         const val PLAY_PAGES = 112
@@ -98,7 +100,8 @@ object AppNative {
     /** Миниатюры: [страниц, играют от, до, открыты от, до, скорость клипа, есть копия, по странице: duplicate, 16 ячеек]. */
     external fun pages(): IntArray
     external fun clipRates(): IntArray
-    /** Кнопки правой колонки: [FX зажата, MOD зажата, FX toggle, MOD toggle, SHIFT, ручки FX, ручки MOD]. */
+    /** Кнопки правой колонки: [FX зажата, MOD зажата, FX toggle, MOD toggle, SHIFT, ручки FX, ручки MOD,
+     *  SHIFT для ручек, MORPH горит, у MORPH линия MODE TAP]. */
     external fun side(): IntArray
     /** Миниатюры MOD: по LFO1–3 и ENV [точек n, x n, y n, точка x, y] подряд. */
     external fun modMinis(): FloatArray

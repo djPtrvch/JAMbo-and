@@ -264,9 +264,52 @@ void fxPages() {
     app.setShift(false);
     check(app.project().tracks[0].step(0)->locks.empty(), "app: SHIFT + двойной тап — все p-lock сняты");
 }
+void morphApp() {
+    CoreAudio a;
+    App app(&a);
+    const double f0 = app.knobState(6).norm;
+    // Тап MORPH — режим; ручка меняет дорожку без UNDO; точка MORPH на дорожке.
+    app.morphPress();
+    app.morphRelease();
+    check(app.morph(), "app: MORPH включён тапом");
+    app.setKnob(6, 0.9);
+    check(app.project().tracks[0].morphEdited && !app.canUndo(), "app: MORPH — без UNDO, точка на дорожке");
+    app.morphPress();
+    app.morphRelease();
+    check(!app.morph() && std::abs(app.knobState(6).norm - f0) < 1e-9 && !app.project().tracks[0].morphEdited,
+          "app: MORPH выключен — всё вернулось");
+    // SHIFT + MORPH — на все дорожки, пока держат.
+    app.setShift(true);
+    app.morphPress();
+    check(app.morph() && !app.knobShift(), "app: SHIFT + MORPH — все дорожки, SHIFT занята");
+    app.setKnob(6, 0.8);
+    check(app.project().tracks[1].morphEdited, "app: SHIFT + MORPH — соседняя дорожка тоже");
+    app.morphRelease();
+    app.setShift(false);
+    check(!app.morph() && !app.project().tracks[1].morphEdited, "app: отпустили обе — режим выключен, возврат");
+    // MORPH удержание + UNDO — сбросить изменения, режим остаётся.
+    app.morphPress();
+    app.morphRelease();
+    app.setKnob(6, 0.7);
+    app.morphPress();
+    app.undoTapped();
+    app.morphRelease();
+    check(app.morph() && !app.project().tracks[0].morphEdited, "app: MORPH + UNDO — сброс, режим остаётся");
+    // Обычная правка, затем MORPH: UNDO не трогает накрученное в MORPH.
+    app.morphPress();
+    app.morphRelease();
+    app.toggleStep(0);
+    app.morphPress();
+    app.morphRelease();
+    app.setKnob(6, 0.6);
+    app.undoTapped();
+    check(!app.project().tracks[0].step(0)->on && std::abs(app.knobState(6).norm - 0.6) < 1e-6,
+          "app: UNDO не трогает MORPH");
+}
 }  // namespace
 
 int runAppTests() {
+    morphApp();
     fxPages();
     pages();
     mod();

@@ -201,6 +201,23 @@ public:
     /// Миниатюра LFOn (1–3) или ENV (4) выбранной дорожки — пока держат MOD.
     ModMini modMini(int n) const;
     void setShift(bool on);
+    /// SHIFT для ручек: пока держат SHIFT + MORPH, SHIFT занята удержанием — ручки крутятся как без неё.
+    bool knobShift() const { return shiftHeld_ && !morphAllHeld_; }
+
+    // MORPH
+    bool morph() const { return morph_; }
+    void toggleMorph();
+    void morphPress();
+    void morphRelease();
+    /// Кнопка MORPH горит: при касании сразу видно, каким станет режим.
+    bool morphShown() const;
+    /// Пока держат SHIFT + MORPH (все дорожки) — без чёрной линии MODE TAP.
+    bool morphAllHeld() const { return morphAllHeld_; }
+    bool morphHoldMode() const { return morphHoldMode_; }
+    /// SETTINGS → MORPH: RETURN (MorphReturn) и MODE HOLD (настройки — у экрана).
+    void setMorphSettings(int ret, bool hold) { morphReturn_ = ret; morphHoldMode_ = hold; }
+    /// UNDO: с зажатой MORPH — сбросить изменения режима MORPH, иначе — обычная отмена.
+    void undoTapped();
     /// SHIFT + тап по ручке: Dly Time и Speed LFO — по темпу / свободно, RATE, Filter — тип, ANALOG — модуляция,
     /// октава B, режим (undo — второй тап двойного: отменить первый); true — обработан.
     bool knobShiftTap(int slot, bool undo = false);
@@ -255,6 +272,25 @@ private:
     int lastSource_ = 0;
     std::optional<std::pair<int, double>> lastSourceTap_;
     std::optional<int> heldSource() const;
+    bool morph_ = false, morphHeld_ = false, morphUsed_ = false, morphOffOnRelease_ = false, morphAllHeld_ = false;
+    bool morphHoldMode_ = false;
+    int morphReturn_ = 0;
+    struct MorphGlide {
+        std::vector<MorphPoint> points;
+        double start, seconds;
+    };
+    std::optional<MorphGlide> morphGlide_;
+    /// Время последнего кадра (с) — начало плавного возврата.
+    double now_ = 0;
+    /// Правка режима MORPH: без UNDO — ни своей записи, ни в записи жеста.
+    void editMorph(const std::function<void(Project&)>& change);
+    void stepMorphGlide(double now);
+    void stopMorphGlide();
+    void undoMorphEdits();
+    void beginMorphAllHold();
+    void endMorphAllHold();
+    /// Ручка в MORPH меняет параметр на всех дорожках — пока держат SHIFT + MORPH.
+    bool morphAllNow() const { return morph_ && morphAllHeld_ && (morphHeld_ || shiftHeld_); }
     bool fxHeld_ = false, modHeld_ = false, latchFx_ = false, latchMod_ = false, shiftHeld_ = false;
     GridPage lastPage_ = GridPage::fx;
     /// Клип-лидер (гамма, нота и общие FX — его; запуск клипов — с сеткой паттернов).

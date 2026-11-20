@@ -55,7 +55,8 @@ private class KnobTouches(val s: ScreenState) {
 
     fun down(id: PointerId, slot: Int, y: Float, now: Long) {
         val turn = KnobTurn(slot, y, y, s.act(Act.KNOB_START, slot))
-        val shift = s.side[4] != 0
+        // SHIFT для ручек: пока держат SHIFT + MORPH, ручки крутятся как без неё.
+        val shift = s.side[7] != 0
         val mix = s.tracks[2] == 1
         val t = lastTap[slot]
         if (t != null && now - t < 350) {

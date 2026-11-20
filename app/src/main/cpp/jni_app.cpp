@@ -41,7 +41,7 @@ enum Act {
     setSource = 85, knobFinger, assignSource, assignStart, setAssign,
     openSoundMenu = 90, closeSoundMenu, pickSynth, cleanSampler, stepSoundToTrack, folderArrow,
     tick = 100,
-    pagePress = 120, pageRelease, setShift, knobShiftTap, setLatched,
+    pagePress = 120, pageRelease, setShift, knobShiftTap, setLatched, morphPress, morphRelease,
     openPage = 110, addPage, playPages, movePage, pageAction, pageArrow, setClipRate,
 };
 
@@ -73,7 +73,7 @@ FN(jdouble, act)(JNIEnv*, jobject, jint code, jint a, jint b, jdouble x) {
     switch (code) {
     case togglePlay: m.togglePlay(); break;
     case toggleMetronome: m.toggleMetronome(); break;
-    case undo: m.undo(); break;
+    case undo: m.undoTapped(); break;
     case redo: m.redo(); break;
     case setBpm: m.setBpm(x); break;
     case beginGesture: m.beginGesture(); break;
@@ -116,6 +116,8 @@ FN(jdouble, act)(JNIEnv*, jobject, jint code, jint a, jint b, jdouble x) {
     case setShift: m.setShift(a != 0); break;
     case knobShiftTap: return m.knobShiftTap(a, b != 0) ? 1 : 0;
     case setLatched: m.setLatched(a != 0, b != 0); break;
+    case morphPress: m.morphPress(); break;
+    case morphRelease: m.morphRelease(); break;
     case openPage: m.openPage(a); break;
     case addPage: m.addPage(); break;
     case playPages: m.playPages(a, b); break;
@@ -151,12 +153,12 @@ FN(jobjectArray, topTexts)(JNIEnv* env, jobject) {
     return strings(env, {jambo::Scales::all[size_t(p.scale)].name, kRoots[jambo::Scales::wrap(p.root, 12)]});
 }
 
-/// Дорожки: [число, выбранная, канал (0 дорожка, 1 MIX, 2 MST), по дорожке: биты mute 1, solo 2].
+/// Дорожки: [число, выбранная, канал (0 дорожка, 1 MIX, 2 MST), по дорожке: биты mute 1, solo 2, MORPH 4].
 FN(jintArray, tracks)(JNIEnv* env, jobject) {
     std::lock_guard<std::mutex> g(gLock);
     auto& m = app();
     std::vector<jint> v{jint(m.project().tracks.size()), m.selectedTrack(), jint(m.channel())};
-    for (const auto& t : m.project().tracks) v.push_back((t.mute ? 1 : 0) | (t.solo ? 2 : 0));
+    for (const auto& t : m.project().tracks) v.push_back((t.mute ? 1 : 0) | (t.solo ? 2 : 0) | (t.morphEdited ? 4 : 0));
     return ints(env, v);
 }
 
@@ -426,13 +428,14 @@ FN(jintArray, clipRates)(JNIEnv* env, jobject) {
 
 FN(jobjectArray, clipRateNames)(JNIEnv* env, jobject) { return strings(env, jambo::Clip::rateNames()); }
 
-/// Кнопки правой колонки: [FX зажата, MOD зажата, FX toggle, MOD toggle, SHIFT, ручки FX, ручки MOD].
+/// Кнопки правой колонки: [FX зажата, MOD зажата, FX toggle, MOD toggle, SHIFT, ручки FX, ручки MOD, SHIFT для ручек,
+/// MORPH горит, у MORPH чёрная линия MODE TAP].
 FN(jintArray, side)(JNIEnv* env, jobject) {
     std::lock_guard<std::mutex> g(gLock);
     auto& m = app();
     using P = jambo::App::GridPage;
     return ints(env, {m.pageOn(P::fx), m.pageOn(P::mod), m.latched(P::fx), m.latched(P::mod), m.shiftHeld(), m.fxMode(),
-                      m.modMode()});
+                      m.modMode(), m.knobShift(), m.morphShown(), !m.morphHoldMode() && !m.morphAllHeld()});
 }
 
 /// Миниатюры MOD: по LFO1–3 и ENV [точек n, x n, y n, точка x, y] подряд.

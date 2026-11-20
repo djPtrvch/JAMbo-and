@@ -27,7 +27,7 @@ class ScreenState {
     var keyLabels by mutableStateOf(emptyArray<String>()); private set
     var sound by mutableStateOf(IntArray(6)); private set
     var pages by mutableStateOf(IntArray(7)); private set
-    var side by mutableStateOf(IntArray(7)); private set
+    var side by mutableStateOf(IntArray(10)); private set
     /** Меню страницы: номер страницы (−1 — закрыто) и низ её миниатюры в колонке. */
     var pageMenu by mutableIntStateOf(-1)
     var pageMenuY by mutableStateOf(0f)

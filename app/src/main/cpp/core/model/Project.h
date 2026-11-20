@@ -19,6 +19,24 @@
 
 namespace jambo {
 
+/// Точка возврата MORPH: дорожка (Track::id), параметр, значение сейчас и исходное.
+struct MorphPoint {
+    int track;
+    std::string param;
+    double from, to;
+    bool operator==(const MorphPoint& o) const {
+        return track == o.track && param == o.param && from == o.from && to == o.to;
+    }
+};
+
+/// Возврат после выключения MORPH: OFF (сразу), 1/4, 1/2 такта, такт, 2 такта (в долях).
+namespace MorphReturn {
+extern const std::vector<double> beats;
+extern const std::vector<std::string> names;
+/// Длительность возврата, с.
+double seconds(int k, double bpm);
+}  // namespace MorphReturn
+
 struct Project {
     /// Версия формата (10 — нынешняя; история — ProjectRepair).
     int version = 10;
@@ -191,6 +209,26 @@ struct Project {
     void toggleEq(int ch) { withEq(ch, [](Eq& e) { e.on = !e.on; }); }
     /// Ключ MORPH эффекта (TrackFx.swift): «fx:id» → id; nullopt — не эффект дорожки.
     static std::optional<std::string> morphFxId(const std::string& key);
+    /// Эффект id дорожки t меняют в режиме MORPH: исходное — при первом изменении.
+    void morphFx(int t, const std::string& id);
+    /// MORPH на все дорожки на сетке FX: у остальных дорожек с клипом — сдвиг на ту же долю хода от их исходного.
+    void morphShiftFx(int sel, const ParamDef& p, double norm);
+    /// Вернуть всё, что меняли в режиме MORPH на дорожке i: эффекты — в клип, ручки и назначения — Track::undoMorph.
+    void undoMorph(int i);
+    /// Значение ключа MORPH на дорожке i сейчас (эффект — из клипа).
+    std::optional<double> morphValue(int i, const std::string& key) const;
+    void setMorphValue(int i, const std::string& key, double v);
+
+    // MorphModes.swift: MorphModes.cpp
+    /// MORPH на все дорожки: ручку id выбранной дорожки sel поставили на norm — у остальных дорожек, где эта ручка есть,
+    /// — сдвиг на ту же долю хода от их значения на момент включения режима.
+    void morphShift(int sel, const ParamDef& p0, double norm);
+    /// UNDO / REDO не трогают MORPH: снимок получает от текущего проекта то, что накручено в режиме MORPH.
+    void keepMorph(const Project& cur);
+    /// Что вернуть при выключении MORPH: изменённые ручки всех дорожек.
+    std::vector<MorphPoint> morphReturnPoints() const;
+    /// Возврат на долю f (0…1): ручки — между значением при выключении и исходным (по ходу ручки).
+    void applyMorphReturn(const std::vector<MorphPoint>& pts, double f);
 
     auto tie() const {
         return std::tie(version, bpm, scale, root, fx, tracks, notice, fxAssigns, master, satBypass, cmpBypass,

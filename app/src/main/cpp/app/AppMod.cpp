@@ -1,6 +1,6 @@
 // App: источники LFO1–3 и ENV — назначение на ручки дорожки (порт части AppModelMod.swift и KnobGrid.swift, ветка
 // swift JAMbo). Удерживать источник и вращать ручку — степень −100…+100 %; на ручку — один источник; снять —
-// удерживать тот же источник и дважды тапнуть по ручке. MORPH — позже.
+// удерживать тот же источник и дважды тапнуть по ручке. В MORPH — без UNDO.
 #include "App.h"
 #include <algorithm>
 
@@ -72,6 +72,14 @@ void App::setAssign(int slot, int lfo, double amount) {
         return;
     }
     const ModAssign a(lfo, am);
+    if (morph_) {
+        const int i = selected_;
+        editMorph([&](Project& pr) {
+            pr.tracks[size_t(i)].morphAssign(id);
+            pr.tracks[size_t(i)].assigns[id] = a;
+        });
+        return;
+    }
     editTrack([&](Track& t) { t.assigns[id] = a; });
 }
 
@@ -88,6 +96,14 @@ void App::clearAssign(int slot, int lfo) {
     const auto& as = track().assigns;
     const auto it = as.find(id);
     if (it == as.end() || it->second.lfo != lfo) return;
+    if (morph_) {
+        const int i = selected_;
+        editMorph([&](Project& pr) {
+            pr.tracks[size_t(i)].morphAssign(id);
+            pr.tracks[size_t(i)].assigns.erase(id);
+        });
+        return;
+    }
     editTrack([&](Track& t) { t.assigns.erase(id); });
 }
 

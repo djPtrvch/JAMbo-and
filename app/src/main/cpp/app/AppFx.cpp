@@ -29,7 +29,7 @@ void App::setLatched(bool fx, bool mod) {
 }
 
 void App::pagePress(GridPage p) {
-    if (shiftHeld_) {
+    if (knobShift()) {
         const bool on = !latched(p);
         if (p == GridPage::fx) latchFx_ = on;
         else latchMod_ = on;
@@ -51,10 +51,6 @@ void App::pageRelease(GridPage p) {
     if (!latched(p)) setPageHeld(p, false);
 }
 
-void App::setShift(bool on) {
-    shiftHeld_ = on;
-    bump();
-}
 
 // MARK: — параметры FX и MOD
 

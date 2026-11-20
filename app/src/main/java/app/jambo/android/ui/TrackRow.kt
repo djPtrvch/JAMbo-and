@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,7 +40,8 @@ fun TrackRow(s: ScreenState, step: Float) {
             val bits = tr.getOrElse(3 + i) { 0 }
             TrackCell(
                 s, i, s.trackNames.getOrElse(i) { "" }, channel == 0 && tr[1] == i,
-                mute = bits and 1 != 0, solo = bits and 2 != 0, flash = (s.flashMask shr i) and 1 != 0,
+                mute = bits and 1 != 0, solo = bits and 2 != 0, morph = bits and 4 != 0,
+                flash = (s.flashMask shr i) and 1 != 0,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -61,7 +64,8 @@ private fun ChannelCell(s: ScreenState, title: String, channel: Int, selected: B
 
 @Composable
 private fun TrackCell(
-    s: ScreenState, index: Int, name: String, selected: Boolean, mute: Boolean, solo: Boolean, flash: Boolean,
+    s: ScreenState, index: Int, name: String, selected: Boolean, mute: Boolean, solo: Boolean, morph: Boolean,
+    flash: Boolean,
     modifier: Modifier,
 ) {
     val th = LocalTheme.current
@@ -102,6 +106,11 @@ private fun TrackCell(
                 if (mute) "M" else "S", color = if (mute) th.rec else th.accent, fontSize = 11.sp,
                 fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.TopEnd).padding(top = 3.dp, end = 7.dp),
             )
+        }
+        // Жёлтая точка: параметры дорожки меняли в режиме MORPH.
+        if (morph) {
+            Box(Modifier.align(Alignment.TopStart).padding(start = 7.dp, top = 6.dp).size(6.dp)
+                .background(th.accent, CircleShape))
         }
         Text(
             "${index + 1}", color = th.dim, fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
