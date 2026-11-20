@@ -126,7 +126,7 @@ fun TrackMenuOverlay(s: ScreenState, grid: Rect, onRename: (Int) -> Unit) {
     val cy = grid.top / d + ch * (slot / 4 + 0.5f)
     val rows = if (add) 1 else 4
     val mh = rows * 46f + 10
-    val x = (cx - 98).coerceIn(grid.left / d, grid.right / d - 196)
+    val x = maxOf(grid.left / d, minOf(cx - 98, grid.right / d - 196))
     val below = cy + ch / 2
     val y = if (below + mh < grid.bottom / d) below else maxOf(grid.top / d, cy - ch / 2 - mh)
     val shape = RoundedCornerShape(Layout.radius.dp)
