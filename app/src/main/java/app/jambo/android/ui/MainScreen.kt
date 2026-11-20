@@ -157,9 +157,11 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
         if (s.sound[2] != 0) SoundMenuOverlay(s, left)
         if (s.pageMenu >= 0) PageMenuOverlay(s, pagesRect)
         if (s.eq[0] != 0) EqMenus(s, s.eqUi)
+        if (s.eq[0] != 0) EqPresetsOverlay(s)
         if (s.chordMenu) ChordMenuOverlay(s)
         if (s.pianoMenu) PianoMenuOverlay(s, Layout.step(width))
         s.choice?.let { ChoiceOverlay(s, it) }
+        if (s.masterWin[0] >= 0) MasterOverlays(s, s.masterUi, s.masterWin[0])
         if (s.mixInfo.getOrElse(0) { -1 } >= 0) TrackMenuOverlay(s, gridRect) { renaming = it }
         if (renaming >= 0) InputDialog("RENAME", s.trackNames.getOrElse(renaming) { "" }, 12, { renaming = -1 }) { text ->
             AppNative.mixAct(10, renaming, 0, text)

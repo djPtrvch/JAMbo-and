@@ -19,6 +19,7 @@ void App::openLibraryStorage(const std::string& base) {
     // Пресеты модулей мастера и свои значения по умолчанию — общие для проектов, рядом с библиотекой.
     masterPresetsPath_ = base + "/MasterPresets.json";
     knobDefaultsPath_ = base + "/KnobDefaults.json";
+    eqPresetsPath_ = base + "/EqPresets.json";
     loadAppFiles();
 }
 

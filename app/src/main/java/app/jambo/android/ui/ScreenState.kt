@@ -100,6 +100,12 @@ class ScreenState {
     var dispCols = 0
     /** Шкала дисплеев окон модулей мастера, dB (48, 32, 16; SharedPreferences). */
     var displayScale by mutableIntStateOf(48)
+    /** Меню и окна ввода окна модуля мастера (рисуются поверх экрана). */
+    val masterUi = MasterUi()
+    /** PRESETS EQ: состояние (по ревизии), меню открыто, рамка кнопки PRESETS. */
+    var eqExtra by mutableStateOf(IntArray(3)); private set
+    var eqPresetNames by mutableStateOf(emptyArray<String>()); private set
+    var eqPresetsOpen by mutableStateOf(false)
     /** MIX: поднятая ручка дорожки (перестановка): слот, сдвиг пальца (px) и место, куда встанет; −1 — нет. */
     var liftSlot by mutableIntStateOf(-1)
     var liftDx by mutableStateOf(0f)
@@ -191,6 +197,8 @@ class ScreenState {
         AppNative.lib().let { if (!it.contentEquals(lib)) lib = it }
         AppNative.masterInfo().let { if (!it.contentEquals(masterInfo)) masterInfo = it }
         AppNative.masterWin().let { if (!it.contentEquals(masterWin)) masterWin = it }
+        AppNative.eqExtra().let { if (!it.contentEquals(eqExtra)) eqExtra = it }
+        AppNative.eqPresetNames().let { if (!it.contentEquals(eqPresetNames)) eqPresetNames = it }
         AppNative.masterWinTexts().let { if (!it.contentEquals(masterWinTexts)) masterWinTexts = it }
         AppNative.libRows().let { if (!it.contentEquals(libRows)) libRows = it }
         if (waveCols > 0) AppNative.wave(waveCols).let { if (!it.contentEquals(wave)) wave = it }

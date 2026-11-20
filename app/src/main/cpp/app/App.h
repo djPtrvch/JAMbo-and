@@ -11,6 +11,8 @@
 #include "MixStereo.h"
 #include "MasterWin.h"
 #include "model/MasterPresets.h"
+#include "model/EqPresets.h"
+#include "eq/EqListen.h"
 #include "engine/StemRing.h"
 #include "master/MasterChain.h"
 #include "icons/EngineIcons.h"
@@ -52,6 +54,8 @@ struct AppAudio {
     virtual MasterChain* master() { return nullptr; }
     /// Кольцо записи стемов колбэка; кадров отрендерено (точка записи — мигание за 5 с до конца).
     virtual StemRing* stemRing() { return nullptr; }
+    /// Прослушивание полосы EQ (LISTEN) в колбэке; nullptr — звука нет.
+    virtual EqListen* eqListen() { return nullptr; }
     virtual long framesRendered() const { return 0; }
     /// Ход транспорта из колбэка (запись с REC).
     virtual PlayClock::State clock() const { return {}; }
@@ -340,6 +344,19 @@ public:
     void toggleEqBand(int k);
     void deleteEqBand(int k);
     void toggleEqBypass();
+    /// PRESETS EQ (общие для дорожек, мастера и проектов; EqPresets.json) и SAVE DEFAULT (только EQ мастера).
+    const EqPresetBook& eqPresets() const { return eqPresets_; }
+    void saveEqPreset(const std::string& name, std::optional<int> over = std::nullopt);
+    void loadEqPreset(int k);
+    void renameEqPreset(int k, const std::string& name);
+    void deleteEqPreset(int k);
+    void moveEqPreset(int from, int to);
+    void saveEqDefault();
+    bool eqDefaultFlash() const { return defaultFlash_ == 10 && now_ < defaultFlashUntil_; }
+    /// LISTEN (тап — вкл./выкл.): канал звучит только в области выбранной полосы.
+    bool eqListenOn() const { return eqListenHeld_; }
+    void toggleEqListen();
+    void syncEqListen();
     /// Сдвиги динамических полос сейчас, dB.
     std::vector<double> eqDynOffsets() const;
     /// Подпись источника DYN: —, OFF, SELF, имя дорожки.
@@ -725,6 +742,12 @@ private:
     ScopeState scope_;
     MixAnalysis mixAn_;
     BandStereo bandStereo_;
+    EqPresetBook eqPresets_;
+    std::string eqPresetsPath_;
+    bool eqListenHeld_ = false;
+    int eqListenBand_ = -1;
+    void startEqListen();
+    void stopEqListen();
     std::optional<int> masterWin_;
     std::optional<TrackMenu> trackMenu_;
     std::optional<Track> trackClipboard_;

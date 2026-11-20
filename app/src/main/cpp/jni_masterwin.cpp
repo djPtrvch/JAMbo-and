@@ -197,3 +197,46 @@ FN(jfloatArray, masterDisplay)(JNIEnv* env, jobject, jint cols, jint tn, jint sc
     v.push_back(mod == 3 ? mc->limGuardCut.load() : 0.f);
     return floats(env, v);
 }
+
+/// PRESETS и LISTEN строки EQ: [LISTEN включена, SAVE DEFAULT мигает, канал — мастер], затем имена пресетов (eqPresetNames).
+FN(jintArray, eqExtra)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(jniLock());
+    auto& m = jniApp();
+    return jniInts(env, {m.eqListenOn(), m.eqDefaultFlash(), m.channel() != jambo::Channel::track});
+}
+
+FN(jobjectArray, eqPresetNames)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(jniLock());
+    std::vector<std::string> v;
+    for (const auto& p : jniApp().eqPresets().list) v.push_back(p.name);
+    return jniStrings(env, v);
+}
+
+/// code 1 SAVE (k ≥ 0 — перезаписать k), 2 загрузить k, 3 переименовать k, 4 удалить k, 5 перенести k → k2,
+/// 6 SAVE DEFAULT, 7 LISTEN.
+FN(void, eqPresetAct)(JNIEnv* env, jobject, jint code, jint k, jint k2, jstring jtext) {
+    const std::string text = jniString(env, jtext);
+    std::lock_guard<std::mutex> g(jniLock());
+    auto& m = jniApp();
+    switch (code) {
+    case 1: m.saveEqPreset(text, k >= 0 ? std::optional<int>(k) : std::nullopt); break;
+    case 2: m.loadEqPreset(k); break;
+    case 3: m.renameEqPreset(k, text); break;
+    case 4: m.deleteEqPreset(k); break;
+    case 5: m.moveEqPreset(k, k2); break;
+    case 6: m.saveEqDefault(); break;
+    case 7: m.toggleEqListen(); break;
+    default: break;
+    }
+}
+
+FN(jint, eqPresetIndex)(JNIEnv* env, jobject, jstring jname, jint except) {
+    const std::string name = jniString(env, jname);
+    std::lock_guard<std::mutex> g(jniLock());
+    return jniApp().eqPresets().index(name, except).value_or(-1);
+}
+
+FN(jstring, eqPresetNextName)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(jniLock());
+    return env->NewStringUTF(jniApp().eqPresets().nextName().c_str());
+}

@@ -48,6 +48,25 @@ void App::addTrack() {
         p.addTrack();
         if (!p.tracks.empty()) kd.apply(p.tracks.back());
     });
+    // Новая дорожка сразу играет свой клип (решение пользователя): при игре — с ближайшей границы, как тап по
+    // ячейке; без игры — запустится со стартом. Строка — играющая, иначе та, что играет у большинства дорожек.
+    const int i = int(project_.tracks.size()) - 1;
+    int row = 0;
+    if (playing_ && sceneRow_ >= 0) {
+        row = sceneRow_;
+    } else {
+        std::map<int, int> count;
+        for (const auto& t : project_.tracks)
+            if (!t.stopped && !t.blank()) count[t.slot] += 1;
+        int best = -1, votes = 0;
+        for (const auto& [k, c] : count)
+            if (c > votes) {
+                best = k;
+                votes = c;
+            }
+        if (best >= 0) row = best;
+    }
+    if (i >= 0 && project_.tracks[size_t(i)].clipFilled(row)) queueClip(i, row);
 }
 
 void App::copyTrack(int i) {

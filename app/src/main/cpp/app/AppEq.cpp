@@ -15,6 +15,7 @@ std::optional<EqBand> App::selectedBand() const { return eqTarget().band(eqBand_
 void App::eqEdit(const std::function<void(Eq&)>& f) {
     const int ch = eqChannel();
     edit([&](Project& p) { p.withEq(ch, f); });
+    if (eqListenBand_ >= 0) syncEqListen();
 }
 
 void App::toggleEqView() {
@@ -23,6 +24,7 @@ void App::toggleEqView() {
     if (eqView_ || patternView_) browser_.reset();
     if (eqView_ && channel_ == Channel::master) closeMasterWindow();
     if (eqView_) mixerOpen_ = false;
+    if (!eqView_ && eqListenHeld_) stopEqListen();
     eqBand_ = -1;
     syncSpectra();
     bump();
@@ -37,6 +39,8 @@ void App::syncSpectra() {
 
 void App::selectEqBand(int k) {
     eqBand_ = k;
+    // LISTEN включена — слушается точка, которую взяли.
+    if (eqListenHeld_) startEqListen();
     bump();
 }
 

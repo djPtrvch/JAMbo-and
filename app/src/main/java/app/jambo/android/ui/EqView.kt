@@ -60,7 +60,7 @@ class EqUi {
 }
 
 /** EQ на месте центра (EqView.swift): вверху строка полей, под ней поле EQ; справа остаётся измеритель. Канал —
- *  выбранная дорожка, при MIX и MST — мастер. LISTEN, PRESETS, сравнение дорожек и коррекция наушников — позже. */
+ *  выбранная дорожка, при MIX и MST — мастер. Строка — TYPE…DYN, LISTEN, PRESETS, BYPASS. */
 @Composable
 fun EqView(s: ScreenState, modifier: Modifier) {
     val ui = s.eqUi
@@ -115,8 +115,9 @@ private fun EqBar(s: ScreenState, ui: EqUi, origin: Float, modifier: Modifier) {
         EqField("M/S", t[5], sel, 30f, at(qRight + g, w2), { -ms.toDouble() },
             { v -> s.act(Act.SET_EQ_MS, k, ((-v.toInt()) % 3 + 3) % 3) }, tap = { ui.msMenu = true })
         EqField("DYN", t[6], hasGain, 100000f, at(qRight + 2 * g + w2, w2), { 0.0 }, { }, tap = { ui.dynMenu = true })
-        EqTool("LISTEN", false, false, at(listen, rw("eq"))) { }
-        EqTool("PRESETS", false, false, at(rx("patterns"), rw("patterns"))) { }
+        // LISTEN — тап включает и выключает: канал звучит только в области выбранной полосы.
+        EqTool("LISTEN", sel, sel && s.eqExtra[0] != 0, at(listen, rw("eq"))) { AppNative.eqPresetAct(7, 0, 0, ""); s.refresh() }
+        EqTool("PRESETS", true, s.eqPresetsOpen, at(rx("patterns"), rw("patterns"))) { s.eqPresetsOpen = true }
         EqTool("BYPASS", true, s.eq[2] == 0, at(rx("arrange"), rw("arrange"))) { s.act(Act.TOGGLE_EQ_BYPASS) }
     }
 }

@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -64,6 +66,8 @@ private class KnobTurn(val slot: Int, val startY: Float, var lastY: Float, var a
 }
 
 private class KnobTouches(val s: ScreenState) {
+    /** Таймер подъёма ручки в MIX (удержание 0,5 с без движения). */
+    var scope: kotlinx.coroutines.CoroutineScope? = null
     val turns = HashMap<PointerId, KnobTurn>()
     val lastTap = HashMap<Int, Long>()
 
@@ -79,6 +83,14 @@ private class KnobTouches(val s: ScreenState) {
         turn.downAt = now
         turn.startPx = px
         turn.startPy = py
+        if (s.tracks[2] == 1 && slot < s.tracks[0]) scope?.launch {
+            kotlinx.coroutines.delay(500)
+            if (turns[id] === turn && !turn.moved && !turn.consumed) {
+                turn.lifted = true
+                s.liftSlot = turn.slot
+                s.liftTarget = turn.slot
+            }
+        }
         // SHIFT для ручек: пока держат SHIFT + MORPH, ручки крутятся как без неё.
         val shift = s.side[7] != 0
         val mix = s.tracks[2] == 1
@@ -123,13 +135,7 @@ private class KnobTouches(val s: ScreenState) {
         if (t.consumed || t.lifted) return
         if (!t.moved) {
             if (abs(y - t.startY) < DEAD) return
-            // MIX: держали без движения 0,5 с — ручка поднята (чуть крупнее, над остальными), палец переносит дорожку.
-            if (s.tracks[2] == 1 && t.slot < s.tracks[0] && now - t.downAt >= 500) {
-                t.lifted = true
-                s.liftSlot = t.slot
-                s.liftTarget = t.slot
-                return
-            }
+            // MIX: поднята ли ручка, решает таймер (0,5 с без движения); движение раньше — поворот ручки.
             t.moved = true
             t.shiftTap = false
             t.lastY = y
@@ -166,6 +172,7 @@ private class KnobTouches(val s: ScreenState) {
 @Composable
 fun KnobGrid(s: ScreenState, modifier: Modifier) {
     val touches = remember(s) { KnobTouches(s) }
+    touches.scope = rememberCoroutineScope()
     var gridSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
     val sp = SPACING * androidx.compose.ui.platform.LocalDensity.current.density
     Column(

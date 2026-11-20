@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -46,7 +47,7 @@ fun GridSide(s: ScreenState, d: GridData, g: GridGeom, modifier: Modifier, ui: G
         val loop = d.rowLoop
         Box(Modifier.fillMaxWidth().height(g.rowH.dp).tile(if (loop) th.accent else th.panel2, 6f)
             .pointerTap { s.act(Act.SET_GRID_OPTION, GridOpt.ROW_LOOP) }, contentAlignment = Alignment.Center) {
-            Text("⟳", color = if (loop) th.onAccent else th.text, fontSize = 20.isp(), fontWeight = FontWeight.Bold)
+            LoopIcon(if (loop) th.onAccent else th.text)
         }
         if (d.maxTop > 0) {
             val sw = d.arrowSwitch && d.playing
@@ -172,5 +173,47 @@ private fun GridMenu(s: ScreenState, d: GridData, modifier: Modifier) {
         MenuChoices(listOf("NEW PATTERNS" to !d.plusCopy, "COPY PLAYING" to d.plusCopy)) { s.act(Act.SET_GRID_OPTION, GridOpt.PLUS_COPY, it) }
         MenuHead("▲ ▼ ARROWS")
         MenuChoices(listOf("VIEW" to !d.arrowSwitch, "SWITCH" to d.arrowSwitch)) { s.act(Act.SET_GRID_OPTION, GridOpt.ARROW_SWITCH, it) }
+    }
+}
+
+/** Значок LOOP ROW (как «повтор»): прямоугольная петля со скруглением, вверху стрелка вправо, внизу — влево. */
+@Composable
+private fun LoopIcon(color: androidx.compose.ui.graphics.Color) {
+    val k = LocalIconScale.current
+    androidx.compose.foundation.Canvas(Modifier.size((28 * k).dp, (20 * k).dp)) {
+        val w = size.width
+        val h = size.height
+        val sw = 2.2f * density * k
+        val r = h * 0.32f
+        val m = sw
+        val st = androidx.compose.ui.graphics.drawscope.Stroke(sw, cap = androidx.compose.ui.graphics.StrokeCap.Round,
+            join = androidx.compose.ui.graphics.StrokeJoin.Round)
+        val top = androidx.compose.ui.graphics.Path().apply {
+            moveTo(m, h * 0.62f)
+            lineTo(m, r + m)
+            quadraticTo(m, m, r + m, m)
+            lineTo(w - m - h * 0.2f, m)
+        }
+        val bottom = androidx.compose.ui.graphics.Path().apply {
+            moveTo(w - m, h * 0.38f)
+            lineTo(w - m, h - r - m)
+            quadraticTo(w - m, h - m, w - r - m, h - m)
+            lineTo(m + h * 0.2f, h - m)
+        }
+        drawPath(top, color, style = st)
+        drawPath(bottom, color, style = st)
+        val a = h * 0.26f
+        val arrow1 = androidx.compose.ui.graphics.Path().apply {
+            moveTo(w - m - h * 0.2f - a, m - a)
+            lineTo(w - m - h * 0.2f + sw * 0.3f, m)
+            lineTo(w - m - h * 0.2f - a, m + a)
+        }
+        val arrow2 = androidx.compose.ui.graphics.Path().apply {
+            moveTo(m + h * 0.2f + a, h - m - a)
+            lineTo(m + h * 0.2f - sw * 0.3f, h - m)
+            lineTo(m + h * 0.2f + a, h - m + a)
+        }
+        drawPath(arrow1, color, style = st)
+        drawPath(arrow2, color, style = st)
     }
 }

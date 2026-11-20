@@ -67,13 +67,12 @@ class MasterUi {
  */
 @Composable
 fun MasterWindow(s: ScreenState, modifier: Modifier) {
-    val ui = remember { MasterUi() }
+    val ui = s.masterUi
     val m = s.masterWin[0]
     Column(modifier, verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
         MasterStrip(s, ui, m, Modifier.fillMaxWidth().height(48.dp))
         MasterDisplay(s, m, Modifier.fillMaxWidth().weight(1f))
     }
-    MasterOverlays(s, ui, m)
 }
 
 @Composable
@@ -88,8 +87,9 @@ private fun MasterStrip(s: ScreenState, ui: MasterUi, m: Int, modifier: Modifier
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
         Box(Modifier.width(52.dp).fillMaxHeight().onGloballyPositioned { c -> s.body?.let { b -> if (b.isAttached) ui.anchor = b.localBoundingBoxOf(c) } }
             .pointerTap { ui.menu = 1 }, contentAlignment = Alignment.Center) {
-            Text("MASTER\n${titles.getOrElse(m) { "" }} ▾", color = th.dim, fontSize = 11.tsp(), letterSpacing = 0.9.sp,
-                textAlign = TextAlign.Center, maxLines = 2)
+            // Название окна (тап — меню SAT, COMP, CLIP, LIM): коротко, в одну строку.
+            Text("${titles.getOrElse(m) { "" }} ▾", color = th.dim, fontSize = 12.tsp(), fontWeight = FontWeight.Bold,
+                letterSpacing = 0.6.sp, textAlign = TextAlign.Center, maxLines = 1, softWrap = false)
         }
         for (i in 0 until n) {
             if (3 * i + 2 >= t.size) break
@@ -102,8 +102,11 @@ private fun MasterStrip(s: ScreenState, ui: MasterUi, m: Int, modifier: Modifier
         if (m == 2 || m == 3) ToggleField("UNITY", s.masterWin[1] != 0, Modifier.width(76.dp).fillMaxHeight()) {
             AppNative.masterWinAct(MasterWinAct.UNITY, 0, 0, ""); s.refresh()
         }
-        StripTool("PRESETS", ui.menu == 2, Modifier.width(Layout.topButton.dp).fillMaxHeight()) { ui.menu = 2 }
-        StripTool("BYPASS", bypass, Modifier.width(Layout.topButton.dp).fillMaxHeight()) {
+        // PRESETS и BYPASS — ширины PATTERNS и ARRANGE верхней панели, как в строке EQ.
+        val pw = s.topRects["patterns"]?.width?.div(d) ?: Layout.topButton
+        val bw = s.topRects["arrange"]?.width?.div(d) ?: Layout.topButton
+        StripTool("PRESETS", ui.menu == 2, Modifier.width(pw.dp).fillMaxHeight()) { ui.menu = 2 }
+        StripTool("BYPASS", bypass, Modifier.width(bw.dp).fillMaxHeight()) {
             AppNative.masterAct(6, m); s.refresh()
         }
     }
@@ -183,9 +186,9 @@ private fun StripTool(title: String, active: Boolean, modifier: Modifier, action
     }
 }
 
-/** Меню модулей и пресетов, ввод числом, имя пресета, вопрос «имя занято». */
+/** Меню модулей и пресетов, ввод числом, имя пресета, вопрос «имя занято» (поверх экрана — из Body). */
 @Composable
-private fun MasterOverlays(s: ScreenState, ui: MasterUi, m: Int) {
+fun MasterOverlays(s: ScreenState, ui: MasterUi, m: Int) {
     val th = LocalTheme.current
     val d = LocalDensity.current.density
     val t = s.masterWinTexts

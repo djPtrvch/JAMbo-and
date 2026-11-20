@@ -32,6 +32,7 @@ static void writeText(const std::string& p, const std::string& data) {
 
 void App::loadAppFiles() {
     masterPresets_ = MasterPresetBook::decode(readText(masterPresetsPath_));
+    eqPresets_ = EqPresetBook::decode(readText(eqPresetsPath_));
     const std::string kd = readText(knobDefaultsPath_);
     if (!kd.empty()) knobDefaults_ = ProjectCoding::decodeKnobDefaults(kd);
 }
@@ -227,6 +228,82 @@ void App::saveMasterDefault(int m) {
     writeText(knobDefaultsPath_, ProjectCoding::encode(knobDefaults_));
     defaultFlash_ = m;
     defaultFlashUntil_ = now_ + 1;
+    bump();
+}
+
+// MARK: — пресеты EQ и LISTEN (AppModelEq.swift)
+
+void App::saveEqPreset(const std::string& name, std::optional<int> over) {
+    eqPresets_.save(name, eqTarget(), over);
+    writeText(eqPresetsPath_, eqPresets_.encode());
+    bump();
+}
+
+void App::loadEqPreset(int k) {
+    if (k < 0 || k >= int(eqPresets_.list.size())) return;
+    const auto bands = eqPresets_.list[size_t(k)].bands;
+    const int n = int(project_.tracks.size());
+    eqEdit([&](Eq& e) { e.apply(bands, n); });
+}
+
+void App::renameEqPreset(int k, const std::string& name) {
+    eqPresets_.rename(k, name);
+    writeText(eqPresetsPath_, eqPresets_.encode());
+    bump();
+}
+
+void App::deleteEqPreset(int k) {
+    eqPresets_.remove(k);
+    writeText(eqPresetsPath_, eqPresets_.encode());
+    bump();
+}
+
+void App::moveEqPreset(int from, int to) {
+    eqPresets_.move(from, to);
+    writeText(eqPresetsPath_, eqPresets_.encode());
+    bump();
+}
+
+void App::saveEqDefault() {
+    knobDefaults_.setEq(eqTarget().bands, channel_ != Channel::track);
+    writeText(knobDefaultsPath_, ProjectCoding::encode(knobDefaults_));
+    defaultFlash_ = 10;
+    defaultFlashUntil_ = now_ + 1;
+    bump();
+}
+
+void App::toggleEqListen() {
+    if (eqListenHeld_) stopEqListen();
+    else startEqListen();
+}
+
+void App::startEqListen() {
+    eqListenHeld_ = true;
+    eqListenBand_ = selectedBand() ? eqBand_ : -1;
+    syncEqListen();
+    bump();
+}
+
+void App::syncEqListen() {
+    EqListen* x = audio_->eqListen();
+    if (!x) return;
+    const auto b = eqListenBand_ >= 0 ? eqTarget().band(eqListenBand_) : std::nullopt;
+    if (!b) {
+        x->channel.store(-1);
+        return;
+    }
+    const auto f = EqListen::filter(*b);
+    x->kind.store(f.kind);
+    x->q.store(float(f.q));
+    x->freq.store(float(b->freq));
+    x->ms.store(b->ms);
+    x->channel.store(eqChannel());
+}
+
+void App::stopEqListen() {
+    eqListenHeld_ = false;
+    eqListenBand_ = -1;
+    if (EqListen* x = audio_->eqListen()) x->channel.store(-1);
     bump();
 }
 

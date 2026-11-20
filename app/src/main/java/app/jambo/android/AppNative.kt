@@ -189,6 +189,12 @@ object AppNative {
     external fun mixerResetPeak(ch: Int)
     /** Микшер: [слот меню (−1), ADD, есть копия, можно удалить, n, по дорожке mute, solo, ●, точка; MASTER ●, точка]. */
     external fun mixInfo(): IntArray
+    /** EQ: [LISTEN включена, SAVE DEFAULT мигает, канал — мастер]; имена пресетов; действия (jni_masterwin.cpp). */
+    external fun eqExtra(): IntArray
+    external fun eqPresetNames(): Array<String>
+    external fun eqPresetAct(code: Int, k: Int, k2: Int, text: String)
+    external fun eqPresetIndex(name: String, except: Int): Int
+    external fun eqPresetNextName(): String
     /** 1 mute, 2 solo, 3 ● (−1 — MASTER), 4 меню, 5 закрыть, 6 ADD, 7 COPY, 8 PASTE, 9 DELETE, 10 RENAME, 11 a → b. */
     external fun mixAct(code: Int, a: Int, b: Int, text: String)
     fun act(code: Int, a: Int = 0, b: Int = 0) = act(code, a, b, 0.0)
