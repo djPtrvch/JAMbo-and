@@ -45,25 +45,28 @@ fun TopBar(s: ScreenState, onMenu: () -> Unit) {
     val top = s.top
     val half = (Layout.topButton - Layout.gap) / 2
     Row(Modifier.fillMaxWidth().height(Layout.topHeight.dp), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-        Row(Modifier.width(wide(Layout.leftColumn)).fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-            Box(Modifier.width(wide(52f)).fillMaxHeight().pointerInput(Unit) { detectTapGestures(onTap = { onMenu() }) },
+        Row(Modifier.width(column()).fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
+            Box(Modifier.width(52.dp).fillMaxHeight().pointerInput(Unit) { detectTapGestures(onTap = { onMenu() }) },
                 contentAlignment = Alignment.Center) { Burger(th.text) }
             BpmField(s, top[0] / 10.0, Modifier.weight(1f))
-            Metronome(s, top[4] != 0, Modifier.width(wide(52f)))
+            Metronome(s, top[4] != 0, Modifier.width(52.dp))
         }
-        Later(s.topTexts[0], Modifier.width(wide(Layout.topButton)))
+        Later(s.topTexts[0], Modifier.width(mid(Layout.topButton)))
         Later(s.topTexts[1], Modifier.weight(1f))
-        Glyph("↶", top[1] != 0, Modifier.width(wide(Layout.topButton))) { s.act(Act.UNDO) }
-        PlayButton(s, top[3] != 0, Modifier.width(wide(half)))
-        Box(Modifier.width(wide(half)).fillMaxHeight().framed(th.panel2, th.rec.copy(alpha = 0.4f)), contentAlignment = Alignment.Center) {
+        Glyph("↶", top[1] != 0, Modifier.width(mid(Layout.topButton))) { s.act(Act.UNDO) }
+        PlayButton(s, top[3] != 0, Modifier.width(mid(half)))
+        Box(Modifier.width(mid(half)).fillMaxHeight().framed(th.panel2, th.rec.copy(alpha = 0.4f)), contentAlignment = Alignment.Center) {
             Text("●", color = th.rec.copy(alpha = 0.4f), fontSize = 16.sp)
         }
-        Glyph("↷", top[2] != 0, Modifier.width(wide(Layout.topButton))) { s.act(Act.REDO) }
+        Glyph("↷", top[2] != 0, Modifier.width(mid(Layout.topButton))) { s.act(Act.REDO) }
         RollIcon(Modifier.weight(1f))
-        Later("EQ", Modifier.width(wide(Layout.topButton)))
-        Later("PATTERNS", Modifier.width(wide(Layout.topButton)))
-        Later("ARRANGE", Modifier.width(wide(Layout.topButton)))
-        Spacer(Modifier.width(wide(Layout.meterWidth)))
+        Later("EQ", Modifier.width(mid(Layout.topButton)))
+        // PATTERNS и ARRANGE — ровно над правой колонкой, затем место измерителя.
+        Row(Modifier.width(column()).fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
+            Later("PATTERNS", Modifier.weight(1f))
+            Later("ARRANGE", Modifier.weight(1f))
+        }
+        Spacer(Modifier.width(Layout.meterWidth.dp))
     }
 }
 

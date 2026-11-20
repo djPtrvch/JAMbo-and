@@ -5,13 +5,36 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** Растяжение по ширине: ширина экрана в точках / designWidth (не меньше 1). Ширины раскладки iPad умножаются на него —
- * экран шире iPad растягивается равномерно, пропорции кнопок и колонок сохраняются. */
-val LocalStretch = staticCompositionLocalOf { 1f }
+/**
+ * Раскладка по ширине экрана (Android-планшеты шире iPad: 16:10, 16:9). Середина — сетка ручек и кнопки над ней — по
+ * размерам iPad; лишняя ширина — боковым колонкам поровну (не шире maxColumn); остаток (очень широкий экран) —
+ * равномерно середине (midStretch). col — ширина боковой колонки.
+ */
+class Dims(val col: Float, val midStretch: Float) {
+    companion object {
+        /** Рабочая ширина iPad (без полей) и середина на нём. */
+        const val ipadWidth = Layout.designWidth - 2 * Layout.side
+        val ipadMid = ipadWidth - 2 * Layout.leftColumn - Layout.meterWidth - 3 * Layout.gap
+        const val maxColumn = 360f
 
-/** Ширина v точек iPad с растяжением экрана. */
+        fun of(width: Float): Dims {
+            val extra = maxOf(0f, width - ipadWidth)
+            val col = minOf(maxColumn, Layout.leftColumn + extra / 2)
+            val mid = width - 2 * col - Layout.meterWidth - 3 * Layout.gap
+            return Dims(col, maxOf(1f, mid / ipadMid))
+        }
+    }
+}
+
+val LocalDims = staticCompositionLocalOf { Dims(Layout.leftColumn, 1f) }
+
+/** Ширина кнопки середины (v точек iPad). */
 @Composable
-fun wide(v: Float): Dp = (v * LocalStretch.current).dp
+fun mid(v: Float): Dp = (v * LocalDims.current.midStretch).dp
+
+/** Ширина боковой колонки. */
+@Composable
+fun column(): Dp = LocalDims.current.col.dp
 
 /** Размеры раскладки (Layout.swift ветки swift JAMbo), dp. */
 object Layout {

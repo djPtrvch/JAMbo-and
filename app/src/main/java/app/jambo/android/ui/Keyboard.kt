@@ -36,8 +36,8 @@ fun KeyboardPanel(s: ScreenState, width: Float) {
     // Сторона клавиши — по двум октавам гаммы (с одной октавой клавиши шире, высота та же).
     val count = s.keys.getOrElse(1) { 15 }
     val step = Layout.step(width)
-    // Высота клавиатуры — как на iPad (по ширине без растяжения): центр не сжимается на широком экране.
-    val base = width / LocalStretch.current
+    // Высота клавиатуры — как на iPad (по его рабочей ширине): на широком экране центр не сжимается.
+    val base = Dims.ipadWidth
     Row(Modifier.fillMaxWidth().height(Layout.pianoHeight(base, count).dp),
         horizontalArrangement = Arrangement.spacedBy(Layout.stepGap.dp)) {
         Column(Modifier.width(step.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
