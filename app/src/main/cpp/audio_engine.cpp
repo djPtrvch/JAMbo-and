@@ -98,6 +98,13 @@ double AudioEngine::modOut(int i) const {
     return core_->mod.outs[size_t(i)].load();
 }
 
+jambo::PlayClock::State AudioEngine::clock() const {
+    if (!core_) return {};
+    return core_->sequencer.clock.read();
+}
+
+double AudioEngine::heardNow() const { return nowSec() - double(outLatencyUs_.load()) / 1e6; }
+
 double AudioEngine::modPhase(int i) const {
     if (!core_ || i < 0 || i >= jambo::ModEngine::tracks * 3) return 0;
     return core_->mod.phaseOuts[size_t(i)].load();
@@ -169,9 +176,11 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream*, void* dat
     if (core_) {
         float* cl = coreL_.data();
         float* cr = coreR_.data();
+        // Время хоста блока (часы колбэка): по нему — запись с REC (heardNow).
+        const double host = nowSec();
         for (int at = 0; at < frames;) {
             const int n = std::min(int(frames) - at, jambo::AudioCore::maxFrames);
-            core_->render(n, cl, cr);
+            core_->render(n, cl, cr, host + double(at) / sr_);
             for (int i = 0; i < n; ++i) {
                 out[2 * (at + i)] += cl[i];
                 out[2 * (at + i) + 1] += cr[i];
@@ -193,6 +202,13 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream*, void* dat
         loadMaxHold_ = 0; loadMaxTicks_ = 0;
     }
     return oboe::DataCallbackResult::Continue;
+}
+
+void AudioEngine::updateLatency() {
+    std::lock_guard<std::mutex> g(lock_);
+    if (!stream_) return;
+    auto lat = stream_->calculateLatencyMillis();
+    if (lat) outLatencyUs_.store(int64_t(lat.value() * 1000.0));
 }
 
 void AudioEngine::info(double* o) {

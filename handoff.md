@@ -22,7 +22,8 @@
 - MOD-превью (app/AppModPreview.cpp, ui/ModPreview.kt; AppAudio::modPhase, envOut): пока держат MOD — миниатюры LFO1–3 и ENV в окне звука.
 - MORPH (сделано, на устройстве не проверено): Core — core/model/MorphModes.cpp (порт MorphModes.swift и MORPH эффектов из TrackFx.swift; тесты tests/morph_test.cpp — MorphModesTests и testMorphFxAndReturn, их раньше не было); App — app/AppMorph.cpp (тап, SHIFT + MORPH — все дорожки, MORPH + UNDO, возврат RETURN по темпу, keepMorph при UNDO, ручки, FX и назначения LFO в MORPH без UNDO); экран — кнопка MORPH, жёлтая точка на дорожке. Настройки MORPH (RETURN, MODE HOLD) — по умолчанию (OFF, TAP), меню SETTINGS — позже.
 - Измеритель справа (сделано, на устройстве не проверено): app/MeterState.* (порт MeterState.swift), app/AppMeter.cpp (канал, LUFS, пик, регулятор громкости — дорожка / выход мастера, trackStereo без стерео-сэмплов), AppAudio::levels; Compose MeterColumn.kt (кадр — JNI meter). LEVEL RELATIVE (настройка) — по умолчанию ABSOLUTE. Числа на экране — Locale.US (запятая в русской локали).
-- Дальше: REC (запись нот с клавиатуры при игре).
+- REC (сделано, на устройстве не проверено): app/AppRec.cpp — запись нот клавиатуры (и MIDI на выбранную дорожку) при PLAY: шаг по ходу транспорта с поправкой на задержку выхода (heardTick; AudioEngine передаёт время хоста блока в render, задержка выхода — updateLatency раз в секунду), длина — по удержанию, дубль — одна запись UNDO, OVERDUB OFF — очистка пройденных шагов (recPassStep), QUANTIZE/OVERDUB — по умолчанию (ON/OFF). Кнопка REC в верхней панели. Запись автоматизации и аранжировки — нет.
+- Дальше (предложить пользователю): гамма SCALE и ROOT (меню выбора), CHORD и меню клавиатуры (1/2 октавы, VELOCITY), меню бутерброда (PROJECTS — сохранение проектов, SETTINGS), сетка паттернов, EQ, библиотека сэмплов; окна MIX и MST в колонках.
 
 ## Решения пользователя
 - Формат файла проекта — тот же, что у iPad-версии (совместимость в обе стороны).

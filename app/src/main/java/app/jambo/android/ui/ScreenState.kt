@@ -11,7 +11,7 @@ import app.jambo.android.AppNative
  * ревизия изменилась, и меняют своё состояние, только если содержимое другое: перерисовывается изменившееся.
  */
 class ScreenState {
-    var top by mutableStateOf(IntArray(5)); private set
+    var top by mutableStateOf(IntArray(6)); private set
     var topTexts by mutableStateOf(arrayOf("", "")); private set
     var tracks by mutableStateOf(IntArray(3)); private set
     var trackNames by mutableStateOf(emptyArray<String>()); private set

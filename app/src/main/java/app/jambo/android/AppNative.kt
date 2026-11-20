@@ -53,6 +53,7 @@ object AppNative {
         const val RESET_LOUDNESS = 131
         const val SET_METER_VOL = 132
         const val VOL_DRAG = 133
+        const val TOGGLE_REC = 134
         const val OPEN_PAGE = 110
         const val ADD_PAGE = 111
         const val PLAY_PAGES = 112
@@ -67,7 +68,7 @@ object AppNative {
 
     /** [ревизия, ход открытого клипа, маска мигания, мигание доли, акцент, игра]. */
     external fun frame(): IntArray
-    /** [BPM·10, UNDO, REDO, игра, метроном]. */
+    /** [BPM·10, UNDO, REDO, игра, метроном, REC]. */
     external fun top(): IntArray
     /** [гамма, корневая нота]. */
     external fun topTexts(): Array<String>

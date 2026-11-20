@@ -55,9 +55,7 @@ fun TopBar(s: ScreenState, onMenu: () -> Unit) {
         Later(s.topTexts[1], Modifier.weight(1f))
         Glyph("↶", top[1] != 0, Modifier.width(mid(Layout.topButton))) { s.act(Act.UNDO) }
         PlayButton(s, top[3] != 0, Modifier.width(mid(half)))
-        Box(Modifier.width(mid(half)).fillMaxHeight().framed(th.panel2, th.rec.copy(alpha = 0.4f)), contentAlignment = Alignment.Center) {
-            Text("●", color = th.rec.copy(alpha = 0.4f), fontSize = 16.sp)
-        }
+        RecButton(s, top.getOrElse(5) { 0 } != 0, Modifier.width(mid(half)))
         Glyph("↷", top[2] != 0, Modifier.width(mid(Layout.topButton))) { s.act(Act.REDO) }
         RollIcon(Modifier.weight(1f))
         Later("EQ", Modifier.width(mid(Layout.topButton)))
@@ -97,6 +95,16 @@ private fun PlayButton(s: ScreenState, on: Boolean, modifier: Modifier) {
             .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(); s.act(Act.TOGGLE_PLAY) } },
         contentAlignment = Alignment.Center,
     ) { Text("▶", color = if (on) th.onAccent else th.accent, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+}
+
+/** REC: красная точка и красная окантовка; включена — горит красным. С PLAY ноты клавиатуры пишутся в секвенсор. */
+@Composable
+private fun RecButton(s: ScreenState, on: Boolean, modifier: Modifier) {
+    val th = LocalTheme.current
+    Box(
+        modifier.fillMaxHeight().framed(if (on) th.rec else th.panel2, th.rec).pointerTap { s.act(Act.TOGGLE_REC) },
+        contentAlignment = Alignment.Center,
+    ) { Text("●", color = if (on) Color.White else th.rec, fontSize = 16.sp) }
 }
 
 /** BPM: палец вверх-вниз — 4 dp на 1 BPM (после 10 dp), одна запись UNDO на жест. */

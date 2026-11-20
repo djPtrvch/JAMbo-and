@@ -29,6 +29,8 @@ struct CoreAudio : AppAudio {
         core.publish(p, {}, o, now);
     }
     Levels* levels() override { return &core.levels; }
+    PlayClock::State clock() const override { return core.sequencer.clock.read(); }
+    double heardNow() const override { return now; }
     const Levels* levels() const override { return &core.levels; }
     bool popOut(SeqOut& e) override {
         auto x = core.sequencer.out.pop();
@@ -334,9 +336,46 @@ void meter() {
     app.setMeterVol(app.meterChannel(), -6);
     check(app.meterChannel() == Levels::master && app.project().outVol == -6, "app: MST — громкость выхода");
 }
+void rec() {
+    CoreAudio a;
+    App app(&a);
+    app.openSoundMenu();
+    app.pickSynth(17);
+    std::vector<float> l(256), r(256);
+    app.togglePlay();
+    // ~0,6 с при 120 BPM — пятый шаг (шаг 125 мс).
+    for (int k = 0; k < 110; ++k) a.core.render(256, l.data(), r.data());
+    app.tick(1);
+    app.toggleRec();
+    const int before = int(app.canUndo());
+    app.keyDown(1, 2, 1);
+    app.keyUp(1);
+    int on = -1;
+    for (int i = 0; i < 16; ++i)
+        if (app.project().tracks[0].step(i) && app.project().tracks[0].step(i)->on) on = i;
+    check(on >= 3 && on <= 6 && app.project().tracks[0].step(on)->notes == std::vector<int>{app.keyNote(2)},
+          "app: REC — нота на слышимом шаге");
+    for (int k = 0; k < 50; ++k) a.core.render(256, l.data(), r.data());
+    app.tick(1.3);
+    app.keyDown(2, 4, 1);
+    app.keyUp(2);
+    int count = 0;
+    for (int i = 0; i < 16; ++i)
+        if (app.project().tracks[0].step(i) && app.project().tracks[0].step(i)->on) ++count;
+    (void)before;
+    check(count == 2, "app: REC — вторая нота в том же дубле");
+    app.undo();
+    count = 0;
+    for (int i = 0; i < 16; ++i)
+        if (app.project().tracks[0].step(i) && app.project().tracks[0].step(i)->on) ++count;
+    check(count == 0, "app: UNDO отменяет весь дубль");
+    app.toggleRec();
+    app.togglePlay();
+}
 }  // namespace
 
 int runAppTests() {
+    rec();
     meter();
     morphApp();
     fxPages();

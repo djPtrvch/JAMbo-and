@@ -10,6 +10,7 @@
 #include "model/KnobDefaults.h"
 #include "model/Params.h"
 #include "model/Project.h"
+#include "sequencer/PlayClock.h"
 #include "sequencer/SeqOut.h"
 #include <array>
 #include <cstdint>
@@ -30,6 +31,10 @@ struct AppAudio {
     /// Снимки проекта; tables — таблицы WTABLE дорожек по ключу.
     virtual void publish(const Project& p, const std::map<std::string, std::shared_ptr<WtTable>>& tables) = 0;
     virtual bool popOut(SeqOut& e) = 0;
+    /// Ход транспорта из колбэка (запись с REC).
+    virtual PlayClock::State clock() const { return {}; }
+    /// Время хоста (с, часы колбэка), чей звук слышен сейчас: сейчас минус задержка выхода.
+    virtual double heardNow() const { return 0; }
     /// Выход источника модуляции для интерфейса: дорожка·4 + (LFO1–3, ENV).
     virtual double modOut(int) const { return 0; }
     /// Уровни колбэка (измеритель); nullptr — звука ещё нет.
@@ -240,6 +245,12 @@ public:
     /// Стерео ли дорожка на метре (стерео где-то на дорожке — метр стерео).
     bool trackStereo(int t) const;
 
+    // REC: запись нот при игре
+    bool recOn() const { return recOn_; }
+    void toggleRec();
+    /// SETTINGS → RECORD (у экрана): QUANTIZE, OVERDUB.
+    void setRecordSettings(bool quantize, bool overdub) { quantize_ = quantize; overdub_ = overdub; }
+
     // Клавиатура
     int octave() const;
     int keyCount() const;
@@ -279,6 +290,9 @@ private:
     struct KeyHold {
         int track;
         std::vector<int> notes;
+        /// Записанный шаг (длина — при отпускании) и время нажатия (с).
+        std::optional<int> recIndex;
+        double t0 = 0;
     };
     std::map<int, KeyHold> keyHolds_;
     std::optional<std::pair<int, Step>> lastCopy_;
@@ -340,6 +354,18 @@ private:
     /// Свои значения ручек по умолчанию (SHIFT + удержание — позже; пока пустые).
     KnobDefaults knobDefaults_;
     MeterState meters_;
+    bool recOn_ = false, quantize_ = true, overdub_ = false;
+    int recTake_ = -1;
+    std::set<int> takeTracks_, takeWritten_;
+    std::pair<int, int> lastRec_{-1, -1};
+    /// Начало прохода клипа дорожки (тик) — из колбэка.
+    std::array<int, Params::maxTracks> trackStart_{};
+    std::optional<int> heardTick() const;
+    std::optional<int> record(int ti, const std::vector<int>& notes, std::optional<double> velocity);
+    /// Правка дубля: первая нота — новая запись UNDO, следующие (пока не было других действий) — в неё же.
+    void writeTake(int ti, const std::function<void(Track&)>& change);
+    void endRecTake();
+    void recPassStep(int ti, int pos);
     /// SETTINGS → LEVEL: RELATIVE (подстройка trim) или ABSOLUTE (по умолчанию).
     bool levelRelative_ = false;
     void tickMeters(double now);

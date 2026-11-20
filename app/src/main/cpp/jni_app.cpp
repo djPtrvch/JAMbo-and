@@ -42,7 +42,7 @@ enum Act {
     openSoundMenu = 90, closeSoundMenu, pickSynth, cleanSampler, stepSoundToTrack, folderArrow,
     tick = 100,
     pagePress = 120, pageRelease, setShift, knobShiftTap, setLatched, morphPress, morphRelease,
-    resetMeterPeak = 130, resetLoudness, setMeterVol, volDrag,
+    resetMeterPeak = 130, resetLoudness, setMeterVol, volDrag, toggleRec,
     openPage = 110, addPage, playPages, movePage, pageAction, pageArrow, setClipRate,
 };
 
@@ -111,7 +111,15 @@ FN(jdouble, act)(JNIEnv*, jobject, jint code, jint a, jint b, jdouble x) {
     case cleanSampler: m.cleanSampler(); break;
     case stepSoundToTrack: m.stepSoundToTrack(); break;
     case folderArrow: m.folderArrow(a); break;
-    case tick: m.tick(x); break;
+    case tick: {
+        static double lastLatency = 0;
+        if (x - lastLatency > 1) {
+            lastLatency = x;
+            audioEngine()->updateLatency();
+        }
+        m.tick(x);
+        break;
+    }
     case pagePress: m.pagePress(jambo::App::GridPage(a)); break;
     case pageRelease: m.pageRelease(jambo::App::GridPage(a)); break;
     case setShift: m.setShift(a != 0); break;
@@ -123,6 +131,7 @@ FN(jdouble, act)(JNIEnv*, jobject, jint code, jint a, jint b, jdouble x) {
     case resetLoudness: m.resetLoudness(); break;
     case setMeterVol: m.setMeterVol(m.meterChannel(), x); break;
     case volDrag: m.setVolDrag(a != 0); break;
+    case toggleRec: m.toggleRec(); break;
     case openPage: m.openPage(a); break;
     case addPage: m.addPage(); break;
     case playPages: m.playPages(a, b); break;
@@ -144,11 +153,11 @@ FN(jintArray, frame)(JNIEnv* env, jobject) {
                       m.beatAccent() ? 1 : 0, m.playing() ? 1 : 0});
 }
 
-/// Верхняя панель: [BPM·10, UNDO, REDO, игра, метроном].
+/// Верхняя панель: [BPM·10, UNDO, REDO, игра, метроном, REC].
 FN(jintArray, top)(JNIEnv* env, jobject) {
     std::lock_guard<std::mutex> g(gLock);
     auto& m = app();
-    return ints(env, {jint(std::lround(m.project().bpm * 10)), m.canUndo(), m.canRedo(), m.playing(), m.metronome()});
+    return ints(env, {jint(std::lround(m.project().bpm * 10)), m.canUndo(), m.canRedo(), m.playing(), m.metronome(), m.recOn()});
 }
 
 /// Подписи верхней панели: [гамма, корневая нота].

@@ -3,15 +3,24 @@
 #include "App.h"
 #include "model/AnalogMod.h"
 #include "model/FilterType.h"
+#include "model/Recording.h"
 #include "model/SynthEngines.h"
 #include "model/Scales.h"
 #include <algorithm>
+#include <chrono>
 
 namespace jambo {
 
 namespace {
 /// Клавиатура: одна октава гаммы + верхняя корневая (Settings.pianoOctaves по умолчанию; меню клавиатуры — позже).
 constexpr int pianoOctaves = 1;
+}  // namespace
+
+namespace {
+double steadyNow() {
+    using namespace std::chrono;
+    return duration<double>(steady_clock::now().time_since_epoch()).count();
+}
 }  // namespace
 
 // MARK: — шаги
@@ -355,8 +364,13 @@ void App::keyDown(int id, int k, double velocity) {
     // Velocity клавиш (VELOCITY в меню клавиатуры) — позже: ноты звучат с Level дорожки.
     (void)velocity;
     liveNoteOn(ti, *notes, id, 1);
-    keyHolds_[id] = {ti, *notes};
-    inputNotes();
+    std::optional<int> recIndex;
+    if (recOn_ && playing_ && held_.empty() && channel_ == Channel::track) {
+        recIndex = record(ti, *notes, std::nullopt);
+    } else {
+        inputNotes();
+    }
+    keyHolds_[id] = {ti, *notes, recIndex, steadyNow()};
     bump();
 }
 
@@ -364,8 +378,16 @@ void App::keyUp(int id) {
     pressedKeys_.erase(id);
     const auto it = keyHolds_.find(id);
     if (it != keyHolds_.end()) {
-        audio_->push(CoreEvent::noteOff(it->second.track, id));
+        const KeyHold k = it->second;
+        audio_->push(CoreEvent::noteOff(k.track, id));
         keyHolds_.erase(it);
+        // С REC — длина записанной ноты по времени удержания.
+        if (k.recIndex) {
+            const double stepSeconds = 60 / project_.bpm / 4;
+            const int len = RecordClock::length(steadyNow() - k.t0, stepSeconds);
+            const int index = *k.recIndex;
+            writeTake(k.track, [&](Track& t) { t.recordLength(index, len); });
+        }
     }
     bump();
 }

@@ -16,6 +16,7 @@ void App::loadProject(const Project& p) {
         audio_->push(CoreEvent::play(false));
     }
     history_.reset();
+    endRecTake();
     selected_ = 0;
     channel_ = Channel::track;
     viewPage_ = 0;
@@ -31,6 +32,8 @@ void App::loadProject(const Project& p) {
 
 void App::togglePlay() {
     playing_ = !playing_;
+    endRecTake();
+    if (!playing_) trackStart_.fill(0);
     if (playing_) {
         audio_->push(CoreEvent::arrange(false, 0));
     } else {
@@ -244,6 +247,8 @@ void App::playEvent(const SeqOut& e) {
         }
     } else if (e.kind == SeqOut::Kind::ended && playing_) {
         playing_ = false;
+        endRecTake();
+        trackStart_.fill(0);
         bump();
     }
 }
@@ -258,6 +263,7 @@ void App::tick(double now) {
         switch (e.kind) {
         case SeqOut::Kind::step:
             if (e.track >= 0 && e.track < int(playPos_.size())) playPos_[size_t(e.track)] = e.a;
+            if (e.track >= 0 && e.track < Params::maxTracks && e.a >= 0) recPassStep(e.track, e.a);
             break;
         case SeqOut::Kind::trig:
             if (e.track < int(project_.tracks.size()) && project_.audible(e.track)) {
@@ -267,6 +273,7 @@ void App::tick(double now) {
             break;
         case SeqOut::Kind::clip:
             if (e.track < int(cell_.size())) cell_[size_t(e.track)] = e.on ? -1 : e.a;
+            if (e.track < Params::maxTracks) trackStart_[size_t(e.track)] = e.b;
             playEvent(e);
             break;
         case SeqOut::Kind::ended: playEvent(e); break;
