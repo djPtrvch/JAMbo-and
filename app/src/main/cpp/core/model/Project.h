@@ -13,6 +13,7 @@
 #include "ModAssign.h"
 #include "Params.h"
 #include "Track.h"
+#include "ArrangeRecorder.h"
 #include "../eq/EqModel.h"
 #include "../master/MasterChain.h"
 
@@ -115,6 +116,47 @@ struct Project {
     void renameTrack(int i, const std::string& name);
     /// Источники-дорожки динамических полос EQ (EqModel.swift): map — новый номер по старому, −1 — удалена.
     void remapEqDyn(const std::function<int(int)>& map);
+
+    // Правки аранжировки (ArrangeEdits.swift): ArrangeEdits.cpp. Блок группы — (дорожка, номер блока).
+    using BlockRef = std::pair<int, int>;
+    int arrangeEnd() const;
+    void pasteBlocks(int i, const std::vector<ArrBlock>& list);
+    void deleteBlocks(const std::vector<BlockRef>& sel, bool closing = false);
+    std::vector<BlockRef> moveBlocks(const std::vector<BlockRef>& sel, int d);
+    std::vector<BlockRef> duplicateBlocks(const std::vector<BlockRef>& sel);
+    void splitArrange(int t, int a, int b);
+    void setTrackColor(int i, int color);
+    int addMarker(int at, const std::string& name, std::optional<int> end = std::nullopt);
+    int moveMarker(int k, int at);
+    void setMarkerStart(int k, int x);
+    void setMarkerEnd(int k, int x);
+    void renameMarker(int k, const std::string& name);
+    void setMarkerColor(int k, int color);
+    void deleteMarker(int k);
+    std::optional<int> section(int x) const;
+    std::optional<int> sectionEnd(int k) const;
+    /// Диапазон петли (границы в любом порядке); пустой — петля выключается.
+    void setLoop(int a, int b);
+    /// TO ARRANGE: строка k — с позиции at (nullopt — в конец); конец участка или nullopt.
+    std::optional<int> rowToArrange(int k, std::optional<int> at, bool repeats = true);
+    std::optional<std::pair<int, int>> placeRow(int k, const std::vector<int>& only, int reps, std::optional<int> at);
+    static std::string markerName(const std::string& s);
+    std::vector<std::pair<int, ArrBlock>> groupBlocks(const std::vector<BlockRef>& sel) const;
+    void removeGroup(const std::vector<BlockRef>& sel);
+    std::vector<BlockRef> blockIndices(const std::vector<std::pair<int, ArrBlock>>& list) const;
+
+    // Запись аранжировки (ArrangeRecorder.swift): ArrangeRecorder.cpp.
+    /// Записанные отрезки — в аранжировку (поздний заменяет ранний); played, fired, heard, live — запись «по факту».
+    void applyRecording(const std::vector<ArrRecorder::Seg>& segs, const std::vector<std::map<int, int>>& played = {},
+                        const std::vector<std::set<int>>& fired = {}, const std::vector<std::map<int, Step>>& heard = {},
+                        const std::vector<ArrRecorder::LiveNote>& live = {});
+    void placeFired(int t, const ArrRecorder::Seg& s, const Clip& src, const std::map<int, int>& played,
+                    const std::set<int>& fired, const std::map<int, Step>& heard,
+                    const std::vector<ArrRecorder::LiveNote>& live);
+    void placeLive(int t, const ArrRecorder::Seg& s, const std::vector<ArrRecorder::LiveNote>& live);
+    static bool addLive(Clip& c, const std::vector<ArrRecorder::LiveNote>& live, int from, int count, double level);
+    /// Все блоки — со своей копией клипа.
+    bool ownArrPatterns();
 
     // Правки EQ (EqModel.swift). Канал: дорожка 0… или EqSpec::masterChannel.
     Eq eq(int ch) const {

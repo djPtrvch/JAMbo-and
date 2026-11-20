@@ -38,6 +38,9 @@ struct ArrAutoLane {
         const double f = (x - a.x) / (b.x - a.x);
         return a.y + (b.y - a.y) * std::min(1.0, std::max(0.0, f));
     }
+    /// Упрощение записи (Рамер — Дуглас — Пекер по значению): точка уходит, если кривая без неё отклоняется не больше
+    /// tol; концы остаются.
+    static std::vector<ArrAutoPoint> simplify(const std::vector<ArrAutoPoint>& p, double tol);
     auto tie() const { return std::tie(param, points); }
     JAMBO_EQ(ArrAutoLane)
 };

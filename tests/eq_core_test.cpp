@@ -76,7 +76,7 @@ void edits() {
     p.moveTrack(0, 2);
     check(ok && p.tracks[2].eq.bands[1]->freq == 1000, "eq: правки полос, мастер, переезд с дорожкой");
 
-    std::vector<double> f(size_t(EqSpec::stride));
+    std::vector<double> f(static_cast<size_t>(EqSpec::stride));
     Eq e;
     e.bands[0] = band(EqSpec::lowCut, 100, 6, 2, 2);
     e.bands[1] = EqBand(false, EqSpec::bell, 100, 6, 2);
@@ -196,7 +196,7 @@ void dyn() {
     e.bands[0] = x;
     x.type = EqSpec::notch;
     e.bands[1] = x;
-    std::vector<double> f(size_t(EqSpec::stride));
+    std::vector<double> f(static_cast<size_t>(EqSpec::stride));
     EqSpec::fill(f.data(), &e);
     check(f[7] == 2 && f[8] == -30 && f[9] == 9 && f[size_t(1 + EqSpec::bandStride + 6)] == -1, "eq dyn: снимок");
 

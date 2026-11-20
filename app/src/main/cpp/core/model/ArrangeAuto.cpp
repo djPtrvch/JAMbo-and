@@ -1,4 +1,5 @@
 // Порт Core/Model/ArrangeAuto.swift (ветка swift JAMbo): строки и точки автоматизации дорожки.
+#include <cmath>
 #include <algorithm>
 #include "AnalogMod.h"
 #include "Track.h"
@@ -132,6 +133,51 @@ void Track::dropLegacyLinks() {
             blocks[i + 1].pinAuto(l.param, 0, y);
         }
     }
+}
+
+std::vector<ArrAutoPoint> ArrAutoLane::simplify(const std::vector<ArrAutoPoint>& p, double tol) {
+    if (p.size() <= 2) return p;
+    std::vector<bool> keep(p.size(), false);
+    keep.front() = true;
+    keep.back() = true;
+    std::vector<std::pair<int, int>> stack{{0, int(p.size()) - 1}};
+    while (!stack.empty()) {
+        const auto [a, b] = stack.back();
+        stack.pop_back();
+        if (b - a < 2) continue;
+        double worst = -1;
+        int at = -1;
+        const double dx = p[size_t(b)].x - p[size_t(a)].x;
+        for (int i = a + 1; i < b; ++i) {
+            const double f = dx > 0 ? (p[size_t(i)].x - p[size_t(a)].x) / dx : 0;
+            const double y = p[size_t(a)].y + (p[size_t(b)].y - p[size_t(a)].y) * f;
+            const double d = std::fabs(p[size_t(i)].y - y);
+            if (d > worst) {
+                worst = d;
+                at = i;
+            }
+        }
+        if (worst > tol && at > 0) {
+            keep[size_t(at)] = true;
+            stack.push_back({a, at});
+            stack.push_back({at, b});
+        }
+    }
+    std::vector<ArrAutoPoint> out;
+    for (size_t i = 0; i < p.size(); ++i)
+        if (keep[i]) out.push_back(p[i]);
+    return out;
+}
+
+void Track::recordAuto(const std::string& id, const std::vector<ArrAutoPoint>& take, double tol) {
+    if (take.empty() || ArrAutoTarget::index(id) < 0) return;
+    const double a = take.front().x, b = take.back().x;
+    const auto piece = ArrAutoLane::simplify(take, tol);
+    auto pts = autoPoints(id);
+    pts.erase(std::remove_if(pts.begin(), pts.end(), [&](const ArrAutoPoint& q) { return q.x >= a && q.x <= b; }),
+              pts.end());
+    pts.insert(pts.end(), piece.begin(), piece.end());
+    setAuto(id, pts);
 }
 
 }  // namespace jambo

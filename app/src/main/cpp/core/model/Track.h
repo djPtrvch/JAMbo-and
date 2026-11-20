@@ -155,6 +155,43 @@ struct Track {
     int placeBlock(const ArrBlock& b);
     /// После чтения: клипы в пределах, длины ≥ 1, по порядку, без перекрытий; цвет в палитре.
     void repairBlocks();
+    /// В клипе k есть триги (на играющих страницах).
+    bool clipHasTrigs(int k) const;
+    /// Длина прохода клипа k в шагах транспорта (с учётом скорости); пустая ячейка — такт.
+    int clipSteps(int k) const;
+    /// Самый длинный блок, который ставит запись и перенос клипов: 8 тактов.
+    static constexpr int maxClipBlock = 8 * ArrGrid::stepsPerBar;
+    /// Блок клипа при записи и переносе: по проходу клипа, не длиннее 8 тактов; skipEmpty — участок без тригов не
+    /// пишется (тогда может вернуть −1). Номер первого блока.
+    int placeClip(const ArrBlock& b, bool skipEmpty = true);
+    /// Есть ли в участке блока b триг его клипа.
+    bool clipHasTrig(const ArrBlock& b) const;
+    int addBlock(int clip, int at, std::optional<int> length = std::nullopt);
+    int moveBlock(int i, int start);
+    int resizeBlock(int i, int start, int end);
+    void deleteBlock(int i);
+    /// DELETE с магнитом: блоки правее сдвигаются влево на его длину.
+    void deleteBlockClosing(int i);
+    int duplicateBlock(int i);
+    int pasteBlock(int after, const ArrBlock& b);
+    /// Блоки, которые начинаются не раньше x, сдвигаются на d (блок через x сначала делится).
+    void shiftArrange(int x, int d);
+    /// INSERT: блок клипа в точку at, блоки правее сдвигаются на его длину.
+    int insertBlock(int clip, int at, std::optional<int> length = std::nullopt);
+    int resizeInserted(int i, int length);
+    /// Блоки дорожки ещё раз — после последнего.
+    void duplicateBlocks();
+    /// Номера клипов в блоках после правки строк (nullopt — блок удаляется).
+    void remapBlocks(const std::function<std::optional<int>(int)>& map);
+    /// Конец последнего блока (0 — блоков нет).
+    int arrangeEnd() const;
+    /// Разрезать блок, через который проходит x.
+    void splitArrange(int x);
+    void splitBlock(int x);
+    /// Клип, который играет блок: своя копия, иначе клип сетки (nullopt — ячейка пуста).
+    std::optional<Clip> blockClip(const ArrBlock& b) const;
+    /// У каждого блока — своя копия клипа (ArrangeRecorder.cpp). true — что-то поменялось.
+    bool ownArrPatterns();
 
     // Автоматизация (ArrangeAuto.swift): ArrangeAuto.cpp
     int autoLane(const std::string& id) const;
@@ -162,6 +199,8 @@ struct Track {
     std::vector<ArrAutoPoint> autoPoints(const std::string& id) const;
     std::optional<double> autoValue(const std::string& id, double x) const;
     void setAuto(const std::string& id, const std::vector<ArrAutoPoint>& points);
+    /// Записанный кусок кривой: точки на участке [первая, последняя] заменяются куском (упрощённым).
+    void recordAuto(const std::string& id, const std::vector<ArrAutoPoint>& take, double tol = 0.01);
     void deleteAuto(const std::string& id);
     void clearAllAutos();
     /// Проект прежнего формата: точки кривых дорожки — в блоки под ними.
