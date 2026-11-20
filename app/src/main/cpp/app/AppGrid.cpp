@@ -267,7 +267,11 @@ void App::setGridTop(int top) {
 
 void App::togglePatterns() {
     patternView_ = !patternView_;
-    if (patternView_) openClip(selected_, track().slot);
+    if (patternView_) {
+        eqView_ = false;
+        syncSpectra();
+        openClip(selected_, track().slot);
+    }
     bump();
 }
 

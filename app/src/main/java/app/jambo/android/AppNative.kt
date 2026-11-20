@@ -89,7 +89,32 @@ object AppNative {
         const val SET_GRID_OPTION = 174
         const val GRID_ARROW = 175
         const val SET_GRID_TOP = 176
+        const val TOGGLE_EQ_VIEW = 180
+        const val SELECT_EQ_BAND = 181
+        const val SET_EQ_TYPE = 182
+        const val SET_EQ_SLOPE = 183
+        const val SET_EQ_MS = 184
+        const val SET_EQ_DYN = 185
+        const val TOGGLE_EQ_BAND = 186
+        const val DELETE_EQ_BAND = 187
+        const val TOGGLE_EQ_BYPASS = 188
     }
+
+    /** EQ: [открыт, мастер, включён, выбранная полоса, дорожек], по полосе (10): [есть, вкл., тип, крутизна, M/S, DYN]. */
+    external fun eq(): IntArray
+    /** По полосе: [частота, усиление, Q, порог, сдвиг]. */
+    external fun eqBands(): FloatArray
+    /** [имя канала, TYPE, FREQ, GAIN, Q, M/S, DYN]. */
+    external fun eqTexts(): Array<String>
+    /** Правка полосы: NaN — не менять. */
+    external fun eqSetBand(k: Int, freq: Double, gain: Double, q: Double)
+    external fun eqAddBand(freq: Double, gain: Double)
+    /** THRESHOLD и RANGE динамической полосы: NaN — не менять. */
+    external fun eqSetDyn(k: Int, thr: Double, range: Double)
+    /** [биты стерео 1 | MID 2 | SIDE 4, стерео n, середина n, бока n, сдвиги DYN 10] — dB. */
+    external fun eqCurves(n: Int): FloatArray
+    /** [до EQ n, после EQ n] — доли высоты. */
+    external fun eqSpectrum(n: Int, dt: Double): FloatArray
 
     /** Сетка паттернов (формат — grid в jni_app.cpp). */
     external fun grid(): IntArray

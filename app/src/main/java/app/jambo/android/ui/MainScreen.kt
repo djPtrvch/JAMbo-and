@@ -111,6 +111,10 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
             TopBar(s) { s.mainMenu = !s.mainMenu }
             if (s.grid[0] != 0) PatternGrid(s, Modifier.weight(1f).fillMaxWidth(), width)
+            else if (s.eq[0] != 0) Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
+                EqView(s, Modifier.weight(1f).fillMaxHeight())
+                MeterColumn(s, Modifier.fillMaxHeight())
+            }
             else Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
                 LeftColumn(s, Modifier.width(column()).fillMaxHeight().onGloballyPositioned { c ->
                     body?.let { b -> if (b.isAttached) left = b.localBoundingBoxOf(c) }
@@ -129,6 +133,7 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
         }
         if (s.sound[2] != 0) SoundMenuOverlay(s, left)
         if (s.pageMenu >= 0) PageMenuOverlay(s, pagesRect)
+        if (s.eq[0] != 0) EqMenus(s, s.eqUi)
         if (s.chordMenu) ChordMenuOverlay(s)
         if (s.pianoMenu) PianoMenuOverlay(s, Layout.step(width))
         s.choice?.let { ChoiceOverlay(s, it) }

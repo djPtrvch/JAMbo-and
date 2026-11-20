@@ -186,15 +186,25 @@ const Track& App::seq() const {
 
 void App::selectTrack(int i) {
     if (i < 0 || i >= int(project_.tracks.size())) return;
+    const int before = eqChannel();
     selected_ = i;
     channel_ = Channel::track;
     held_.clear();
+    if (eqView_ && eqChannel() != before) {
+        eqBand_ = -1;
+        syncSpectra();
+    }
     viewPage_ = std::min(viewPage_, int(project_.tracks[size_t(i)].pages().size()) - 1);
     bump();
 }
 
 void App::selectChannel(Channel c) {
+    const int before = eqChannel();
     channel_ = c;
+    if (eqView_ && eqChannel() != before) {
+        eqBand_ = -1;
+        syncSpectra();
+    }
     if (c == Channel::master) heldSources_.clear();
     held_.clear();
     viewPage_ = std::min(viewPage_, int(seq().pages().size()) - 1);

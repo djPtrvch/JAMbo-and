@@ -32,6 +32,8 @@ public:
     /// Задержка выхода (для heardNow) — из основного потока, раз в секунду.
     void updateLatency();
     jambo::Levels* levels() override { return core_ ? &core_->levels : nullptr; }
+    jambo::Spectra* spectra() override { return core_ ? &core_->spectra : nullptr; }
+    double eqDynOffset(int ch, int k) const override { return core_ ? core_->eqDyn.offset(ch, k) : 0; }
     const jambo::Levels* levels() const override { return core_ ? &core_->levels : nullptr; }
     double modPhase(int i) const override;
     double envOut(int i) const override;

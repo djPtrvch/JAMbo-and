@@ -32,6 +32,7 @@ struct CoreAudio : AppAudio {
         core.publish(p, {}, o, now);
     }
     Levels* levels() override { return &core.levels; }
+    Spectra* spectra() override { return &core.spectra; }
     PlayClock::State clock() const override { return core.sequencer.clock.read(); }
     double heardNow() const override { return now; }
     const Levels* levels() const override { return &core.levels; }
@@ -399,6 +400,34 @@ void chords() {
     check(app.trackSwing() == 60 && app.canUndo(), "app: SWING дорожки");
 }
 
+void eq() {
+    CoreAudio a;
+    App app(&a);
+    app.toggleEqView();
+    check(app.eqView() && a.core.spectra.channel.load() == 0, "eq: окно — канал дорожки 1");
+    app.addEqBand(1000, 6);
+    check(app.eqBand() == 0 && app.selectedBand() && app.selectedBand()->gain == 6, "eq: новая bell-полоса выбрана");
+    app.beginGesture();
+    app.setEqBand(0, 2000, 3.0);
+    app.setEqBand(0, 3000, 2.0);
+    app.endGesture();
+    app.undo();
+    check(app.selectedBand() && app.selectedBand()->freq == 1000, "eq: жест — одна запись UNDO");
+    const auto c = eqCurves(app.eqTarget(), 64, app.eqDynOffsets());
+    double peak = 0;
+    for (double v : c.stereo) peak = std::max(peak, v);
+    check(c.hasStereo && peak > 5 && peak < 6.5, "eq: кривая — пик около +6 dB");
+    std::vector<float> pre, post;
+    a.run(4096);
+    app.eqSpectrum(100, 0.016, pre, post);
+    check(pre.size() == 100 && post.size() == 100, "eq: спектр на 100 столбцов");
+    app.selectChannel(Channel::master);
+    check(app.eqChannel() == EqSpec::masterChannel && a.core.spectra.channel.load() == EqSpec::masterChannel &&
+          app.eqBand() == -1, "eq: MST — мастер");
+    app.togglePatterns();
+    check(!app.eqView() && a.core.spectra.channel.load() == -1, "eq: PATTERNS закрывает EQ");
+}
+
 void grid() {
     CoreAudio a;
     App app(&a);
@@ -476,6 +505,7 @@ void projects() {
 }
 
 int runAppTests() {
+    eq();
     grid();
     projects();
     chords();

@@ -2,6 +2,7 @@
 // «дай данные» — массивы по разделам. Вызовы из UI- и MIDI-потоков — под одним мьютексом.
 #include <jni.h>
 #include <cmath>
+#include <cstdio>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -48,6 +49,8 @@ enum Act {
     flushAutosave = 150, refreshProjects, setMorphSettings, setLevelRelative,
     togglePatterns = 160, tapCell, holdCell, queueScene, copyClip, pasteClip, deleteClip, dropClip, addRow,
     duplicateRow, moveRow, deleteRow, copyRow, pasteRow, setGridOption, gridArrow, setGridTop,
+    toggleEqView = 180, selectEqBand, setEqType, setEqSlope, setEqMs, setEqDyn, toggleEqBand, deleteEqBand,
+    toggleEqBypass,
 };
 
 jintArray ints(JNIEnv* env, const std::vector<jint>& v) {
@@ -171,6 +174,15 @@ FN(jdouble, act)(JNIEnv*, jobject, jint code, jint a, jint b, jdouble x) {
     case setGridOption: m.setGridOption(jambo::App::GridOption(a), b); break;
     case gridArrow: m.gridArrow(a); break;
     case setGridTop: m.setGridTop(a); break;
+    case toggleEqView: m.toggleEqView(); break;
+    case selectEqBand: m.selectEqBand(a); break;
+    case setEqType: m.setEqType(a, b); break;
+    case setEqSlope: m.setEqSlope(a, b); break;
+    case setEqMs: m.setEqMs(a, b); break;
+    case setEqDyn: m.setEqDyn(a, b); break;
+    case toggleEqBand: m.toggleEqBand(a); break;
+    case deleteEqBand: m.deleteEqBand(a); break;
+    case toggleEqBypass: m.toggleEqBypass(); break;
     default: break;
     }
     return 0;
@@ -258,6 +270,110 @@ FN(void, setScene)(JNIEnv* env, jobject, jint k, jstring name, jint repeats) {
     const std::string n = c ? c : "";
     if (c) env->ReleaseStringUTFChars(name, c);
     app().setScene(k, n, repeats);
+}
+
+namespace {
+std::string fmt(const char* f, double v) {
+    char b[48];
+    std::snprintf(b, sizeof b, f, v);
+    return b;
+}
+/// Подписи EQ (EqFormat в AppModelEq.swift).
+std::string eqHz(double f) {
+    if (f < 1000) return fmt(f < 100 ? "%.1f Hz" : "%.0f Hz", f);
+    return fmt(f < 10000 ? "%.2f kHz" : "%.1f kHz", f / 1000);
+}
+std::string eqGain(double g) { return (g > 0 ? "+" : "") + fmt("%.1f dB", g); }
+const char* const kEqTypes[] = {"Bell", "Low Shelf", "High Shelf", "Low Cut", "High Cut", "Notch"};
+const char* const kEqMs[] = {"STEREO", "MID", "SIDE"};
+}  // namespace
+
+/// EQ: [открыт, мастер, EQ включён, выбранная полоса, дорожек], затем по месту полосы (10): [есть, вкл., тип,
+/// крутизна, M/S, источник DYN].
+FN(jintArray, eq)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    const auto e = m.eqTarget();
+    std::vector<jint> v{m.eqView(), m.eqChannel() == jambo::EqSpec::masterChannel, e.on, m.eqBand(),
+                        jint(m.project().tracks.size())};
+    for (int k = 0; k < jambo::EqSpec::bands; ++k) {
+        const auto b = e.band(k);
+        v.insert(v.end(), {b ? 1 : 0, b && b->on, b ? b->type : 0, b ? b->slope : 0, b ? b->ms : 0, b ? b->dyn : -1});
+    }
+    return ints(env, v);
+}
+
+/// Значения полос: по месту — [частота, усиление, Q, порог, сдвиг].
+FN(jfloatArray, eqBands)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    const auto e = app().eqTarget();
+    std::vector<jfloat> v;
+    for (int k = 0; k < jambo::EqSpec::bands; ++k) {
+        const auto b = e.band(k).value_or(jambo::EqBand());
+        v.insert(v.end(), {jfloat(b.freq), jfloat(b.gain), jfloat(b.q), jfloat(b.thr), jfloat(b.range)});
+    }
+    jfloatArray a = env->NewFloatArray(jsize(v.size()));
+    env->SetFloatArrayRegion(a, 0, jsize(v.size()), v.data());
+    return a;
+}
+
+/// Подписи строки EQ: [имя канала, TYPE, FREQ, GAIN, Q, M/S, DYN] выбранной полосы (нет — «—»).
+FN(jobjectArray, eqTexts)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    const std::string name = m.channel() == jambo::Channel::track ? m.project().tracks[size_t(m.selectedTrack())].name
+                                                                  : std::string("MASTER");
+    const auto b = m.selectedBand();
+    if (!b) return strings(env, {name, "—", "—", "—", "—", "—", "—"});
+    std::string type = kEqTypes[b->type];
+    if (jambo::EqSpec::isCut(b->type)) type += " " + std::to_string(jambo::EqSpec::slopeDb(b->slope));
+    return strings(env, {name, type, eqHz(b->freq), jambo::EqSpec::hasGain(b->type) ? eqGain(b->gain) : "—",
+                         fmt("%.2f", b->q), kEqMs[b->ms], m.eqDynName(*b)});
+}
+
+/// Правка полосы k: NaN — не менять.
+FN(void, eqSetBand)(JNIEnv*, jobject, jint k, jdouble freq, jdouble gain, jdouble q) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto o = [](double v) { return std::isnan(v) ? std::nullopt : std::optional<double>(v); };
+    app().setEqBand(k, o(freq), o(gain), o(q));
+}
+
+FN(void, eqSetDyn)(JNIEnv*, jobject, jint k, jdouble thr, jdouble range) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto o = [](double v) { return std::isnan(v) ? std::nullopt : std::optional<double>(v); };
+    app().setEqDynParams(k, o(thr), o(range));
+}
+
+FN(void, eqAddBand)(JNIEnv*, jobject, jdouble freq, jdouble gain) {
+    std::lock_guard<std::mutex> g(gLock);
+    app().addEqBand(freq, gain);
+}
+
+/// Кривые EQ на n точек (dB): [биты стерео 1 | MID 2 | SIDE 4, стерео n, середина n, бока n, сдвиги DYN 10].
+FN(jfloatArray, eqCurves)(JNIEnv* env, jobject, jint n) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    const auto offs = m.eqDynOffsets();
+    const auto c = jambo::eqCurves(m.eqTarget(), n, offs);
+    std::vector<jfloat> v{jfloat((c.hasStereo ? 1 : 0) | (c.hasMid ? 2 : 0) | (c.hasSide ? 4 : 0))};
+    for (double x : c.stereo) v.push_back(jfloat(x));
+    for (double x : c.mid) v.push_back(jfloat(x));
+    for (double x : c.side) v.push_back(jfloat(x));
+    for (double x : offs) v.push_back(jfloat(x));
+    jfloatArray a = env->NewFloatArray(jsize(v.size()));
+    env->SetFloatArrayRegion(a, 0, jsize(v.size()), v.data());
+    return a;
+}
+
+/// Спектры до и после EQ на n столбцов (доли высоты, 0 — верх): [до n, после n].
+FN(jfloatArray, eqSpectrum)(JNIEnv* env, jobject, jint n, jdouble dt) {
+    std::lock_guard<std::mutex> g(gLock);
+    std::vector<float> pre, post;
+    app().eqSpectrum(n, dt, pre, post);
+    pre.insert(pre.end(), post.begin(), post.end());
+    jfloatArray a = env->NewFloatArray(jsize(pre.size()));
+    env->SetFloatArrayRegion(a, 0, jsize(pre.size()), pre.data());
+    return a;
 }
 
 /// SETTINGS: [QUANTIZE, OVERDUB, MORPH RETURN, MORPH MODE HOLD, LEVEL RELATIVE].

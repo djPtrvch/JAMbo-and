@@ -68,16 +68,16 @@ fun TopBar(s: ScreenState, onMenu: () -> Unit) {
         DragField(s, "ROOT", s.topTexts[1], { pi[6] }, { s.act(Act.SET_ROOT, it) }, Modifier.weight(1f)) { r ->
             s.choice = Choice(s.rootNames, 4, pi[6], r, r.width / dens + rootMenu) { s.act(Act.SET_ROOT, it) }
         }
-        Glyph("↶", top[1] != 0, Modifier.width(mid(Layout.topButton))) { s.act(Act.UNDO) }
+        Glyph("↶", top[1] != 0, Modifier.width(mid(Layout.topButton)).report(s, "undo")) { s.act(Act.UNDO) }
         PlayButton(s, top[3] != 0, Modifier.width(mid(half)))
         RecButton(s, top.getOrElse(5) { 0 } != 0, Modifier.width(mid(half)))
         Glyph("↷", top[2] != 0, Modifier.width(mid(Layout.topButton))) { s.act(Act.REDO) }
         RollIcon(Modifier.weight(1f))
-        Later("EQ", Modifier.width(side))
+        Toggle("EQ", s.eq[0] != 0, Modifier.width(side).report(s, "eq")) { s.act(Act.TOGGLE_EQ_VIEW) }
         // PATTERNS и ARRANGE — ровно над правой колонкой, затем место измерителя.
         Row(Modifier.width(rightColumn()).fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-            Toggle("PATTERNS", s.grid[0] != 0, Modifier.weight(1f)) { s.act(Act.TOGGLE_PATTERNS) }
-            Later("ARRANGE", Modifier.weight(1f))
+            Toggle("PATTERNS", s.grid[0] != 0, Modifier.weight(1f).report(s, "patterns")) { s.act(Act.TOGGLE_PATTERNS) }
+            Later("ARRANGE", Modifier.weight(1f).report(s, "arrange"))
         }
         Spacer(Modifier.width(Layout.meterWidth.dp))
     }
@@ -135,7 +135,16 @@ private fun DragField(
 @Composable
 private fun density(): Float = androidx.compose.ui.platform.LocalDensity.current.density
 
-/** Кнопка окна (PATTERNS): горит, пока открыто. */
+/** Рамка кнопки в координатах Body — для строки EQ под верхней панелью. */
+private fun Modifier.report(s: ScreenState, key: String): Modifier = this.onGloballyPositioned { c ->
+    val b = s.body
+    if (b != null && b.isAttached && c.isAttached) {
+        val r = b.localBoundingBoxOf(c)
+        if (s.topRects[key] != r) s.topRects = s.topRects + (key to r)
+    }
+}
+
+/** Кнопка окна (PATTERNS, EQ): горит, пока открыто. */
 @Composable
 private fun Toggle(title: String, on: Boolean, modifier: Modifier, action: () -> Unit) {
     val th = LocalTheme.current

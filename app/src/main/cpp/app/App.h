@@ -3,6 +3,7 @@
 // зовёт действия и читает данные для отрисовки; всё — в основном потоке (JNI — под мьютексом jni_bridge).
 #pragma once
 #include "engine/CoreEvent.h"
+#include "EqDisplay.h"
 #include "MeterState.h"
 #include "icons/EngineIcons.h"
 #include "synth/Wavetable.h"
@@ -45,6 +46,9 @@ struct AppAudio {
     /// Фаза LFO (дорожка·3 + n) и ENV (дорожка·2: мс от запуска, гейт в мс) для миниатюр MOD.
     virtual double modPhase(int) const { return 0; }
     virtual double envOut(int i) const { return i % 2 == 0 ? -1 : 0; }
+    /// Точки съёма спектров EQ (nullptr — звука нет) и сдвиг динамической полосы k канала ch, dB.
+    virtual Spectra* spectra() { return nullptr; }
+    virtual double eqDynOffset(int, int) const { return 0; }
 };
 
 /// Что выбрано в строке дорожек: дорожка, канал микшера MIX или мастер MST.
@@ -295,6 +299,35 @@ public:
     /// Ноты с MIDI-входа — на выбранную дорожку (как клавиша; id — номер ноты со сдвигом).
     void midiNote(int note, int velocity);
 
+    // EQ (AppEq.cpp)
+    bool eqView() const { return eqView_; }
+    void toggleEqView();
+    /// Канал EQ: дорожка или EqSpec::masterChannel (MIX, MST).
+    int eqChannel() const;
+    Eq eqTarget() const;
+    int eqBand() const { return eqBand_; }
+    std::optional<EqBand> selectedBand() const;
+    void selectEqBand(int k);
+    /// Двойной тап по пустому месту: новая bell-полоса, она же выбрана.
+    void addEqBand(double freq, double gain);
+    void setEqBand(int k, std::optional<double> freq, std::optional<double> gain = std::nullopt,
+                   std::optional<double> q = std::nullopt);
+    void setEqType(int k, int type);
+    void setEqSlope(int k, int slope);
+    void setEqMs(int k, int ms);
+    /// Источник динамической полосы: −1 OFF, 0 SELF, n — дорожка n.
+    void setEqDyn(int k, int src);
+    void setEqDynParams(int k, std::optional<double> thr, std::optional<double> range);
+    void toggleEqBand(int k);
+    void deleteEqBand(int k);
+    void toggleEqBypass();
+    /// Сдвиги динамических полос сейчас, dB.
+    std::vector<double> eqDynOffsets() const;
+    /// Подпись источника DYN: —, OFF, SELF, имя дорожки.
+    std::string eqDynName(const EqBand& b) const;
+    /// Спектры до и после EQ на n столбцов (доли высоты).
+    void eqSpectrum(int n, double dt, std::vector<float>& pre, std::vector<float>& post);
+
     // Сетка паттернов (AppGrid.cpp)
     bool patternView() const { return patternView_; }
     void togglePatterns();
@@ -482,6 +515,12 @@ private:
     double beatUntil_ = 0;
 
     bool patternView_ = false;
+    bool eqView_ = false;
+    int eqBand_ = -1;
+    SpectrumDisplay spectrum_;
+    void eqEdit(const std::function<void(Eq&)>& f);
+    /// Что слушают точки съёма спектров: канал EQ на экране.
+    void syncSpectra();
     int gridTop_ = 0;
     std::optional<Clip> clipClipboard_;
     std::optional<Project::RowClip> rowClipboard_;

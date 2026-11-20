@@ -34,6 +34,17 @@ class ScreenState {
     /** Ход сетки (каждый кадр, пока открыта) и фаза мигания ожидающих ячеек. */
     var gridLive by mutableStateOf(IntArray(2)); private set
     var blink by mutableStateOf(false); private set
+    var eq by mutableStateOf(IntArray(5)); private set
+    var eqBands by mutableStateOf(FloatArray(50)); private set
+    var eqTexts by mutableStateOf(Array(7) { "" }); private set
+    /** Поле EQ: столбцов спектра и точек кривой (задаёт экран), кадр спектров и кривых. */
+    var eqCols = 0
+    var eqSpec by mutableStateOf(FloatArray(0)); private set
+    var eqCurve by mutableStateOf(FloatArray(1)); private set
+    private var lastFrame = 0.0
+    val eqUi = EqUi()
+    /** Рамки кнопок верхней панели в координатах Body (строка EQ — по ним). */
+    var topRects by mutableStateOf(mapOf<String, androidx.compose.ui.geometry.Rect>())
     val morphReturnNames: Array<String> by lazy { AppNative.morphReturnNames() }
     /** Меню бутерброда открыто. */
     var mainMenu by mutableStateOf(false)
@@ -74,6 +85,12 @@ class ScreenState {
     fun frame(nowSeconds: Double) {
         AppNative.act(AppNative.Act.TICK, 0, 0, nowSeconds)
         refresh()
+        val dt = nowSeconds - lastFrame
+        lastFrame = nowSeconds
+        if (eq[0] != 0 && eqCols > 1) {
+            eqSpec = AppNative.eqSpectrum(eqCols, dt)
+            AppNative.eqCurves(eqCols).let { if (!it.contentEquals(eqCurve)) eqCurve = it }
+        }
     }
 
     /** После действия — сразу (без ожидания кадра). */
@@ -110,6 +127,10 @@ class ScreenState {
         AppNative.projectRows().let { if (!it.contentEquals(projectRows)) projectRows = it }
         AppNative.settings().let { if (!it.contentEquals(settings)) settings = it }
         AppNative.grid().let { if (!it.contentEquals(grid)) grid = it }
+        AppNative.eq().let { if (!it.contentEquals(eq)) eq = it }
+        AppNative.eqBands().let { if (!it.contentEquals(eqBands)) eqBands = it }
+        AppNative.eqTexts().let { if (!it.contentEquals(eqTexts)) eqTexts = it }
+        if (eq[0] != 0 && eqCols > 1) AppNative.eqCurves(eqCols).let { if (!it.contentEquals(eqCurve)) eqCurve = it }
         AppNative.sceneNames().let { if (!it.contentEquals(sceneNames)) sceneNames = it }
         AppNative.pianoTexts().let { if (!it.contentEquals(pianoTexts)) pianoTexts = it }
         AppNative.side().let { if (!it.contentEquals(side)) side = it }
