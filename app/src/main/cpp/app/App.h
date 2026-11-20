@@ -747,6 +747,7 @@ private:
     EqPresetBook eqPresets_;
     std::string eqPresetsPath_;
     bool eqListenHeld_ = false;
+    int eqListenChannel_ = -1;
     int eqListenBand_ = -1;
     void startEqListen();
     void stopEqListen();

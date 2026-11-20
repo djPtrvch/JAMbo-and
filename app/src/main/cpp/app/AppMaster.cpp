@@ -23,6 +23,9 @@ void App::tickMasterMeters(double now) {
         sc.mask.store(0);
     }
     tickMixAnalysis();
+    // LISTEN сбрасывается, когда EQ закрыли (любым способом) или он показывает другой канал — без случайного
+    // приглушения звука.
+    if (eqListenHeld_ && (!eqView_ || eqChannel() != eqListenChannel_)) stopEqListen();
     tickMakeup();
     drainStems();
     if (Levels* lv = audio_->levels()) loudHist_.tick(lv->mixLoudness, meters_.framePeak(Levels::master), playing_, now);

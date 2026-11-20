@@ -280,6 +280,7 @@ void App::toggleEqListen() {
 
 void App::startEqListen() {
     eqListenHeld_ = true;
+    eqListenChannel_ = eqChannel();
     eqListenBand_ = selectedBand() ? eqBand_ : -1;
     syncEqListen();
     bump();

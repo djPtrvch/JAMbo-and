@@ -11,4 +11,9 @@
 - Сэмплер (голоса, микшер, MIDI OUT, предпрослушка, WARP), таймстретч BEAT и NORMAL, FxRack — тест sampler_test.cpp; EQ (EqUnit с M/S и Dynamic, EqListen, спектры), уровни и LUFS, замеры колбэка — эталоны eq_* (22 из 22), тест eq_test.cpp.
 - Мастер: сатуратор, компрессор, клиппер, лимитер, цепочка MasterChain — эталоны mst_* (19 из 19), тест master_test.cpp.
 - AudioCore + CoreEvent (снимки — сырыми указателями через очереди, освобождение через 0,5 с), Arpeggiator, TestTone, Capture, RefPlayer, Headphone Monitor (MonitorDesign, RoomIR, RoomConv, MonitorChain; ресурсы комнат — fetch-test-deps) — тесты arp_test, monitor_test, core_test, launch_test, fxroute_test, mod_core_test.
-- Не перенесено: HeadPack, PhonesProfile/PhonesEq, пресеты EQ и мастера, переход MIX (Project::mixed, blendMaster), правки варпинга Track, SampleEdit, хранилище проектов; часть тестов Swift через ядро — список в handoff.md.
+- Отличие от Swift (решение пользователя 22.11): перестановка дорожки во время игры — голоса синта, LFO и ENV
+  переезжают вместе с дорожкой (`synth/TrackRotate.h`, `std::rotate` в колбэке, без выделений); в Swift они гаснут и
+  звук пропадал до следующего шага. Тест — app_test (moveTrackKeepsSound).
+- Перенесены позже ядра: Library, SampleStore (+ Sha256, AudioFile, Resample), PitchDetect, MasterInput, MasterPresets,
+  EqPresets — тест library_test.
+- Не перенесено: HeadPack, PhonesProfile/PhonesEq, переход MIX (Project::mixed, blendMaster), правки варпинга Track, SampleEdit; часть тестов Swift через ядро — список в handoff.md.
