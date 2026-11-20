@@ -63,6 +63,7 @@
 | Ableton Link | docs/ai/link.md |
 | MIDI: устройства, Bluetooth, ADVERTISE | docs/ai/midi.md |
 | переноса Core на C++ и тестов сверки | docs/ai/core-port.md |
+| экрана: раскладка, шрифты, отличия UI от Swift-версии | docs/ai/ui.md |
 
 Новые файлы `docs/ai/` (отличия Android-версии) добавляются в таблицу после подтверждения пользователем.
 

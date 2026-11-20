@@ -47,6 +47,8 @@ fun MainScreen(onMenu: () -> Unit) {
     val s = remember { ScreenState() }
     val dark = when (s.theme) { 1 -> false; 2 -> true; else -> isSystemInDarkTheme() }
     val th = if (dark) Theme.dark else Theme.light
+    // Телефон (узкая сторона меньше 600 dp) — подписи крупнее.
+    val textScale = if (androidx.compose.ui.platform.LocalConfiguration.current.smallestScreenWidthDp < 600) 1.2f else 1f
     LaunchedEffect(Unit) {
         while (true) withFrameNanos { s.frame(it / 1e9) }
     }
@@ -87,7 +89,7 @@ fun MainScreen(onMenu: () -> Unit) {
         // designWidth (на широком экране лишнее растягивается). Плотность — пикселей на точку.
         val px = with(LocalDensity.current) { Pair(maxWidth.toPx(), maxHeight.toPx()) }
         val scale = minOf(px.first / Layout.designWidth, px.second / Layout.designHeight)
-        CompositionLocalProvider(LocalTheme provides th, LocalDensity provides Density(scale, 1f)) {
+        CompositionLocalProvider(LocalTheme provides th, LocalDensity provides Density(scale, 1f), LocalTextScale provides textScale) {
             Screen(s, th, onMenu)
         }
     }

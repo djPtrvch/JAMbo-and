@@ -2,6 +2,7 @@ package app.jambo.android.ui
 
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
 
 /** Цветовые токены (Theme.swift ветки swift JAMbo): тёмная и светлая темы. */
 class Theme(
@@ -31,3 +32,11 @@ class Theme(
 }
 
 val LocalTheme = staticCompositionLocalOf { Theme.dark }
+
+/** Масштаб крупных подписей (имена дорожек, клавиши, ручки, верхняя панель): на телефоне — крупнее (решение
+ *  пользователя 21.11), на планшете — 1 (проверить на устройстве). */
+val LocalTextScale = staticCompositionLocalOf { 1f }
+
+/** Размер шрифта с масштабом подписей. */
+@androidx.compose.runtime.Composable
+fun Number.tsp(): androidx.compose.ui.unit.TextUnit = (this.toFloat() * LocalTextScale.current).sp

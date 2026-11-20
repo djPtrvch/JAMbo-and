@@ -70,8 +70,8 @@ private fun ChordButton(s: ScreenState, modifier: Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
     ) {
         val fg = if (on) th.bg else th.text
-        Text("CHORD", color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
-        Text(s.pianoTexts[0], color = fg, fontSize = 10.sp)
+        Text("CHORD", color = fg, fontSize = 12.tsp(), fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
+        Text(s.pianoTexts[0], color = fg, fontSize = 10.tsp())
     }
 }
 
@@ -118,7 +118,7 @@ private fun KeyRow(s: ScreenState, modifier: Modifier) {
                     .border(1.dp, if (shown && !on) th.text else Color.Transparent, RoundedCornerShape(6.dp)),
                 contentAlignment = Alignment.BottomCenter,
             ) {
-                Text(s.keyLabels.getOrElse(k) { "" }, color = fg, fontSize = 11.sp, textAlign = TextAlign.Center,
+                Text(s.keyLabels.getOrElse(k) { "" }, color = fg, fontSize = 11.tsp(), textAlign = TextAlign.Center,
                     maxLines = 2, modifier = Modifier.padding(start = 2.dp, end = 2.dp, bottom = 6.dp))
             }
         }

@@ -57,23 +57,23 @@ fun TopBar(s: ScreenState, onMenu: () -> Unit) {
         }
         val pi = s.piano
         val dens = density()
-        // SCALE и EQ — шириной с PATTERNS (половина правой колонки); остаток — ROOT и кнопке пианоролла.
-        val side = ((rightColumn().value - Layout.gap) / 2).dp
+        // SCALE, ROOT, UNDO и зеркально REDO, пианоролл, EQ — одной ширины (решение пользователя 21.11); PLAY и REC —
+        // между ними, стык — по центру.
         DragField(s, "SCALE", s.topTexts[0], { pi[5] }, { s.act(Act.SET_SCALE, it) },
-            Modifier.width(side)) { r ->
+            Modifier.weight(1f)) { r ->
             s.choice = Choice(s.scaleNames, 3, pi[5], r) { s.act(Act.SET_SCALE, it) }
         }
-        // ROOT: меню (4 столбца) — от левого края ROOT до правого края REDO.
-        val rootMenu = 4 * Layout.gap + 2 * Layout.topButton * LocalDims.current.midStretch + 2 * half * LocalDims.current.midStretch
+        // ROOT: меню (4 столбца) — от левого края ROOT до правого края REDO (ROOT, UNDO, REDO — одной ширины).
+        val playRec = 2 * half * LocalDims.current.midStretch
         DragField(s, "ROOT", s.topTexts[1], { pi[6] }, { s.act(Act.SET_ROOT, it) }, Modifier.weight(1f)) { r ->
-            s.choice = Choice(s.rootNames, 4, pi[6], r, r.width / dens + rootMenu) { s.act(Act.SET_ROOT, it) }
+            s.choice = Choice(s.rootNames, 4, pi[6], r, 3 * r.width / dens + 4 * Layout.gap + playRec) { s.act(Act.SET_ROOT, it) }
         }
-        Glyph("↶", top[1] != 0, Modifier.width(mid(Layout.topButton)).report(s, "undo")) { s.act(Act.UNDO) }
+        Glyph("↶", top[1] != 0, Modifier.weight(1f).report(s, "undo")) { s.act(Act.UNDO) }
         PlayButton(s, top[3] != 0, Modifier.width(mid(half)))
         RecButton(s, top.getOrElse(5) { 0 } != 0, Modifier.width(mid(half)))
-        Glyph("↷", top[2] != 0, Modifier.width(mid(Layout.topButton))) { s.act(Act.REDO) }
+        Glyph("↷", top[2] != 0, Modifier.weight(1f)) { s.act(Act.REDO) }
         RollIcon(Modifier.weight(1f))
-        Toggle("EQ", s.eq[0] != 0, Modifier.width(side).report(s, "eq")) { s.act(Act.TOGGLE_EQ_VIEW) }
+        Toggle("EQ", s.eq[0] != 0, Modifier.weight(1f).report(s, "eq")) { s.act(Act.TOGGLE_EQ_VIEW) }
         // PATTERNS и ARRANGE — ровно над правой колонкой, затем место измерителя.
         Row(Modifier.width(rightColumn()).fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
             Toggle("PATTERNS", s.grid[0] != 0, Modifier.weight(1f).report(s, "patterns")) { s.act(Act.TOGGLE_PATTERNS) }
@@ -96,7 +96,7 @@ private fun DragField(
     val getter by rememberUpdatedState(get)
     val setter by rememberUpdatedState(set)
     val tap by rememberUpdatedState(onTap)
-    Column(
+    Row(
         modifier.fillMaxHeight().tile(if (active) th.panel2 else th.panel).padding(horizontal = 10.dp)
             .onGloballyPositioned { coords = it }
             .pointerInput(Unit) {
@@ -124,10 +124,11 @@ private fun DragField(
                     }
                 }
             },
-        verticalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, color = th.dim, fontSize = 9.sp, letterSpacing = 0.8.sp)
-        Text(value, color = th.text, fontSize = 15.sp, maxLines = 1)
+        Text(label, color = th.dim, fontSize = 10.tsp(), letterSpacing = 0.8.sp, maxLines = 1)
+        Spacer(Modifier.weight(1f))
+        Text(value, color = th.text, fontSize = 16.tsp(), maxLines = 1)
     }
 }
 
@@ -149,7 +150,7 @@ private fun Modifier.report(s: ScreenState, key: String): Modifier = this.onGlob
 private fun Toggle(title: String, on: Boolean, modifier: Modifier, action: () -> Unit) {
     val th = LocalTheme.current
     Box(modifier.fillMaxHeight().tile(if (on) th.text else th.panel2).pointerTap(action), contentAlignment = Alignment.Center) {
-        Text(title, color = if (on) th.bg else th.text, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(title, color = if (on) th.bg else th.text, fontSize = 13.tsp(), fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
 
@@ -158,7 +159,7 @@ private fun Toggle(title: String, on: Boolean, modifier: Modifier, action: () ->
 private fun Later(title: String, modifier: Modifier) {
     val th = LocalTheme.current
     Box(modifier.fillMaxHeight().tile(th.panel2), contentAlignment = Alignment.Center) {
-        Text(title, color = th.dim, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(title, color = th.dim, fontSize = 13.tsp(), fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
 
@@ -167,7 +168,7 @@ private fun Glyph(symbol: String, enabled: Boolean, modifier: Modifier, action: 
     val th = LocalTheme.current
     Box(modifier.fillMaxHeight().tile(th.panel2).pointerInput(enabled) { detectTapGestures(onTap = { if (enabled) action() }) },
         contentAlignment = Alignment.Center) {
-        Text(symbol, color = if (enabled) th.text else th.dim, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Text(symbol, color = if (enabled) th.text else th.dim, fontSize = 24.tsp(), fontWeight = FontWeight.Bold)
     }
 }
 
@@ -179,7 +180,7 @@ private fun PlayButton(s: ScreenState, on: Boolean, modifier: Modifier) {
         modifier.fillMaxHeight().framed(if (on) th.accent else th.panel2, th.accent)
             .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(); s.act(Act.TOGGLE_PLAY) } },
         contentAlignment = Alignment.Center,
-    ) { Text("▶", color = if (on) th.onAccent else th.accent, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+    ) { Text("▶", color = if (on) th.onAccent else th.accent, fontSize = 21.tsp(), fontWeight = FontWeight.Bold) }
 }
 
 /** REC: красная точка и красная окантовка; включена — горит красным. С PLAY ноты клавиатуры пишутся в секвенсор. */
@@ -189,7 +190,7 @@ private fun RecButton(s: ScreenState, on: Boolean, modifier: Modifier) {
     Box(
         modifier.fillMaxHeight().framed(if (on) th.rec else th.panel2, th.rec).pointerTap { s.act(Act.TOGGLE_REC) },
         contentAlignment = Alignment.Center,
-    ) { Text("●", color = if (on) Color.White else th.rec, fontSize = 16.sp) }
+    ) { Text("●", color = if (on) Color.White else th.rec, fontSize = 24.tsp()) }
 }
 
 /** BPM: палец вверх-вниз — 4 dp на 1 BPM (после 10 dp), одна запись UNDO на жест. */
@@ -222,9 +223,9 @@ private fun BpmField(s: ScreenState, bpm: Double, modifier: Modifier) {
             },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("BPM", color = th.dim, fontSize = 11.sp, letterSpacing = 0.9.sp)
+        Text("BPM", color = th.dim, fontSize = 11.tsp(), letterSpacing = 0.9.sp)
         Spacer(Modifier.weight(1f))
-        Text(text, color = th.text, fontSize = 19.sp)
+        Text(text, color = th.text, fontSize = 20.tsp())
     }
 }
 

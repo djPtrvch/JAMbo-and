@@ -57,7 +57,7 @@ private fun ChannelCell(s: ScreenState, title: String, channel: Int, selected: B
             .pointerInput(channel) { detectTapGestures(onTap = { s.act(Act.SELECT_CHANNEL, channel) }) },
         contentAlignment = Alignment.Center,
     ) {
-        Text(title, color = th.text, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Black else FontWeight.SemiBold,
+        Text(title, color = th.text, fontSize = 12.tsp(), fontWeight = if (selected) FontWeight.Black else FontWeight.SemiBold,
             letterSpacing = 0.7.sp)
     }
 }
@@ -98,12 +98,12 @@ private fun TrackCell(
     ) {
         Text(
             name, color = th.text, maxLines = 1, modifier = Modifier.align(Alignment.Center),
-            fontSize = if (selected) 15.sp else 12.sp, fontWeight = if (selected) FontWeight.Black else FontWeight.SemiBold,
+            fontSize = if (selected) 15.tsp() else 12.tsp(), fontWeight = if (selected) FontWeight.Black else FontWeight.SemiBold,
             letterSpacing = if (selected) 0.sp else 0.7.sp,
         )
         if (mute || solo) {
             Text(
-                if (mute) "M" else "S", color = if (mute) th.rec else th.accent, fontSize = 11.sp,
+                if (mute) "M" else "S", color = if (mute) th.rec else th.accent, fontSize = 11.tsp(),
                 fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.TopEnd).padding(top = 3.dp, end = 7.dp),
             )
         }
@@ -113,7 +113,7 @@ private fun TrackCell(
                 .background(th.accent, CircleShape))
         }
         Text(
-            "${index + 1}", color = th.dim, fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
+            "${index + 1}", color = th.dim, fontSize = 10.tsp(), fontWeight = FontWeight.SemiBold,
             modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 3.dp, start = 7.dp),
         )
     }

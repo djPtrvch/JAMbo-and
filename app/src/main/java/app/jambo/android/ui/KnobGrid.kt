@@ -190,9 +190,9 @@ private fun KnobCell(
                 drawLine(if (locked) lockColor else th.text, polar(c, 21 * k, a), polar(c, 28 * k, a), 3 * k,
                     StrokeCap.Round)
             }
-            Text(value, color = if (locked) lockColor else th.text, fontSize = 11.sp, textAlign = TextAlign.Center)
+            Text(value, color = if (locked) lockColor else th.text, fontSize = 11.tsp(), textAlign = TextAlign.Center)
         }
-        Text(label, color = th.dim, fontSize = 11.sp, maxLines = 1)
+        Text(label, color = th.dim, fontSize = 11.tsp(), maxLines = 1)
     }
 }
 
