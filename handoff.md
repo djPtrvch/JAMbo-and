@@ -44,6 +44,7 @@
 - Проверки (docs/ai/build-ci.md, 20.11): тесты Core в CI — только при правках `app/src/main/cpp/`, `tests/`, `scripts/`, `.github/`; APK — на каждый push. Небольшие правки (экран, подписи, цвета, документы) — коммит и push без ожидания CI; ошибку сборки пришлёт пользователь.
 
 ## Как работать
+- **CI не ждать после небольших правок** (кнопки, раскладка, подписи, документы) — решение пользователя, повторено 21.11; ждать — только после глобальных правок C++ и тестов.
 - **Сессию открывать только с репозиторием JAMbo-and** (без JAMbo: его CLAUDE.md на рабочей ветке — 286 КБ, ~85 тыс. токенов в контексте). Исходники Swift-версии: `scripts/fetch-swift-src.sh`, затем `git -C third_party/jambo-swift.git show swift:<путь>` (список — `ls-tree -r --name-only swift <папка>`).
 - Тесты Core: `scripts/fetch-test-deps.sh`, затем `cmake -S tests -B build/tests && cmake --build build/tests -j8 && build/tests/core_tests` (новый .cpp — заново `cmake -S tests -B build/tests` и строка в tests/CMakeLists.txt и tests/main.cpp).
 - Проверять и в clang (как NDK): `CXX=clang++ cmake -S tests -B build/clang && cmake --build build/clang && build/clang/core_tests`. В CI — gcc 15: явные `<cstdint>` и т. п.; clang ловит «vexing parse» — `std::vector<T> x(static_cast<size_t>(n))`, не `x(size_t(n))`.
