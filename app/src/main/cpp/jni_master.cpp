@@ -84,3 +84,23 @@ FN(jfloatArray, scopeData)(JNIEnv* env, jobject, jint width) {
     }
     return floats(env, v);
 }
+
+/// Обзор MIX (каждый кадр при MIX): [дорожек n, по дорожке L, R, холд L, холд R (доли шкалы −60…0 dBFS), перегруз,
+/// слышна, линейные L и R (PAN)].
+FN(jfloatArray, mixBars)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(jniLock());
+    auto& m = jniApp();
+    const int n = std::min(int(m.project().tracks.size()), jambo::MeterState::channels);
+    auto frac = [](float p) { return p <= 0 ? 0.f : std::min(1.f, std::max(0.f, (20 * std::log10(p) + 60) / 60)); };
+    std::vector<float> v{float(n)};
+    for (int t = 0; t < n; t++) {
+        const auto lr = m.meters().bars(t, true);
+        const float l = lr.size() > 0 ? lr[0].level : 0, r = lr.size() > 1 ? lr[1].level : l;
+        const float hl = lr.size() > 0 ? lr[0].hold : 0, hr = lr.size() > 1 ? lr[1].hold : hl;
+        v.insert(v.end(), {frac(l), frac(r), frac(hl), frac(hr), std::max(l, r) >= jambo::MeterState::over ? 1.f : 0.f,
+                           m.project().audible(t) ? 1.f : 0.f});
+        v.push_back(l);
+        v.push_back(r);
+    }
+    return floats(env, v);
+}

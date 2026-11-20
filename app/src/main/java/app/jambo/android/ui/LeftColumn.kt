@@ -79,9 +79,9 @@ fun LeftColumn(s: ScreenState, modifier: Modifier) {
                 ButtonPair { MasterButton(s, 1, Modifier.weight(1f)); MasterButton(s, 2, Modifier.weight(1f)) }
                 ButtonPair { MasterButton(s, 0, Modifier.weight(1f)); MasterButton(s, 3, Modifier.weight(1f)) }
             } else {
-                val names = listOf("LEVEL", "PAN", "MASK", "FREQ")
-                ButtonPair { SideButton(names[0], Modifier.weight(1f), enabled = false); SideButton(names[1], Modifier.weight(1f), enabled = false) }
-                ButtonPair { SideButton(names[2], Modifier.weight(1f), enabled = false); SideButton(names[3], Modifier.weight(1f), enabled = false) }
+                // Вид полос MIX: LEVEL, PAN / MASK, FREQ (MASK и FREQ — с анализом спектров, позже).
+                ButtonPair { MixModeButton(s, "LEVEL", 0, Modifier.weight(1f)); MixModeButton(s, "PAN", 1, Modifier.weight(1f)) }
+                ButtonPair { SideButton("MASK", Modifier.weight(1f), enabled = false); SideButton("FREQ", Modifier.weight(1f), enabled = false) }
             }
         }
     }
@@ -167,6 +167,10 @@ private fun SoundWindow(s: ScreenState, modifier: Modifier) {
     Box(modifier.tile(th.panel).then(tap)) {
         if (channel == 2) {
             MasterIndicator(s, Modifier.fillMaxSize())
+            return@Box
+        }
+        if (channel == 1) {
+            MixOverview(s, Modifier.fillMaxSize().padding(10.dp))
             return@Box
         }
         if (channel != 0) return@Box

@@ -164,6 +164,8 @@ object AppNative {
     external fun masterBars(now: Double): FloatArray
     /** [корреляция (−9 — тишина), n, n пар side, mid, по точке 0…3: w, w мин., w макс.]. */
     external fun scopeData(width: Int): FloatArray
+    /** Обзор MIX: [n, по дорожке L, R, холд L, холд R (доли), перегруз, слышна, линейные L, R]. */
+    external fun mixBars(): FloatArray
     fun act(code: Int, a: Int = 0, b: Int = 0) = act(code, a, b, 0.0)
 
     /** [ревизия, ход открытого клипа, маска мигания, мигание доли, акцент, игра]. */
