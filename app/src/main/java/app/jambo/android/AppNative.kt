@@ -68,7 +68,24 @@ object AppNative {
         const val SET_PIANO_SETTINGS = 144
         const val SET_RECORD_SETTINGS = 145
         const val SET_SWING = 146
+        const val FLUSH_AUTOSAVE = 150
+        const val REFRESH_PROJECTS = 151
+        const val SET_MORPH_SETTINGS = 152
+        const val SET_LEVEL_RELATIVE = 153
     }
+
+    /** Папка проектов: открыть Autosave, иначе последний проект. */
+    external fun openStorage(dir: String)
+    /** [не сохранено, новый, проектов в списке]. */
+    external fun projects(): IntArray
+    /** По 6 на проект: id, подпись, время (с), темп, тональность, признаки (a — Autosave, c — текущий); в конце имя
+     *  текущего проекта. */
+    external fun projectRows(): Array<String>
+    /** Действие PROJECTS (ProjectAct) со строками; ответ — у NAMED (id) и RANDOM_NAME. */
+    external fun projectAct(code: Int, id: String, text: String): String
+    /** [QUANTIZE, OVERDUB, MORPH RETURN, MORPH HOLD, LEVEL RELATIVE]. */
+    external fun settings(): IntArray
+    external fun morphReturnNames(): Array<String>
 
     external fun act(code: Int, a: Int, b: Int, x: Double): Double
     fun act(code: Int, a: Int = 0, b: Int = 0) = act(code, a, b, 0.0)
@@ -160,4 +177,16 @@ object StepBits {
     const val MANUAL_LOCK = 32
     const val COL4_LOCK = 64
     const val OWN_SOUND = 128
+}
+
+/** Действия PROJECTS (projectAct в jni_app.cpp). */
+object ProjectAct {
+    const val NEW = 0
+    const val SAVE = 1
+    const val SAVE_AS = 2
+    const val RENAME = 3
+    const val DELETE = 4
+    const val OPEN = 5
+    const val NAMED = 6
+    const val RANDOM_NAME = 7
 }

@@ -45,6 +45,7 @@ enum Act {
     resetMeterPeak = 130, resetLoudness, setMeterVol, volDrag, toggleRec,
     openPage = 110, addPage, playPages, movePage, pageAction, pageArrow, setClipRate,
     setScale = 140, setRoot, toggleChord, setChordKind, setPianoSettings, setRecordSettings, setSwing,
+    flushAutosave = 150, refreshProjects, setMorphSettings, setLevelRelative,
 };
 
 jintArray ints(JNIEnv* env, const std::vector<jint>& v) {
@@ -147,9 +148,85 @@ FN(jdouble, act)(JNIEnv*, jobject, jint code, jint a, jint b, jdouble x) {
     case setPianoSettings: m.setPianoSettings(a, b != 0); break;
     case setRecordSettings: m.setRecordSettings(a != 0, b != 0); break;
     case setSwing: m.setSwing(x); break;
+    case flushAutosave: m.flushAutosave(); break;
+    case refreshProjects: m.refreshProjects(); break;
+    case setMorphSettings: m.setMorphSettings(a, b != 0); break;
+    case setLevelRelative: m.setLevelRelative(a != 0); break;
     default: break;
     }
     return 0;
+}
+
+/// Папка проектов (filesDir/Projects): открыть Autosave, иначе последний проект; первый запуск — проект для старта.
+FN(void, openStorage)(JNIEnv* env, jobject, jstring dir) {
+    std::lock_guard<std::mutex> g(gLock);
+    const char* c = env->GetStringUTFChars(dir, nullptr);
+    const std::string d = c ? c : "";
+    if (c) env->ReleaseStringUTFChars(dir, c);
+    app().openStorage(d, starterProject());
+}
+
+/// SETTINGS: [QUANTIZE, OVERDUB, MORPH RETURN, MORPH MODE HOLD, LEVEL RELATIVE].
+FN(jintArray, settings)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    return ints(env, {m.quantize(), m.overdub(), m.morphReturn(), m.morphHoldMode(), m.levelRelative()});
+}
+
+FN(jobjectArray, morphReturnNames)(JNIEnv* env, jobject) { return strings(env, jambo::MorphReturn::names); }
+
+/// Меню PROJECTS: [не сохранено, новый (SAVE спрашивает имя), проектов в списке].
+FN(jintArray, projects)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    return ints(env, {m.unsaved(), m.isNewProject(), jint(m.projectList().size())});
+}
+
+/// Строки списка по 6: id, подпись (у Autosave — «Autosave · проект»), время (с от 1970), темп, тональность
+/// («C Min»), признаки (a — Autosave, c — текущий). Затем имя текущего проекта.
+FN(jobjectArray, projectRows)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    std::vector<std::string> v;
+    for (const auto& i : m.projectList()) {
+        const bool au = i.id == jambo::ProjectStore::autosaveId;
+        v.push_back(i.id);
+        v.push_back(au ? std::string(jambo::ProjectSession::autosaveName) + " · " + i.projectName.value_or("") : i.name);
+        v.push_back(std::to_string(std::llround(i.updated)));
+        v.push_back(std::to_string(std::lround(i.bpm)));
+        v.push_back(jambo::ProjectSession::keyName(i));
+        v.push_back(au ? "a" : (i.id == m.session().id ? "c" : ""));
+    }
+    v.push_back(m.session().name);
+    return strings(env, v);
+}
+
+/// Действия PROJECTS со строками: 0 NEW, 1 SAVE, 2 SAVE AS (text — имя, id — перезаписать), 3 RENAME (id, text),
+/// 4 удалить (id), 5 открыть LOAD (id), 6 занятое имя (text) → id, 7 случайное имя.
+FN(jstring, projectAct)(JNIEnv* env, jobject, jint code, jstring id, jstring text) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto str = [&](jstring s) {
+        if (!s) return std::string();
+        const char* c = env->GetStringUTFChars(s, nullptr);
+        std::string out = c ? c : "";
+        if (c) env->ReleaseStringUTFChars(s, c);
+        return out;
+    };
+    auto& m = app();
+    const std::string a = str(id), t = str(text);
+    std::string r;
+    switch (code) {
+    case 0: m.newProject(); break;
+    case 1: m.saveProject(); break;
+    case 2: m.saveProjectAs(t, a); break;
+    case 3: m.renameProject(a, t); break;
+    case 4: m.deleteProject(a); break;
+    case 5: m.openProject(a); break;
+    case 6: r = m.projectNamed(t); break;
+    case 7: r = jambo::ProjectSession::randomName(m.projectList()); break;
+    default: break;
+    }
+    return env->NewStringUTF(r.c_str());
 }
 
 /// Кадр (каждый кадр экрана): [ревизия (младшие 31 бит), ход открытого клипа, маска мигания, мигание доли,

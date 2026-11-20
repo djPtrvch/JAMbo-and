@@ -1,6 +1,12 @@
 // Порт ProjectFormat (Core/Model/ProjectStore.swift, ветка swift JAMbo) и JSON отдельных записей.
 #include "ProjectStore.h"
 #include "Json.h"
+#include <algorithm>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <random>
+#include <sstream>
 
 namespace jambo {
 namespace json {
@@ -114,4 +120,125 @@ std::optional<SynthPreset> decodeSynthPreset(const std::string& data) {
 }
 
 }  // namespace ProjectCoding
+// MARK: — ProjectStore
+
+namespace fs = std::filesystem;
+
+const char* const ProjectStore::autosaveId = "autosave";
+
+ProjectStore::ProjectStore(std::string dir) : dir_(std::move(dir)) {
+    std::error_code ec;
+    fs::create_directories(dir_, ec);
+}
+
+static std::string base36(uint64_t v) {
+    if (v == 0) return "0";
+    std::string out;
+    while (v > 0) {
+        const int d = int(v % 36);
+        out.insert(out.begin(), char(d < 10 ? '0' + d : 'a' + d - 10));
+        v /= 36;
+    }
+    return out;
+}
+
+std::string ProjectStore::newId() {
+    using namespace std::chrono;
+    const auto ms = uint64_t(duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count());
+    static std::mt19937_64 g{std::random_device{}()};
+    return "p" + base36(ms) + base36(g() % (36 * 36 * 36 * 36));
+}
+
+std::optional<std::string> ProjectStore::path(const std::string& id) const {
+    if (id.empty()) return std::nullopt;
+    for (char c : id)
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) return std::nullopt;
+    return (fs::path(dir_) / (id + ".json")).string();
+}
+
+static std::optional<std::string> readFile(const std::string& p) {
+    std::ifstream f(p, std::ios::binary);
+    if (!f) return std::nullopt;
+    std::ostringstream ss;
+    ss << f.rdbuf();
+    return ss.str();
+}
+
+std::vector<ProjectInfo> ProjectStore::list() const {
+    std::vector<ProjectInfo> out;
+    std::error_code ec;
+    for (fs::directory_iterator it(dir_, ec), end; !ec && it != end; it.increment(ec)) {
+        const std::string n = it->path().filename().string();
+        if (n.size() <= 5 || n.compare(n.size() - 5, 5, ".json") != 0) continue;
+        const std::string id = n.substr(0, n.size() - 5);
+        const auto p = path(id);
+        if (!p) continue;
+        const auto data = readFile(*p);
+        if (!data) continue;
+        // Только формат и запись списка (ListHead), без разбора содержимого проекта.
+        const auto j = parse(*data);
+        if (!j || !j->is_object()) continue;
+        std::string format;
+        ProjectInfo info;
+        if (!json::req(*j, "format", format) || format != ProjectFormat::name || !json::req(*j, "info", info)) continue;
+        info.id = id;
+        out.push_back(info);
+    }
+    std::stable_sort(out.begin(), out.end(), [](const ProjectInfo& a, const ProjectInfo& b) { return a.updated > b.updated; });
+    return out;
+}
+
+std::optional<ProjectFile> ProjectStore::load(const std::string& id) const {
+    const auto p = path(id);
+    if (!p) return std::nullopt;
+    const auto data = readFile(*p);
+    if (!data) return std::nullopt;
+    auto f = ProjectFormat::decode(*data);
+    if (!f) return std::nullopt;
+    f->info.id = id;
+    return f;
+}
+
+bool ProjectStore::save(const Project& doc, const ProjectInfo& info) const {
+    const auto p = path(info.id);
+    if (!p) return false;
+    const auto data = ProjectFormat::encode(ProjectFile::make(info, doc));
+    if (!data) return false;
+    const std::string tmp = *p + ".tmp";
+    {
+        std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
+        if (!f) return false;
+        f.write(data->data(), std::streamsize(data->size()));
+        f.flush();
+        if (!f) return false;
+    }
+    std::error_code ec;
+    fs::rename(tmp, *p, ec);
+    if (ec) {
+        fs::remove(tmp, ec);
+        return false;
+    }
+    return true;
+}
+
+void ProjectStore::remove(const std::string& id) const {
+    const auto p = path(id);
+    if (!p) return;
+    std::error_code ec;
+    fs::remove(*p, ec);
+}
+
+bool ProjectStore::rename(const std::string& id, const std::string& name) const {
+    auto f = load(id);
+    if (!f) return false;
+    f->info.name = name;
+    return save(f->doc, f->info);
+}
+
+std::optional<ProjectInfo> ProjectStore::find(const std::string& name) const {
+    for (const auto& i : list())
+        if (i.id != autosaveId && i.name == name) return i;
+    return std::nullopt;
+}
+
 }  // namespace jambo

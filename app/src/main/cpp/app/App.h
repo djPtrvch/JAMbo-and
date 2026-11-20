@@ -10,6 +10,7 @@
 #include "model/KnobDefaults.h"
 #include "model/Params.h"
 #include "model/Project.h"
+#include "model/ProjectSession.h"
 #include "sequencer/PlayClock.h"
 #include "sequencer/SeqOut.h"
 #include <array>
@@ -28,8 +29,9 @@ namespace jambo {
 struct AppAudio {
     virtual ~AppAudio() = default;
     virtual void push(const CoreEvent& e) = 0;
-    /// Снимки проекта; tables — таблицы WTABLE дорожек по ключу.
-    virtual void publish(const Project& p, const std::map<std::string, std::shared_ptr<WtTable>>& tables) = 0;
+    /// Снимки проекта; tables — таблицы WTABLE дорожек по ключу; levelRelative — SETTINGS → LEVEL RELATIVE.
+    virtual void publish(const Project& p, const std::map<std::string, std::shared_ptr<WtTable>>& tables,
+                         bool levelRelative) = 0;
     virtual bool popOut(SeqOut& e) = 0;
     /// Ход транспорта из колбэка (запись с REC).
     virtual PlayClock::State clock() const { return {}; }
@@ -224,7 +226,12 @@ public:
     bool morphAllHeld() const { return morphAllHeld_; }
     bool morphHoldMode() const { return morphHoldMode_; }
     /// SETTINGS → MORPH: RETURN (MorphReturn) и MODE HOLD (настройки — у экрана).
-    void setMorphSettings(int ret, bool hold) { morphReturn_ = ret; morphHoldMode_ = hold; }
+    void setMorphSettings(int ret, bool hold) { morphReturn_ = ret; morphHoldMode_ = hold; bump(); }
+    int morphReturn() const { return morphReturn_; }
+    /// SETTINGS → LEVEL: RELATIVE — регулятор справа подрезает громкость дорожки (trim) от громкости в MIX.
+    void setLevelRelative(bool on);
+    bool levelRelative() const { return levelRelative_; }
+    bool quantize() const { return quantize_; }
     /// UNDO: с зажатой MORPH — сбросить изменения режима MORPH, иначе — обычная отмена.
     void undoTapped();
     /// SHIFT + тап по ручке: Dly Time и Speed LFO — по темпу / свободно, RATE, Filter — тип, ANALOG — модуляция,
@@ -249,7 +256,7 @@ public:
     bool recOn() const { return recOn_; }
     void toggleRec();
     /// SETTINGS → RECORD (у экрана): QUANTIZE, OVERDUB.
-    void setRecordSettings(bool quantize, bool overdub) { quantize_ = quantize; overdub_ = overdub; }
+    void setRecordSettings(bool quantize, bool overdub) { quantize_ = quantize; overdub_ = overdub; bump(); }
 
     // Гамма, нота, CHORD, меню клавиатуры (AppPiano.cpp)
     void setScale(int v);
@@ -285,6 +292,28 @@ public:
     void setOctave(int o);
     /// Ноты с MIDI-входа — на выбранную дорожку (как клавиша; id — номер ноты со сдвигом).
     void midiNote(int note, int velocity);
+
+    // Проекты (AppProjects.cpp)
+    /// Папка проектов: открыть Autosave, иначе последний проект, иначе новый (при первом запуске — firstRun).
+    void openStorage(const std::string& dir, const Project& firstRun);
+    const ProjectSession& session() const { return session_; }
+    const std::vector<ProjectInfo>& projectList() const { return projectList_; }
+    bool unsaved() const;
+    /// Проект ещё не сохраняли кнопкой SAVE (его нет в списке): SAVE спрашивает имя.
+    bool isNewProject() const;
+    void refreshProjects();
+    void newProject();
+    void saveProject();
+    /// SAVE AS: replaceId — проект с тем же именем (после вопроса о перезаписи), пусто — новый.
+    void saveProjectAs(const std::string& name, const std::string& replaceId);
+    /// id проекта с таким именем (кроме текущего и Autosave), пусто — нет.
+    std::string projectNamed(const std::string& name) const;
+    void renameProject(const std::string& id, const std::string& name);
+    void deleteProject(const std::string& id);
+    /// LOAD: проект — в том виде, в каком он сохранён SAVE; Autosave — в проект, из которого он.
+    void openProject(const std::string& id);
+    /// Уход в фон: записать Autosave сразу.
+    void flushAutosave();
 
     /// Основной поток, ~60 раз в секунду: сообщения колбэка → ход игры. now — секунды.
     void tick(double now);
@@ -407,6 +436,18 @@ private:
     uint32_t flashMask_ = 0;
     bool beatFlash_ = false, beatAccent_ = false;
     double beatUntil_ = 0;
+
+    std::unique_ptr<ProjectStore> store_;
+    ProjectSession session_;
+    std::vector<ProjectInfo> projectList_;
+    double autosaveDue_ = 0;
+    /// Проект изменился: автосохранение — через ~1,5 с после первого изменения.
+    void projectChanged();
+    void tickAutosave(double now);
+    void autosave();
+    void writeSession(bool rewrite, const std::function<void(ProjectSession&)>& f);
+    std::optional<std::string> readCurrentId() const;
+    void writeCurrentId() const;
 
     void bump() { ++revision_; }
     const Track& track() const { return project_.tracks[size_t(std::min(selected_, int(project_.tracks.size()) - 1))]; }

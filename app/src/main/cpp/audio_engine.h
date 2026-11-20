@@ -35,7 +35,8 @@ public:
     const jambo::Levels* levels() const override { return core_ ? &core_->levels : nullptr; }
     double modPhase(int i) const override;
     double envOut(int i) const override;
-    void publish(const jambo::Project& p, const std::map<std::string, std::shared_ptr<jambo::WtTable>>& tables) override;
+    void publish(const jambo::Project& p, const std::map<std::string, std::shared_ptr<jambo::WtTable>>& tables,
+                 bool levelRelative) override;
     bool popOut(jambo::SeqOut& e) override;
 
     // Заполняет out (kInfoSize значений), см. порядок в audio_engine.cpp.

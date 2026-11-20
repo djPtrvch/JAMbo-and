@@ -44,8 +44,9 @@ import app.jambo.android.AppNative
  */
 @Composable
 fun MainScreen(onMenu: () -> Unit) {
-    val th = if (isSystemInDarkTheme()) Theme.dark else Theme.light
     val s = remember { ScreenState() }
+    val dark = when (s.theme) { 1 -> false; 2 -> true; else -> isSystemInDarkTheme() }
+    val th = if (dark) Theme.dark else Theme.light
     LaunchedEffect(Unit) {
         while (true) withFrameNanos { s.frame(it / 1e9) }
     }
@@ -67,6 +68,17 @@ fun MainScreen(onMenu: () -> Unit) {
             if (prefs.getBoolean("overdub", false)) 1 else 0)
         snapshotFlow { Triple(s.piano[2], s.piano[3] != 0, s.piano[4] != 0) }.collect { (oct, vel, dub) ->
             if (oct > 0) prefs.edit().putInt("pianoOctaves", oct).putBoolean("velocity", vel).putBoolean("overdub", dub).apply()
+        }
+    }
+    // SETTINGS (QUANTIZE, MORPH, LEVEL, тема) — на устройстве, общие для проектов.
+    LaunchedEffect(Unit) {
+        val prefs = ctx.getSharedPreferences("jambo", 0)
+        s.theme = prefs.getInt("theme", 0)
+        s.act(AppNative.Act.SET_MORPH_SETTINGS, prefs.getInt("morphReturn", 0), if (prefs.getBoolean("morphHold", false)) 1 else 0)
+        s.act(AppNative.Act.SET_LEVEL_RELATIVE, if (prefs.getBoolean("levelRelative", false)) 1 else 0)
+        snapshotFlow { Pair(s.settings.toList(), s.theme) }.collect { (st, theme) ->
+            if (st.size >= 5) prefs.edit().putBoolean("quantize", st[0] != 0).putInt("morphReturn", st[2])
+                .putBoolean("morphHold", st[3] != 0).putBoolean("levelRelative", st[4] != 0).putInt("theme", theme).apply()
         }
     }
     // Фон темы — и под вырезом камеры; раскладка — внутри безопасной зоны.
@@ -97,7 +109,7 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
     var pagesRect by remember { mutableStateOf(Rect.Zero) }
     Box(Modifier.fillMaxSize().padding(horizontal = Layout.side.dp).onGloballyPositioned { body = it; s.body = it }) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-            TopBar(s, onMenu)
+            TopBar(s) { s.mainMenu = !s.mainMenu }
             Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
                 LeftColumn(s, Modifier.width(column()).fillMaxHeight().onGloballyPositioned { c ->
                     body?.let { b -> if (b.isAttached) left = b.localBoundingBoxOf(c) }
@@ -119,6 +131,7 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
         if (s.chordMenu) ChordMenuOverlay(s)
         if (s.pianoMenu) PianoMenuOverlay(s, Layout.step(width))
         s.choice?.let { ChoiceOverlay(s, it) }
+        if (s.mainMenu) MainMenuOverlay(s, onMenu)
     }
 }
 

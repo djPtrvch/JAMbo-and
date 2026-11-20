@@ -91,6 +91,7 @@ void App::editSeq(const std::function<void(Track&)>& change) {
 void App::mutatePlay(const std::function<void(Project&)>& change, bool publish) {
     change(project_);
     if (publish) publishAudio();
+    projectChanged();
     bump();
 }
 
@@ -157,11 +158,12 @@ void App::publishAudio() {
     std::map<std::string, std::shared_ptr<WtTable>> tables;
     for (const auto& k : keys)
         if (table(k)) tables[k] = tables_[k];
-    audio_->publish(project_, tables);
+    audio_->publish(project_, tables, levelRelative_);
 }
 
 void App::changed() {
     publishAudio();
+    projectChanged();
     bump();
 }
 
@@ -255,6 +257,7 @@ void App::playEvent(const SeqOut& e) {
 
 void App::tick(double now) {
     now_ = now;
+    tickAutosave(now);
     stepMorphGlide(now);
     tickMeters(now);
     const int before = openPlayPos();

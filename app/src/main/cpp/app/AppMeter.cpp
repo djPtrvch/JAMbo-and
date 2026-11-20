@@ -122,4 +122,10 @@ bool App::trackStereo(int t) const {
     return false;
 }
 
+void App::setLevelRelative(bool on) {
+    levelRelative_ = on;
+    publishAudio();
+    bump();
+}
+
 }  // namespace jambo

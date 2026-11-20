@@ -26,6 +26,12 @@ class ScreenState {
     var keys by mutableStateOf(IntArray(2)); private set
     var keyLabels by mutableStateOf(emptyArray<String>()); private set
     var piano by mutableStateOf(IntArray(10)); private set
+    var projects by mutableStateOf(IntArray(3)); private set
+    var projectRows by mutableStateOf(arrayOf("")); private set
+    var settings by mutableStateOf(IntArray(5)); private set
+    val morphReturnNames: Array<String> by lazy { AppNative.morphReturnNames() }
+    /** Меню бутерброда открыто. */
+    var mainMenu by mutableStateOf(false)
     var pianoTexts by mutableStateOf(arrayOf("", "")); private set
     val scaleNames: Array<String> by lazy { AppNative.scaleNames() }
     val chordKindNames: Array<String> by lazy { AppNative.chordKindNames() }
@@ -90,6 +96,9 @@ class ScreenState {
         AppNative.keys().let { if (!it.contentEquals(keys)) keys = it }
         AppNative.keyLabels().let { if (!it.contentEquals(keyLabels)) keyLabels = it }
         AppNative.piano().let { if (!it.contentEquals(piano)) piano = it }
+        AppNative.projects().let { if (!it.contentEquals(projects)) projects = it }
+        AppNative.projectRows().let { if (!it.contentEquals(projectRows)) projectRows = it }
+        AppNative.settings().let { if (!it.contentEquals(settings)) settings = it }
         AppNative.pianoTexts().let { if (!it.contentEquals(pianoTexts)) pianoTexts = it }
         AppNative.side().let { if (!it.contentEquals(side)) side = it }
         AppNative.pages().let { if (!it.contentEquals(pages)) pages = it }
@@ -97,6 +106,18 @@ class ScreenState {
         AppNative.iconValues().let { if (!it.contentEquals(iconValues)) iconValues = it }
         AppNative.soundTexts().let { if (!it.contentEquals(soundTexts)) soundTexts = it }
     }
+
+    /** Действие PROJECTS и сразу новые данные. */
+    fun project(code: Int, id: String, text: String): String {
+        val r = AppNative.projectAct(code, id, text)
+        refresh()
+        return r
+    }
+
+    /** Тема: 0 SYSTEM, 1 LIGHT, 2 DARK (настройки устройства). */
+    var theme by mutableIntStateOf(0)
+    /** Открытая вкладка SETTINGS. */
+    var settingsTab by mutableIntStateOf(0)
 
     /** Действие и сразу новые данные. */
     fun act(code: Int, a: Int = 0, b: Int = 0, x: Double = 0.0): Double {

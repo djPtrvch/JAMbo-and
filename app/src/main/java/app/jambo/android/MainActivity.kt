@@ -57,8 +57,10 @@ class MainActivity : ComponentActivity() {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
+        // Проекты — во внутренней памяти приложения (формат файла — как у iPad).
+        AppNative.openStorage(java.io.File(filesDir, "Projects").path)
         setContent {
-            // Бутерброд — пока экран спайка (MIDI-устройства, Bluetooth, Link, звук); меню JAMbo — позже.
+            // MIDI и SYNC в меню бутерброда — пока экран спайка (MIDI-устройства, Bluetooth, Link, звук).
             var spike by remember { mutableStateOf(false) }
             Box(Modifier.fillMaxSize().background(Color.Black)) {
                 if (spike) {
@@ -86,6 +88,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        // Уход в фон: записать Autosave сразу.
+        AppNative.act(AppNative.Act.FLUSH_AUTOSAVE)
         midi.stop()
         Native.stop()
         super.onStop()

@@ -116,11 +116,12 @@ double AudioEngine::envOut(int i) const {
 }
 
 void AudioEngine::publish(const jambo::Project& p,
-                          const std::map<std::string, std::shared_ptr<jambo::WtTable>>& tables) {
+                          const std::map<std::string, std::shared_ptr<jambo::WtTable>>& tables, bool levelRelative) {
     ensureCore();
     std::lock_guard<std::mutex> g(produce_);
     jambo::SoundSnapshot::Options o;
     o.tables = tables;
+    o.levelRelative = levelRelative;
     core_->publish(p, {}, o, nowSec());
     core_->releaseRetired(nowSec());
 }

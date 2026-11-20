@@ -1,4 +1,5 @@
 // Состояние приложения (app/App): правки шагов и ручек, UNDO, клавиатура, ход игры — через настоящее ядро.
+#include <filesystem>
 #include "app/App.h"
 #include "engine/AudioCore.h"
 #include <cmath>
@@ -23,9 +24,11 @@ struct CoreAudio : AppAudio {
     double now = 0;
     CoreAudio() { core.installSynth(); }
     void push(const CoreEvent& e) override { core.events.push(e); }
-    void publish(const Project& p, const std::map<std::string, std::shared_ptr<WtTable>>& tables) override {
+    void publish(const Project& p, const std::map<std::string, std::shared_ptr<WtTable>>& tables,
+                 bool levelRelative) override {
         SoundSnapshot::Options o;
         o.tables = tables;
+        o.levelRelative = levelRelative;
         core.publish(p, {}, o, now);
     }
     Levels* levels() override { return &core.levels; }
@@ -396,7 +399,47 @@ void chords() {
     check(app.trackSwing() == 60 && app.canUndo(), "app: SWING дорожки");
 }
 
+void projects() {
+    const std::string dir = (std::filesystem::temp_directory_path() / "jambo-app-projects").string();
+    std::filesystem::remove_all(dir);
+    {
+        CoreAudio a;
+        App app(&a);
+        Project first;
+        first.bpm = 101;
+        app.openStorage(dir, first);
+        check(app.project().bpm == 101 && app.isNewProject() && app.projectList().empty(), "app: первый запуск");
+        app.tick(1);
+        app.setBpm(133);
+        app.tick(1.4);
+        check(!ProjectStore(dir).load(ProjectStore::autosaveId), "app: автосохранение не сразу");
+        app.tick(3);
+        const auto au = ProjectStore(dir).load(ProjectStore::autosaveId);
+        check(au && au->doc.bpm == 133, "app: Autosave через 1,5 с");
+        app.saveProjectAs("Jam", "");
+        check(!app.unsaved() && !app.isNewProject() && app.session().name == "Jam", "app: SAVE AS");
+        app.setBpm(90);
+        check(app.unsaved(), "app: unsaved");
+        app.flushAutosave();
+    }
+    {
+        CoreAudio a;
+        App app(&a);
+        app.openStorage(dir, Project());
+        check(app.project().bpm == 90 && app.session().name == "Jam" && app.unsaved(), "app: запуск — Autosave");
+        const std::string id = app.session().id;
+        app.openProject(id);
+        check(app.project().bpm == 133 && !app.unsaved(), "app: LOAD — как сохранено");
+        app.newProject();
+        check(app.session().name == "Project 1" && app.project().bpm == 120, "app: NEW");
+        app.deleteProject(id);
+        check(app.projectNamed("Jam").empty(), "app: удалён");
+    }
+    std::filesystem::remove_all(dir);
+}
+
 int runAppTests() {
+    projects();
     chords();
     rec();
     meter();
