@@ -25,6 +25,19 @@ class ScreenState {
     var knobTexts by mutableStateOf(Array(32) { "" }); private set
     var keys by mutableStateOf(IntArray(2)); private set
     var keyLabels by mutableStateOf(emptyArray<String>()); private set
+    var piano by mutableStateOf(IntArray(10)); private set
+    var pianoTexts by mutableStateOf(arrayOf("", "")); private set
+    val scaleNames: Array<String> by lazy { AppNative.scaleNames() }
+    val chordKindNames: Array<String> by lazy { AppNative.chordKindNames() }
+    val rootNames: Array<String> by lazy { AppNative.rootNames() }
+    /** Меню выбора (SCALE, ROOT), окно CHORD, меню клавиатуры. */
+    var choice by mutableStateOf<Choice?>(null)
+    var chordMenu by mutableStateOf(false)
+    var pianoMenu by mutableStateOf(false)
+    /** Координаты Body (меню поверх экрана) и рамки клавиш и строки дорожек в них (px). */
+    var body: androidx.compose.ui.layout.LayoutCoordinates? = null
+    var keysRect by mutableStateOf(androidx.compose.ui.geometry.Rect.Zero)
+    var tracksRect by mutableStateOf(androidx.compose.ui.geometry.Rect.Zero)
     var sound by mutableStateOf(IntArray(6)); private set
     var pages by mutableStateOf(IntArray(7)); private set
     var side by mutableStateOf(IntArray(10)); private set
@@ -76,6 +89,8 @@ class ScreenState {
         AppNative.knobTexts().let { if (!it.contentEquals(knobTexts)) knobTexts = it }
         AppNative.keys().let { if (!it.contentEquals(keys)) keys = it }
         AppNative.keyLabels().let { if (!it.contentEquals(keyLabels)) keyLabels = it }
+        AppNative.piano().let { if (!it.contentEquals(piano)) piano = it }
+        AppNative.pianoTexts().let { if (!it.contentEquals(pianoTexts)) pianoTexts = it }
         AppNative.side().let { if (!it.contentEquals(side)) side = it }
         AppNative.pages().let { if (!it.contentEquals(pages)) pages = it }
         AppNative.sound().let { if (!it.contentEquals(sound)) sound = it }
@@ -90,3 +105,9 @@ class ScreenState {
         return r
     }
 }
+
+/** Меню выбора: пункты, столбцы, выбранный, рамка поля (px в координатах Body), ширина (dp; null — 104 на столбец). */
+class Choice(
+    val options: Array<String>, val columns: Int, val current: Int, val anchor: androidx.compose.ui.geometry.Rect,
+    val width: Float? = null, val pick: (Int) -> Unit,
+)

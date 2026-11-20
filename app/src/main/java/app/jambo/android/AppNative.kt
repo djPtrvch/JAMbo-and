@@ -61,6 +61,13 @@ object AppNative {
         const val PAGE_ACTION = 114
         const val PAGE_ARROW = 115
         const val SET_CLIP_RATE = 116
+        const val SET_SCALE = 140
+        const val SET_ROOT = 141
+        const val TOGGLE_CHORD = 142
+        const val SET_CHORD_KIND = 143
+        const val SET_PIANO_SETTINGS = 144
+        const val SET_RECORD_SETTINGS = 145
+        const val SET_SWING = 146
     }
 
     external fun act(code: Int, a: Int, b: Int, x: Double): Double
@@ -86,6 +93,13 @@ object AppNative {
     /** [число клавиш, число клавиш двух октав, по клавише: нота, биты подсвечена 1 | обведена 2 | корневая 4]. */
     external fun keys(): IntArray
     external fun keyLabels(): Array<String>
+    /** [CHORD вкл., тип аккорда, октав, VELOCITY, OVERDUB, гамма, корневая, SWING·10, SWING от·10, до·10]. */
+    external fun piano(): IntArray
+    /** [тип аккорда, SWING]. */
+    external fun pianoTexts(): Array<String>
+    external fun scaleNames(): Array<String>
+    external fun chordKindNames(): Array<String>
+    external fun rootNames(): Array<String>
     /** [движок окна (−1 — сэмпл), звуков в папке, меню открыто, движок дорожки, сэмпл на дорожке, число шагов меню, шаги…]. */
     external fun sound(): IntArray
     /** [заголовок, после тире, пресет, подпись стрелок, строки…]. */

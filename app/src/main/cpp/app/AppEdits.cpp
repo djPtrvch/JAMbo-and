@@ -1,5 +1,5 @@
 // App: шаги, ручки с p-lock, клавиатура (порт AppModelEdits.swift, AppModelPiano.swift, части AppModelSound.swift,
-// ветка swift JAMbo). Без MORPH, FX/MOD, LFO/ENV, кривых аранжировки, CHORD и записи с REC — позже.
+// ветка swift JAMbo). Гамма, октава и CHORD — AppPiano.cpp.
 #include "App.h"
 #include "model/AnalogMod.h"
 #include "model/FilterType.h"
@@ -10,11 +10,6 @@
 #include <chrono>
 
 namespace jambo {
-
-namespace {
-/// Клавиатура: одна октава гаммы + верхняя корневая (Settings.pianoOctaves по умолчанию; меню клавиатуры — позже).
-constexpr int pianoOctaves = 1;
-}  // namespace
 
 namespace {
 double steadyNow() {
@@ -315,19 +310,6 @@ void App::knobDoubleTap(int slot) {
 
 // MARK: — клавиатура
 
-int App::octave() const {
-    return std::min(track().keyOctave, Scales::topOctave(project_.scale, project_.root, pianoOctaves, false));
-}
-
-int App::keyCount() const { return Scales::keyCount(project_.scale, pianoOctaves); }
-
-int App::keyNote(int k) const { return Scales::note(project_.scale, project_.root, octave(), k); }
-
-std::optional<std::vector<int>> App::keyNotes(int k) const {
-    if (k < 0 || k >= keyCount()) return std::nullopt;
-    return std::vector<int>{keyNote(k)};
-}
-
 std::set<int> App::litNotes() const {
     std::set<int> all;
     for (const auto& [id, n] : pressedKeys_) all.insert(n.begin(), n.end());
@@ -353,7 +335,7 @@ std::set<int> App::shownNotes() const {
 void App::liveNoteOn(int t, const std::vector<int>& notes, int id, double velocity) {
     // Сверху вниз: корень аккорда — последним (монофонический движок оставляет последнюю ноту).
     for (auto it = notes.rbegin(); it != notes.rend(); ++it)
-        audio_->push(CoreEvent::noteOn(t, *it, id, float(velocity)));
+        audio_->push(CoreEvent::noteOn(t, *it, id, velocity_ ? float(velocity) : 1.0f));
 }
 
 void App::keyDown(int id, int k, double velocity) {
@@ -361,12 +343,10 @@ void App::keyDown(int id, int k, double velocity) {
     if (!notes) return;
     const int ti = selected_;
     pressedKeys_[id] = *notes;
-    // Velocity клавиш (VELOCITY в меню клавиатуры) — позже: ноты звучат с Level дорожки.
-    (void)velocity;
-    liveNoteOn(ti, *notes, id, 1);
+    liveNoteOn(ti, *notes, id, velocity);
     std::optional<int> recIndex;
     if (recOn_ && playing_ && held_.empty() && channel_ == Channel::track) {
-        recIndex = record(ti, *notes, std::nullopt);
+        recIndex = record(ti, *notes, velocity_ ? std::optional<double>(velocity) : std::nullopt);
     } else {
         inputNotes();
     }
@@ -416,14 +396,6 @@ std::set<int> App::litNotesPressed() const {
     std::set<int> all;
     for (const auto& [id, n] : pressedKeys_) all.insert(n.begin(), n.end());
     return all;
-}
-
-void App::setOctave(int o) {
-    const int top = Scales::topOctave(project_.scale, project_.root, pianoOctaves, false);
-    const int o2 = std::min(top, std::max(Scales::octaveMin, o));
-    if (o2 == octave()) return;
-    const int i = selected_;
-    mutatePlay([&](Project& p) { p.tracks[size_t(i)].keyOctave = o2; }, true);
 }
 
 void App::midiNote(int note, int velocity) {

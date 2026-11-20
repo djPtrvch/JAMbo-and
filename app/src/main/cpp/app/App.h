@@ -251,6 +251,27 @@ public:
     /// SETTINGS → RECORD (у экрана): QUANTIZE, OVERDUB.
     void setRecordSettings(bool quantize, bool overdub) { quantize_ = quantize; overdub_ = overdub; }
 
+    // Гамма, нота, CHORD, меню клавиатуры (AppPiano.cpp)
+    void setScale(int v);
+    void setRoot(int v);
+    /// Меню клавиатуры (настройки — у экрана): 1 или 2 октавы, VELOCITY.
+    void setPianoSettings(int octaves, bool velocity);
+    int pianoOctaves() const { return pianoOctaves_; }
+    bool velocity() const { return velocity_; }
+    bool overdub() const { return overdub_; }
+    /// Режим аккордов клавиш выбранной дорожки и тип аккорда (у каждой дорожки свои, не в проекте).
+    bool chordOn() const;
+    int chordKind() const;
+    void toggleChord();
+    void setChordKind(int k);
+    /// Подпись клавиши в режиме CHORD: «Em · i» и второй строкой нижняя нота («E3»).
+    std::string chordKeyLabel(int k) const;
+    /// Верхняя октава клавиатуры выбранной дорожки (ноты не выше 127).
+    int topOctave() const;
+    /// SWING дорожки (меню клавиатуры): значение без p-lock и LFO/ENV.
+    double trackSwing() const;
+    void setSwing(double v);
+
     // Клавиатура
     int octave() const;
     int keyCount() const;
@@ -286,6 +307,10 @@ private:
     bool playing_ = false, metronome_ = false;
     std::set<int> held_, used_;
     std::array<std::vector<int>, Params::maxTracks> selNotes_{};
+    std::array<bool, Params::maxTracks> chordMode_{};
+    std::array<int, Params::maxTracks> chordKind_{};
+    int pianoOctaves_ = 1;
+    bool velocity_ = false;
     std::map<int, std::vector<int>> pressedKeys_;
     struct KeyHold {
         int track;

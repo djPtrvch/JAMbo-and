@@ -44,6 +44,7 @@ enum Act {
     pagePress = 120, pageRelease, setShift, knobShiftTap, setLatched, morphPress, morphRelease,
     resetMeterPeak = 130, resetLoudness, setMeterVol, volDrag, toggleRec,
     openPage = 110, addPage, playPages, movePage, pageAction, pageArrow, setClipRate,
+    setScale = 140, setRoot, toggleChord, setChordKind, setPianoSettings, setRecordSettings, setSwing,
 };
 
 jintArray ints(JNIEnv* env, const std::vector<jint>& v) {
@@ -139,6 +140,13 @@ FN(jdouble, act)(JNIEnv*, jobject, jint code, jint a, jint b, jdouble x) {
     case pageAction: m.pageAction(jambo::App::PageAction(a), b); break;
     case pageArrow: m.pageArrow(jambo::App::PageAction(a)); break;
     case setClipRate: m.setClipRate(a); break;
+    case setScale: m.setScale(a); break;
+    case setRoot: m.setRoot(a); break;
+    case toggleChord: m.toggleChord(); break;
+    case setChordKind: m.setChordKind(a); break;
+    case setPianoSettings: m.setPianoSettings(a, b != 0); break;
+    case setRecordSettings: m.setRecordSettings(a != 0, b != 0); break;
+    case setSwing: m.setSwing(x); break;
     default: break;
     }
     return 0;
@@ -269,9 +277,38 @@ FN(jobjectArray, keyLabels)(JNIEnv* env, jobject) {
     std::lock_guard<std::mutex> g(gLock);
     auto& m = app();
     std::vector<std::string> v;
-    for (int k = 0; k < m.keyCount(); ++k) v.push_back(jambo::Params::noteName(m.keyNote(k)));
+    for (int k = 0; k < m.keyCount(); ++k)
+        v.push_back(m.chordOn() ? m.chordKeyLabel(k) : jambo::Params::noteName(m.keyNote(k)));
     return strings(env, v);
 }
+
+/// Клавиатура и CHORD: [CHORD вкл., тип аккорда, октав (1, 2), VELOCITY, OVERDUB, гамма, корневая нота, SWING·10,
+/// SWING от·10, до·10].
+FN(jintArray, piano)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    return ints(env, {m.chordOn(), m.chordKind(), m.pianoOctaves(), m.velocity(), m.overdub(), m.project().scale,
+                      m.project().root, jint(std::lround(m.trackSwing() * 10)),
+                      jint(std::lround(jambo::Params::swing().min * 10)), jint(std::lround(jambo::Params::swing().max * 10))});
+}
+
+/// Подписи меню клавиатуры: [тип аккорда, SWING].
+FN(jobjectArray, pianoTexts)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    return strings(env, {jambo::Scales::chordKinds[size_t(m.chordKind())], jambo::Params::swing().format(m.trackSwing())});
+}
+
+/// Имена гамм, типов аккорда (окно CHORD) и нот (меню ROOT).
+FN(jobjectArray, scaleNames)(JNIEnv* env, jobject) {
+    std::vector<std::string> v;
+    for (const auto& sc : jambo::Scales::all) v.push_back(sc.name);
+    return strings(env, v);
+}
+
+FN(jobjectArray, chordKindNames)(JNIEnv* env, jobject) { return strings(env, jambo::Scales::chordKinds); }
+
+FN(jobjectArray, rootNames)(JNIEnv* env, jobject) { return strings(env, std::vector<std::string>(kRoots, kRoots + 12)); }
 
 /// Окно и меню звука: [движок окна (−1 — сэмпл), звуков в папке, меню открыто, движок дорожки, сэмпл на дорожке,
 /// число шагов меню, шаги меню…].

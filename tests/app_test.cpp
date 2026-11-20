@@ -374,7 +374,30 @@ void rec() {
 }
 }  // namespace
 
+void chords() {
+    CoreAudio a;
+    App app(&a);
+    app.setScale(1);
+    app.setRoot(9);
+    check(app.project().scale == 1 && app.project().root == 9 && app.keyNote(0) == 57, "app: гамма и нота — A Minor");
+    app.undo();
+    check(app.project().root == 0 && app.project().scale == 1, "app: UNDO ноты");
+    app.setScale(0);
+    app.toggleChord();
+    check(app.chordOn() && *app.keyNotes(0) == std::vector<int>{48, 52, 55}, "app: CHORD — трезвучие C");
+    check(app.chordKeyLabel(1) == "Dm · ii\nD3", "app: подпись клавиши Dm · ii");
+    app.setChordKind(1);
+    check(app.keyNotes(4)->size() == 4 && app.chordKeyLabel(4).rfind("G7", 0) == 0, "app: тип 7th — G7");
+    app.selectTrack(1);
+    check(!app.chordOn() && app.keyNotes(0)->size() == 1, "app: CHORD — у каждой дорожки свой");
+    app.setPianoSettings(2, true);
+    check(app.keyCount() == 15, "app: 2 OCTAVES");
+    app.setSwing(60);
+    check(app.trackSwing() == 60 && app.canUndo(), "app: SWING дорожки");
+}
+
 int runAppTests() {
+    chords();
     rec();
     meter();
     morphApp();

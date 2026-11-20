@@ -21,6 +21,8 @@ import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.changedToDown
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -29,7 +31,7 @@ import app.jambo.android.AppNative.Act
 
 private const val KEY_GAP = 3f
 
-/** Клавиатура: CHORD и бутерброд | клавиши гаммы | ▲ ▼ октавы. CHORD и меню клавиатуры — позже (серые). */
+/** Клавиатура: CHORD и бутерброд (меню клавиатуры) | клавиши гаммы (с CHORD — подписи аккордов) | ▲ ▼ октавы. */
 @Composable
 fun KeyboardPanel(s: ScreenState, width: Float) {
     val th = LocalTheme.current
@@ -41,13 +43,32 @@ fun KeyboardPanel(s: ScreenState, width: Float) {
     Row(Modifier.fillMaxWidth().height(Layout.pianoHeight(base, count).dp),
         horizontalArrangement = Arrangement.spacedBy(Layout.stepGap.dp)) {
         Column(Modifier.width(step.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-            Box(Modifier.fillMaxWidth().height(Layout.keyHeight(base, count).dp).tile(th.panel2), contentAlignment = Alignment.Center) {
-                Text("CHORD", color = th.dim, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
-            }
-            Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { Burger(th.dim) }
+            ChordButton(s, Modifier.fillMaxWidth().height(Layout.keyHeight(base, count).dp))
+            Box(Modifier.fillMaxWidth().weight(1f).pointerTap { s.pianoMenu = !s.pianoMenu },
+                contentAlignment = Alignment.Center) { Burger(th.text) }
         }
-        KeyRow(s, Modifier.weight(1f).fillMaxHeight())
+        KeyRow(s, Modifier.weight(1f).fillMaxHeight().onGloballyPositioned { c ->
+            s.body?.let { b -> if (b.isAttached) s.keysRect = b.localBoundingBoxOf(c) }
+        })
         OctavePair(s, Modifier.width(step.dp).fillMaxHeight())
+    }
+}
+
+/** CHORD: тап — вкл./выкл. режима аккордов (горит, пока включён), долгое нажатие — окно типов аккорда; под словом —
+ *  выбранный тип. RANDOM (SHIFT + CHORD) и ARP — позже. */
+@Composable
+private fun ChordButton(s: ScreenState, modifier: Modifier) {
+    val th = LocalTheme.current
+    val on = s.piano[0] != 0
+    Column(
+        modifier.tile(if (on) th.text else th.panel2).pointerInput(Unit) {
+            detectTapGestures(onTap = { s.act(Act.TOGGLE_CHORD) }, onLongPress = { s.chordMenu = true })
+        },
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+    ) {
+        val fg = if (on) th.bg else th.text
+        Text("CHORD", color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
+        Text(s.pianoTexts[0], color = fg, fontSize = 10.sp)
     }
 }
 
@@ -69,7 +90,7 @@ private fun KeyRow(s: ScreenState, modifier: Modifier) {
                             val k = (c.position.x / cell).toInt().coerceIn(0, count - 1)
                             val id = ++serial
                             touches[c.id] = id
-                            // Сила — по месту на клавише (верх — тихо, низ — громко); VELOCITY — позже.
+                            // Сила (KEY VELOCITY) — по месту на клавише: верх — тихо, низ — громко.
                             val y = (c.position.y / maxOf(1, size.height)).coerceIn(0f, 1f)
                             s.act(Act.KEY_DOWN, id, k, 0.2 + 0.8 * y)
                         } else if (c.changedToUp()) {

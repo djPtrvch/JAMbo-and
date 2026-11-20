@@ -22,7 +22,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -51,8 +55,17 @@ fun TopBar(s: ScreenState, onMenu: () -> Unit) {
             BpmField(s, top[0] / 10.0, Modifier.weight(1f))
             Metronome(s, top[4] != 0, Modifier.width(52.dp))
         }
-        Later(s.topTexts[0], Modifier.width(mid(Layout.topButton)))
-        Later(s.topTexts[1], Modifier.weight(1f))
+        val pi = s.piano
+        val dens = density()
+        DragField(s, "SCALE", s.topTexts[0], { pi[5] }, { s.act(Act.SET_SCALE, it) },
+            Modifier.width(mid(Layout.topButton))) { r ->
+            s.choice = Choice(s.scaleNames, 3, pi[5], r) { s.act(Act.SET_SCALE, it) }
+        }
+        // ROOT: меню (4 столбца) — от левого края ROOT до правого края REDO.
+        val rootMenu = 4 * Layout.gap + 2 * Layout.topButton * LocalDims.current.midStretch + 2 * half * LocalDims.current.midStretch
+        DragField(s, "ROOT", s.topTexts[1], { pi[6] }, { s.act(Act.SET_ROOT, it) }, Modifier.weight(1f)) { r ->
+            s.choice = Choice(s.rootNames, 4, pi[6], r, r.width / dens + rootMenu) { s.act(Act.SET_ROOT, it) }
+        }
         Glyph("↶", top[1] != 0, Modifier.width(mid(Layout.topButton))) { s.act(Act.UNDO) }
         PlayButton(s, top[3] != 0, Modifier.width(mid(half)))
         RecButton(s, top.getOrElse(5) { 0 } != 0, Modifier.width(mid(half)))
@@ -67,6 +80,58 @@ fun TopBar(s: ScreenState, onMenu: () -> Unit) {
         Spacer(Modifier.width(Layout.meterWidth.dp))
     }
 }
+
+/** Поле с подписью над значением (DragField в Menus.swift): палец вверх-вниз — 24 dp на пункт (после 10 dp; вверх —
+ *  больше), одна запись UNDO на жест; тап — меню (onTap получает рамку поля в координатах Body). */
+@Composable
+private fun DragField(
+    s: ScreenState, label: String, value: String, get: () -> Int, set: (Int) -> Unit, modifier: Modifier,
+    onTap: (Rect) -> Unit,
+) {
+    val th = LocalTheme.current
+    var active by remember { mutableStateOf(false) }
+    var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val getter by rememberUpdatedState(get)
+    val setter by rememberUpdatedState(set)
+    val tap by rememberUpdatedState(onTap)
+    Column(
+        modifier.fillMaxHeight().tile(if (active) th.panel2 else th.panel).padding(horizontal = 10.dp)
+            .onGloballyPositioned { coords = it }
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown()
+                    active = true
+                    s.act(Act.BEGIN_GESTURE)
+                    val start = getter()
+                    var moved = false
+                    while (true) {
+                        val ev = awaitPointerEvent()
+                        val c = ev.changes.firstOrNull { it.id == down.id } ?: break
+                        val dy = (c.position.y - down.position.y) / density
+                        if (abs(dy) > 10) moved = true
+                        if (moved) setter(start + (-dy / 24).roundToInt())
+                        c.consume()
+                        if (!c.pressed) break
+                    }
+                    s.act(Act.END_GESTURE)
+                    active = false
+                    if (!moved) {
+                        val b = s.body
+                        val c = coords
+                        if (b != null && c != null && b.isAttached && c.isAttached) tap(b.localBoundingBoxOf(c))
+                    }
+                }
+            },
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(label, color = th.dim, fontSize = 9.sp, letterSpacing = 0.8.sp)
+        Text(value, color = th.text, fontSize = 15.sp, maxLines = 1)
+    }
+}
+
+/** Пикселей на dp (плотность раскладки). */
+@Composable
+private fun density(): Float = androidx.compose.ui.platform.LocalDensity.current.density
 
 /** Кнопка следующих этапов: подпись серая, не нажимается. */
 @Composable

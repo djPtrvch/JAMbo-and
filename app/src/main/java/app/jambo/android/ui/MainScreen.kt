@@ -59,6 +59,16 @@ fun MainScreen(onMenu: () -> Unit) {
             prefs.edit().putBoolean("latchFx", fx).putBoolean("latchMod", mod).apply()
         }
     }
+    // Меню клавиатуры (1 / 2 OCTAVES, KEY VELOCITY) и OVERDUB — в настройках устройства, общие для проектов.
+    LaunchedEffect(Unit) {
+        val prefs = ctx.getSharedPreferences("jambo", 0)
+        s.act(AppNative.Act.SET_PIANO_SETTINGS, prefs.getInt("pianoOctaves", 1), if (prefs.getBoolean("velocity", false)) 1 else 0)
+        s.act(AppNative.Act.SET_RECORD_SETTINGS, if (prefs.getBoolean("quantize", true)) 1 else 0,
+            if (prefs.getBoolean("overdub", false)) 1 else 0)
+        snapshotFlow { Triple(s.piano[2], s.piano[3] != 0, s.piano[4] != 0) }.collect { (oct, vel, dub) ->
+            if (oct > 0) prefs.edit().putInt("pianoOctaves", oct).putBoolean("velocity", vel).putBoolean("overdub", dub).apply()
+        }
+    }
     // Фон темы — и под вырезом камеры; раскладка — внутри безопасной зоны.
     BoxWithConstraints(Modifier.fillMaxSize().background(th.bg).windowInsetsPadding(WindowInsets.displayCutout)) {
         // Раскладка — в точках iPad (Layout.swift): высота экрана — всегда designHeight точек, ширина — не меньше
@@ -85,7 +95,7 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
     var body by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var left by remember { mutableStateOf(Rect.Zero) }
     var pagesRect by remember { mutableStateOf(Rect.Zero) }
-    Box(Modifier.fillMaxSize().padding(horizontal = Layout.side.dp).onGloballyPositioned { body = it }) {
+    Box(Modifier.fillMaxSize().padding(horizontal = Layout.side.dp).onGloballyPositioned { body = it; s.body = it }) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
             TopBar(s, onMenu)
             Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
@@ -98,12 +108,17 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
                 }
                 MeterColumn(s, Modifier.fillMaxHeight())
             }
-            TrackRow(s, Layout.step(width))
+            Box(Modifier.onGloballyPositioned { c ->
+                body?.let { b -> if (b.isAttached) s.tracksRect = b.localBoundingBoxOf(c) }
+            }) { TrackRow(s, Layout.step(width)) }
             SequencerRow(s)
             KeyboardPanel(s, width)
         }
         if (s.sound[2] != 0) SoundMenuOverlay(s, left)
         if (s.pageMenu >= 0) PageMenuOverlay(s, pagesRect)
+        if (s.chordMenu) ChordMenuOverlay(s)
+        if (s.pianoMenu) PianoMenuOverlay(s, Layout.step(width))
+        s.choice?.let { ChoiceOverlay(s, it) }
     }
 }
 
