@@ -42,6 +42,13 @@ object AppNative {
         const val STEP_SOUND_TO_TRACK = 94
         const val FOLDER_ARROW = 95
         const val TICK = 100
+        const val OPEN_PAGE = 110
+        const val ADD_PAGE = 111
+        const val PLAY_PAGES = 112
+        const val MOVE_PAGE = 113
+        const val PAGE_ACTION = 114
+        const val PAGE_ARROW = 115
+        const val SET_CLIP_RATE = 116
     }
 
     external fun act(code: Int, a: Int, b: Int, x: Double): Double
@@ -83,8 +90,27 @@ object AppNative {
     external fun modNorms(): FloatArray
     /** Значения ручек с модуляцией (пусто — без назначения). */
     external fun modTexts(): Array<String>
+    /** Миниатюры: [страниц, играют от, до, открыты от, до, скорость клипа, есть копия, по странице: duplicate, 16 ячеек]. */
+    external fun pages(): IntArray
+    external fun clipRates(): IntArray
+    external fun clipRateNames(): Array<String>
     /** Короткие имена движков по номеру. */
     external fun engineNames(): Array<String>
+}
+
+/** Действия страниц (App::PageAction). */
+object PageAct {
+    const val LEFT = 0
+    const val RIGHT = 1
+    const val UP = 2
+    const val DOWN = 3
+    const val NOTE_UP = 4
+    const val NOTE_DOWN = 5
+    const val DUPLICATE = 6
+    const val COPY = 7
+    const val PASTE = 8
+    const val CLEAR = 9
+    const val DELETE = 10
 }
 
 /** Чисел на ручку в knobs(). */

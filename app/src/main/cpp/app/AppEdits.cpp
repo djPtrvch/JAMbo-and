@@ -18,7 +18,7 @@ std::pair<int, int> App::viewPages() const {
     const Track& t = seq();
     const int n = int(t.pages().size());
     const int v = std::max(0, std::min(viewPage_, n - 1));
-    if (t.playTo() > t.playFrom() && t.playTo() < n && t.playFrom() <= v && v <= t.playTo())
+    if (spanView_ && t.playTo() > t.playFrom() && t.playTo() < n && t.playFrom() <= v && v <= t.playTo())
         return {t.playFrom(), t.playTo()};
     return {v, v};
 }

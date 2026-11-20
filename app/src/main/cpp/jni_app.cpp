@@ -41,6 +41,7 @@ enum Act {
     setSource = 85, knobFinger, assignSource, assignStart, setAssign,
     openSoundMenu = 90, closeSoundMenu, pickSynth, cleanSampler, stepSoundToTrack, folderArrow,
     tick = 100,
+    openPage = 110, addPage, playPages, movePage, pageAction, pageArrow, setClipRate,
 };
 
 jintArray ints(JNIEnv* env, const std::vector<jint>& v) {
@@ -109,6 +110,13 @@ FN(jdouble, act)(JNIEnv*, jobject, jint code, jint a, jint b, jdouble x) {
     case stepSoundToTrack: m.stepSoundToTrack(); break;
     case folderArrow: m.folderArrow(a); break;
     case tick: m.tick(x); break;
+    case openPage: m.openPage(a); break;
+    case addPage: m.addPage(); break;
+    case playPages: m.playPages(a, b); break;
+    case movePage: m.movePage(a, b); break;
+    case pageAction: m.pageAction(jambo::App::PageAction(a), b); break;
+    case pageArrow: m.pageArrow(jambo::App::PageAction(a)); break;
+    case setClipRate: m.setClipRate(a); break;
     default: break;
     }
     return 0;
@@ -387,3 +395,27 @@ FN(jobjectArray, modTexts)(JNIEnv* env, jobject) {
     }
     return strings(env, v);
 }
+
+/// Миниатюры страниц: [число страниц, играют от, до, открыты от, до, скорость клипа, есть копия страниц,
+/// по странице: можно duplicate, 16 ячеек — биты триг 1, хвост 2, за длиной 4].
+FN(jintArray, pages)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    const auto& t = m.shownSeq();
+    const int n = int(t.pages().size());
+    const auto [a, b] = m.viewPages();
+    std::vector<jint> v{n, t.playFrom(), t.playTo(), a, b, m.clipRate(), m.hasPageClipboard() ? 1 : 0};
+    for (int p = 0; p < n; ++p) {
+        v.push_back(m.canDuplicate(p) ? 1 : 0);
+        for (const auto& c : m.thumb(p)) v.push_back((c.on ? 1 : 0) | (c.tail ? 2 : 0) | (c.outside ? 4 : 0));
+    }
+    return ints(env, v);
+}
+
+/// Скорости клипа (меню страницы, SPEED): [значения…].
+FN(jintArray, clipRates)(JNIEnv* env, jobject) {
+    const auto& r = jambo::Clip::rates();
+    return ints(env, std::vector<jint>(r.begin(), r.end()));
+}
+
+FN(jobjectArray, clipRateNames)(JNIEnv* env, jobject) { return strings(env, jambo::Clip::rateNames()); }

@@ -38,7 +38,7 @@ import app.jambo.android.AppNative
 
 /**
  * Главный экран (RootView.swift ветки swift JAMbo, сверху вниз): верхняя панель, центр (левая колонка | сетка ручек |
- * правая колонка | измеритель), строка дорожек, секвенсор, клавиатура. Правая колонка и измеритель — пустые панели до своих вех; меню звука — поверх левой колонки.
+ * правая колонка | измеритель), строка дорожек, секвенсор, клавиатура. Измеритель — пустая панель до своей вехи; меню звука — поверх левой колонки.
  */
 @Composable
 fun MainScreen(onMenu: () -> Unit) {
@@ -72,6 +72,7 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
     // Место левой колонки (для меню звука поверх неё), в координатах Body.
     var body by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var left by remember { mutableStateOf(Rect.Zero) }
+    var pagesRect by remember { mutableStateOf(Rect.Zero) }
     Box(Modifier.fillMaxSize().padding(horizontal = Layout.side.dp).onGloballyPositioned { body = it }) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
             TopBar(s, onMenu)
@@ -80,7 +81,9 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
                     body?.let { b -> if (b.isAttached) left = b.localBoundingBoxOf(c) }
                 })
                 KnobGrid(s, Modifier.weight(1f).fillMaxHeight())
-                Box(Modifier.width(rightColumn()).fillMaxHeight().tile(th.panel))
+                RightColumn(s, Modifier.width(rightColumn()).fillMaxHeight()) { c ->
+                    body?.let { b -> if (b.isAttached) pagesRect = b.localBoundingBoxOf(c) }
+                }
                 Box(Modifier.width(Layout.meterWidth.dp).fillMaxHeight().tile(th.panel, 4f))
             }
             TrackRow(s, Layout.step(width))
@@ -88,7 +91,20 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
             KeyboardPanel(s, width)
         }
         if (s.sound[2] != 0) SoundMenuOverlay(s, left)
+        if (s.pageMenu >= 0) PageMenuOverlay(s, pagesRect)
     }
+}
+
+/** Меню страницы — под её миниатюрой, по ширине колонки миниатюр с обводкой; тап мимо — закрыть. */
+@Composable
+private fun PageMenuOverlay(s: ScreenState, r: Rect) {
+    val d = LocalDensity.current.density
+    val close = { s.pageMenu = -1 }
+    Box(Modifier.fillMaxSize().pointerTap(close))
+    val top = r.top / d
+    val y = maxOf(0f, minOf(top + s.pageMenuY, r.bottom / d - PAGE_MENU_HEIGHT))
+    PageMenu(s, s.pageMenu, Modifier.offset((r.left / d - 4).dp, y.dp).width((r.width / d + 8).dp)
+        .pointerInput(Unit) { detectTapGestures { } }, close)
 }
 
 /** Меню звука — на месте левой колонки; тап мимо — закрыть. */

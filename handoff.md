@@ -17,7 +17,8 @@
 - Левая колонка, часть 2 (сделано, на устройстве не проверено): core/icons — порт Core/Icons 1:1 (тест tests/icons_test.cpp против ios/tools/icons/engine_previews_golden.json — 1054/1054); App::iconValues, iconElements (WTABLE — встроенная таблица дорожки); JNI icon — элементы подряд в FloatArray; Compose SynthIcon.kt (сглаживание 90 мс). Не перенесено: displayFrame/WtDisplay (своя таблица), samplePeaks (GRANULAR по сэмплу) — с библиотекой и сэмплами.
 - 20.11, решения пользователя: колонки — по шагам секвенсора (левая — до правого края 3-го шага, правая — от левого края 14-го; измеритель — в том же отрезке справа; Dims в Layout.kt). WTABLE молчал: таблицы не шли в снимок — App::publishAudio (как AppModel.publishAudio; встроенные таблицы, свои — с библиотекой).
 - LFO1–3, ENV (app/AppMod.cpp; сделано, на устройстве не проверено): удержание источника + поворот ручки — степень, двойной тап — снять, тап по другому источнику, пока держат ручку, — переносит; кольцо модуляции (modNorms, modTexts каждый кадр, AppAudio::modOut — выходы ModEngine), зона воздействия, обводка кнопки. Без FX-назначений и MORPH — с правой колонкой. MOD-превью в окне — с кнопкой MOD.
-- Дальше: правая колонка (миниатюры страниц, FX, MOD, SHIFT, MORPH).
+- Правая колонка, часть 1 (сделано, на устройстве не проверено): app/AppPages.cpp (playPages, openPage, addPage, movePage, pageAction, pageArrow, SPEED, spanView как в Swift); Compose PagesColumn.kt (тап через 0,3 с, двойной тап — меню, протягивание края / обводки / диапазона, удержание 0,45 с — открыть и перенос), RightColumn.kt (стрелки ◀ ▶ ▲ ▼, меню страницы — PageMenuOverlay в MainScreen). FX, MOD, SHIFT, MORPH — серые.
+- Дальше: правая колонка, часть 2 — FX и MOD (страницы ручек, удержание и toggle), SHIFT, MORPH; MOD-превью в окне звука.
 
 ## Решения пользователя
 - Формат файла проекта — тот же, что у iPad-версии (совместимость в обе стороны).

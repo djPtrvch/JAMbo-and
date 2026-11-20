@@ -1,0 +1,116 @@
+package app.jambo.android.ui
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.jambo.android.AppNative.Act
+import app.jambo.android.PageAct
+
+/**
+ * Правая колонка (SideColumns.swift ветки swift JAMbo): у дорожки — стрелки страниц ◀ ▶ ▲ ▼, миниатюры страниц, FX и
+ * MOD, SHIFT и MORPH (FX, MOD, SHIFT, MORPH — следующей вехой, пока серые). MIX и MST (скоп мастера) — позже.
+ * onPages — место колонки миниатюр (меню страницы встаёт под миниатюрой).
+ */
+@Composable
+fun RightColumn(s: ScreenState, modifier: Modifier, onPages: (LayoutCoordinates) -> Unit) {
+    val th = LocalTheme.current
+    val channel = s.tracks[2]
+    BoxWithConstraints(modifier) {
+        if (channel != 0) {
+            Box(Modifier.fillMaxSize().background(th.panel, RoundedCornerShape(Layout.radius.dp)))
+            return@BoxWithConstraints
+        }
+        val bar = Side.bar(maxHeight.value)
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
+            Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Side.barGap.dp)) {
+                PageArrows(s, Modifier.height(bar.dp))
+                PagesColumn(s, Modifier.weight(1f).fillMaxWidth().onGloballyPositioned(onPages))
+            }
+            ButtonPair { SideButton("FX", Modifier.weight(1f), enabled = false); SideButton("MOD", Modifier.weight(1f), enabled = false) }
+            ButtonPair { SideButton("SHIFT", Modifier.weight(1f), enabled = false); SideButton("MORPH", Modifier.weight(1f), enabled = false) }
+        }
+    }
+}
+
+/** Стрелки страниц ◀ ▶ ▲ ▼ над миниатюрами — для открытой страницы (в белой обводке — все играющие): ◀ ▶ — шаги
+ *  по кругу, ▲ ▼ — ноты на октаву (с SHIFT — на ноту гаммы — с кнопкой SHIFT). */
+@Composable
+private fun PageArrows(s: ScreenState, modifier: Modifier) {
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
+        SideButton("◀", Modifier.weight(1f)) { s.act(Act.PAGE_ARROW, PageAct.LEFT) }
+        SideButton("▶", Modifier.weight(1f)) { s.act(Act.PAGE_ARROW, PageAct.RIGHT) }
+        SideButton("▲", Modifier.weight(1f)) { s.act(Act.PAGE_ARROW, PageAct.UP) }
+        SideButton("▼", Modifier.weight(1f)) { s.act(Act.PAGE_ARROW, PageAct.DOWN) }
+    }
+}
+
+/** Высота меню страницы: 5 строк по 36, SPEED — подпись 11 и две строки по 30, зазоры по 6, поля 8. */
+const val PAGE_MENU_HEIGHT = 5 * 36f + 11 + 2 * 30 + 7 * 6 + 16
+
+/** Меню страницы: duplicate, copy, paste, clear, delete, SPEED. Действуют на все играющие страницы, если страница в
+ *  белой обводке, иначе только на неё; delete — только на неё. */
+@Composable
+fun PageMenu(s: ScreenState, page: Int, modifier: Modifier, close: () -> Unit) {
+    val th = LocalTheme.current
+    val pg = s.pages
+    val shape = RoundedCornerShape(9.dp)
+    val run = { a: Int -> s.act(Act.PAGE_ACTION, a, page); close() }
+    Column(modifier.shadow(12.dp, shape).background(th.bg, shape).border(1.dp, th.line, shape).padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        PageItem("DUPLICATE", pg.getOrElse(7 + page * 17) { 0 } != 0) { run(PageAct.DUPLICATE) }
+        PageItem("COPY", true) { run(PageAct.COPY) }
+        PageItem("PASTE", pg[6] != 0) { run(PageAct.PASTE) }
+        PageItem("CLEAR", true) { run(PageAct.CLEAR) }
+        PageItem("DELETE", pg[0] > 1, red = true) { run(PageAct.DELETE) }
+        Text("SPEED", color = th.dim, fontSize = 9.sp)
+        for (row in 0 until 2) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                for (col in 0 until 3) {
+                    val k = row * 3 + col
+                    val rate = s.clipRates.getOrElse(k) { 0 }
+                    InkButton(s.clipRateNames.getOrElse(k) { "" }, rate == pg[5], Modifier.weight(1f)) {
+                        s.act(Act.SET_CLIP_RATE, rate)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PageItem(title: String, enabled: Boolean, red: Boolean = false, action: () -> Unit) {
+    val th = LocalTheme.current
+    val color = if (!enabled) th.off else if (red) th.rec else th.text
+    val tap = if (enabled) Modifier.pointerTap(action) else Modifier
+    Box(Modifier.fillMaxWidth().height(36.dp).tile(th.panel, 8f).then(tap), contentAlignment = androidx.compose.ui.Alignment.Center) {
+        Text(title, color = color, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+/** Кнопка выбора (InkButton): выбранная — жёлтая. */
+@Composable
+fun InkButton(title: String, active: Boolean, modifier: Modifier, height: Float = 30f, action: () -> Unit) {
+    val th = LocalTheme.current
+    Box(modifier.height(height.dp).tile(if (active) th.accent else th.panel).pointerTap(action),
+        contentAlignment = androidx.compose.ui.Alignment.Center) {
+        Text(title, color = if (active) th.onAccent else th.text, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+    }
+}

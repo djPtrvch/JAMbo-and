@@ -190,9 +190,35 @@ void mod() {
     app.undo();
     check(app.assign(6).has_value(), "app: UNDO возвращает назначение");
 }
+void pages() {
+    CoreAudio a;
+    App app(&a);
+    app.toggleStep(2);
+    app.addPage();
+    check(app.shownSeq().pages().size() == 2 && app.viewPage() == 1, "app: + — новая страница открыта");
+    app.playPages(0, 1);
+    check(app.viewPages() == std::make_pair(0, 1) && app.shownSeq().playTo() == 1, "app: две играющие страницы");
+    app.openPage(1);
+    check(app.viewPages() == std::make_pair(1, 1), "app: удержание — одна открытая страница");
+    app.playPages(0, 0);
+    app.pageAction(App::PageAction::copy, 0);
+    app.pageAction(App::PageAction::paste, 1);
+    check(app.thumb(1)[2].on && app.hasPageClipboard(), "app: copy / paste страницы");
+    app.pageAction(App::PageAction::clear, 0);
+    check(!app.thumb(0)[2].on, "app: clear страницы");
+    app.movePage(1, 0);
+    check(app.thumb(0)[2].on && app.viewPage() == 0, "app: перенос страницы");
+    app.pageArrow(App::PageAction::right);
+    check(app.thumb(0)[3].on, "app: стрелка ▶ — шаги вправо");
+    app.pageAction(App::PageAction::del, 1);
+    check(app.shownSeq().pages().size() == 1 && !app.canDelete(0), "app: delete страницы");
+    app.setClipRate(Clip::rates()[0]);
+    check(app.clipRate() == Clip::rates()[0], "app: SPEED клипа");
+}
 }  // namespace
 
 int runAppTests() {
+    pages();
     mod();
     sound();
     steps();

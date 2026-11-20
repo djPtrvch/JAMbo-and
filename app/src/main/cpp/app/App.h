@@ -64,6 +64,11 @@ struct SoundInfo {
     int folderTotal = 0;
 };
 
+/// Ячейка миниатюры страницы.
+struct ThumbCell {
+    bool on = false, tail = false, outside = false;
+};
+
 class App {
 public:
     explicit App(AppAudio* audio);
@@ -112,6 +117,26 @@ public:
     double knobStart(int slot) const;
     void setKnob(int slot, double norm);
     void knobDoubleTap(int slot);
+
+    // Страницы (правая колонка)
+    enum class PageAction { left, right, up, down, noteUp, noteDown, duplicate, copy, paste, clear, del };
+    int viewPage() const;
+    /// Удержание миниатюры: открыть страницу в секвенсоре, не меняя играющих.
+    void openPage(int p);
+    void addPage();
+    /// Тап (протягивание) по миниатюрам: эти страницы играют, первая открыта.
+    void playPages(int a, int b);
+    void movePage(int from, int to);
+    void pageAction(PageAction a, int page);
+    void pageArrow(PageAction a);
+    bool canDuplicate(int page) const;
+    bool canDelete(int page) const;
+    bool hasPageClipboard() const { return pageClipboard_.has_value(); }
+    /// Скорость открытого клипа (Clip::rates; 0 — обычная).
+    int clipRate() const;
+    void setClipRate(int r);
+    std::vector<ThumbCell> thumb(int page) const;
+    const Track& shownSeq() const { return seq(); }
 
     // Звук дорожки (левая колонка)
     SoundInfo soundInfo() const;
@@ -194,6 +219,8 @@ private:
     std::optional<std::pair<int, Step>> lastCopy_;
     uint64_t revision_ = 1;
     std::optional<std::vector<int>> soundMenu_;
+    bool spanView_ = true;
+    std::optional<std::vector<Page>> pageClipboard_;
     std::set<int> heldSources_, knobFingers_;
     int lastSource_ = 0;
     std::optional<std::pair<int, double>> lastSourceTap_;
