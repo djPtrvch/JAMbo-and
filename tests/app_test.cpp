@@ -24,12 +24,9 @@ struct CoreAudio : AppAudio {
     double now = 0;
     CoreAudio() { core.installSynth(); }
     void push(const CoreEvent& e) override { core.events.push(e); }
-    void publish(const Project& p, const std::map<std::string, std::shared_ptr<WtTable>>& tables,
-                 bool levelRelative) override {
-        SoundSnapshot::Options o;
-        o.tables = tables;
-        o.levelRelative = levelRelative;
-        core.publish(p, {}, o, now);
+    void publish(const Project& p, const SoundSnapshot::Options& o,
+                 const std::map<std::string, SampleRef>& samples) override {
+        core.publish(p, samples, o, now);
     }
     Levels* levels() override { return &core.levels; }
     Spectra* spectra() override { return &core.spectra; }

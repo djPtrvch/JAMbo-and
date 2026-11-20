@@ -267,6 +267,7 @@ void App::setGridTop(int top) {
 
 void App::togglePatterns() {
     patternView_ = !patternView_;
+    if (patternView_) browser_.reset();
     if (patternView_) {
         eqView_ = false;
         syncSpectra();

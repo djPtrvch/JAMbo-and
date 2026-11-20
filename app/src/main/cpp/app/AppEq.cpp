@@ -20,6 +20,7 @@ void App::eqEdit(const std::function<void(Eq&)>& f) {
 void App::toggleEqView() {
     eqView_ = !eqView_;
     if (eqView_) patternView_ = false;
+    if (eqView_ || patternView_) browser_.reset();
     eqBand_ = -1;
     syncSpectra();
     bump();

@@ -164,7 +164,13 @@ void App::publishAudio() {
     std::map<std::string, std::shared_ptr<WtTable>> tables;
     for (const auto& k : keys)
         if (table(k)) tables[k] = tables_[k];
-    audio_->publish(project_, tables, levelRelative_);
+    ensureSamples();
+    SoundSnapshot::Options o;
+    o.tables = tables;
+    o.levelRelative = levelRelative_;
+    if (libPreviewKey_) o.extra = {*libPreviewKey_};
+    static const std::map<std::string, SampleRef> none;
+    audio_->publish(project_, o, samples_ ? samples_->samples() : none);
 }
 
 void App::changed() {

@@ -2,6 +2,7 @@
 // запись Autosave, меню PROJECTS (NEW, SAVE, SAVE AS, RENAME, удаление, открытие LOAD). MIX, IMPORT строк, EXPORT и
 // IMPORT .jambo и сэмплы проекта с диска — позже. Запись — в основном потоке (в Swift — своя очередь).
 #include "App.h"
+#include <filesystem>
 #include <chrono>
 #include <fstream>
 #include <sstream>
@@ -29,6 +30,7 @@ void App::writeCurrentId() const {
 
 void App::openStorage(const std::string& dir, const Project& firstRun) {
     store_ = std::make_unique<ProjectStore>(dir);
+    openLibraryStorage(std::filesystem::path(dir).parent_path().string());
     const bool empty = store_->list().empty();
     auto opened = ProjectSession::start(*store_, readCurrentId());
     session_ = opened.first;

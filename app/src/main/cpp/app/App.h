@@ -7,6 +7,9 @@
 #include "MeterState.h"
 #include "icons/EngineIcons.h"
 #include "synth/Wavetable.h"
+#include "files/SampleStore.h"
+#include "model/Library.h"
+#include "sampler/SoundSnapshot.h"
 #include "model/History.h"
 #include "model/KnobDefaults.h"
 #include "model/Params.h"
@@ -30,9 +33,9 @@ namespace jambo {
 struct AppAudio {
     virtual ~AppAudio() = default;
     virtual void push(const CoreEvent& e) = 0;
-    /// Снимки проекта; tables — таблицы WTABLE дорожек по ключу; levelRelative — SETTINGS → LEVEL RELATIVE.
-    virtual void publish(const Project& p, const std::map<std::string, std::shared_ptr<WtTable>>& tables,
-                         bool levelRelative) = 0;
+    /// Снимки проекта: o — таблицы WTABLE, LEVEL RELATIVE, сэмпл предпрослушки (extra); samples — сэмплы по ключу.
+    virtual void publish(const Project& p, const SoundSnapshot::Options& o,
+                         const std::map<std::string, SampleRef>& samples) = 0;
     virtual bool popOut(SeqOut& e) = 0;
     /// Ход транспорта из колбэка (запись с REC).
     virtual PlayClock::State clock() const { return {}; }
@@ -370,6 +373,44 @@ public:
     double cellProgress(int i, int k) const;
     std::pair<int, double> scenePass() const;
 
+    // Библиотека (AppLibrary.cpp)
+    /// Хранилище сэмплов (base/Samples) и дерево библиотеки (base/Library.json).
+    void openLibraryStorage(const std::string& base);
+    bool browserOpen() const { return browser_.has_value(); }
+    /// Шаги, на которые грузится звук (меню звука шагов); пусто — дорожка.
+    std::vector<int> browserSteps() const { return browser_ ? browser_->steps : std::vector<int>{}; }
+    void openBrowser(const std::vector<int>& steps);
+    void closeBrowser();
+    const Library& library() const { return library_; }
+    const std::string& libFolder() const { return libFolder_; }
+    std::vector<LibNode> libItems() const;
+    std::string libPath() const;
+    bool libAtRoot() const { return libFolder_ == Library::root; }
+    const std::optional<std::set<std::string>>& libPicked() const { return libPicked_; }
+    const std::string& libNote() const { return libNote_; }
+    void setLibNote(const std::string& s);
+    bool libIsCurrent(const LibNode& n) const;
+    void libEnter(const std::string& id);
+    void libUp();
+    void libNewFolder(const std::string& name);
+    void libRename(const std::string& id, const std::string& name);
+    void libDelete(const std::string& id);
+    void libTap(const std::string& id);
+    void libHold(const std::string& id);
+    void libPickAll();
+    void libCancelPick();
+    void libLoadPicked();
+    void libPreview(const std::string& id);
+    void stopLibraryPreview();
+    /// IMPORT: папка, куда кладутся файлы (запоминается экраном на время декодирования).
+    std::string libImportFolder() const;
+    /// Декодированный сэмпл (SampleStore::decode в фоне) — в память и в папку.
+    void libImported(const std::string& folder, const SampleStore::Loaded& l);
+    /// .jambopreset — в папку; false — не пресет.
+    bool libImportPreset(const std::string& folder, const std::string& name, const std::string& data);
+    const SampleStore* sampleStore() const { return samples_.get(); }
+    SampleRef sampleData(const std::string& key) const;
+
     // Проекты (AppProjects.cpp)
     /// Папка проектов: открыть Autosave, иначе последний проект, иначе новый (при первом запуске — firstRun).
     void openStorage(const std::string& dir, const Project& firstRun);
@@ -543,6 +584,27 @@ private:
     /// Стоп: ожидания и строки сброшены (LiveState.stopped).
     void liveStopped();
     std::unique_ptr<ProjectStore> store_;
+    // Библиотека
+    struct Browser {
+        std::vector<int> steps;
+    };
+    std::optional<Browser> browser_;
+    std::unique_ptr<SampleStore> samples_;
+    std::unique_ptr<LibraryStore> libStore_;
+    Library library_;
+    bool libraryLoaded_ = false;
+    std::string libFolder_ = Library::root;
+    std::optional<std::set<std::string>> libPicked_;
+    std::string libNote_;
+    std::optional<std::string> libPreviewKey_;
+    bool previewOn_ = false;
+    void ensureLibrary();
+    void libEdit(const std::function<void(Library&)>& change);
+    std::vector<std::string> projectSampleKeys() const;
+    /// Сэмплы проекта, которых нет в памяти, — с диска.
+    void ensureSamples();
+    bool libUseSamples(const std::vector<std::pair<std::string, std::string>>& list);
+    std::string trackLabel(int i) const;
     ProjectSession session_;
     std::vector<ProjectInfo> projectList_;
     double autosaveDue_ = 0;
