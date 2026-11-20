@@ -116,6 +116,10 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
             TopBar(s) { s.mainMenu = !s.mainMenu }
             if (s.grid[0] != 0) PatternGrid(s, Modifier.weight(1f).fillMaxWidth(), width)
+            else if (s.lib[0] != 0) Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
+                LibraryView(s, Modifier.weight(1f).fillMaxHeight())
+                MeterColumn(s, Modifier.fillMaxHeight())
+            }
             else if (s.eq[0] != 0) Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
                 EqView(s, Modifier.weight(1f).fillMaxHeight())
                 MeterColumn(s, Modifier.fillMaxHeight())

@@ -74,6 +74,14 @@ class ScreenState {
     val engines: IntArray by lazy { AppNative.engines() }
     val engineNames: Array<String> by lazy { AppNative.engineNames() }
 
+    var lib by mutableStateOf(IntArray(6)); private set
+    var libRows by mutableStateOf(arrayOf("", "")); private set
+    /** Форма волны окна сэмпла (столбцов — waveCols, задаёт окно). */
+    var waveCols = 0
+    var wave by mutableStateOf(FloatArray(1)); private set
+    /** Идёт IMPORT (файлов осталось). */
+    var importing by mutableIntStateOf(0)
+
     var playPos by mutableIntStateOf(-1); private set
     var flashMask by mutableIntStateOf(0); private set
     var beatFlash by mutableIntStateOf(0); private set
@@ -138,6 +146,9 @@ class ScreenState {
         AppNative.sound().let { if (!it.contentEquals(sound)) sound = it }
         AppNative.iconValues().let { if (!it.contentEquals(iconValues)) iconValues = it }
         AppNative.soundTexts().let { if (!it.contentEquals(soundTexts)) soundTexts = it }
+        AppNative.lib().let { if (!it.contentEquals(lib)) lib = it }
+        AppNative.libRows().let { if (!it.contentEquals(libRows)) libRows = it }
+        if (waveCols > 0) AppNative.wave(waveCols).let { if (!it.contentEquals(wave)) wave = it }
     }
 
     /** Действие PROJECTS и сразу новые данные. */
@@ -145,6 +156,18 @@ class ScreenState {
         val r = AppNative.projectAct(code, id, text)
         refresh()
         return r
+    }
+
+    /** Действие библиотеки и сразу новые данные. */
+    fun libAct(code: Int, id: String = "", text: String = "") {
+        AppNative.libAct(code, id, text)
+        refresh()
+    }
+
+    /** Перечитать разделы (после IMPORT из фона). */
+    fun reload() {
+        revision = -1
+        refresh()
     }
 
     /** Тема: 0 SYSTEM, 1 LIGHT, 2 DARK (настройки устройства). */

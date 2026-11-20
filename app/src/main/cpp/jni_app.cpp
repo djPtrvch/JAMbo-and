@@ -9,6 +9,7 @@
 #include "app/App.h"
 #include "audio_bridge.h"
 #include "audio_engine.h"
+#include "jni_common.h"
 #include "model/Scales.h"
 #include "model/SynthEngines.h"
 
@@ -72,6 +73,18 @@ jobjectArray strings(JNIEnv* env, const std::vector<std::string>& v) {
 
 const char* const kRoots[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 }  // namespace
+
+std::mutex& jniLock() { return gLock; }
+jambo::App& jniApp() { return app(); }
+jintArray jniInts(JNIEnv* env, const std::vector<jint>& v) { return ints(env, v); }
+jobjectArray jniStrings(JNIEnv* env, const std::vector<std::string>& v) { return strings(env, v); }
+std::string jniString(JNIEnv* env, jstring s) {
+    if (!s) return {};
+    const char* c = env->GetStringUTFChars(s, nullptr);
+    std::string out(c);
+    env->ReleaseStringUTFChars(s, c);
+    return out;
+}
 
 #define FN(ret, name) extern "C" JNIEXPORT ret JNICALL Java_app_jambo_android_AppNative_##name
 

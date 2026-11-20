@@ -29,6 +29,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -152,7 +153,7 @@ private fun FolderArrows(s: ScreenState, modifier: Modifier) {
 /**
  * Окно звука (SampleWindow.swift, SynthWindow.swift): у синта — имя движка (жёлтым; у WTABLE и GRANULAR — после тире
  * таблица или сэмпл, у пресета — его имя), живая иконка и строки ручек 1.1–1.4 «подпись · значение»; у сэмпла — имя
- * и нота. Тап — меню звука (с зажатым шагом — звук этих шагов). Форма волны сэмпла, MIX и MST — позже.
+ * и нота, форма волны (SampleWave). Тап — меню звука (с зажатым шагом — звук этих шагов). Start/End, MIX и MST — позже.
  */
 @Composable
 private fun SoundWindow(s: ScreenState, modifier: Modifier) {
@@ -182,8 +183,7 @@ private fun SoundWindow(s: ScreenState, modifier: Modifier) {
                     }
                     Spacer(Modifier.height(8.dp))
                 } else {
-                    // Место формы волны сэмпла (с загрузкой сэмплов).
-                    Spacer(Modifier.weight(1f))
+                    SampleWave(s, Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp))
                 }
                 Column(Modifier.padding(top = if (synth) 14.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (r in rows) Text(r, color = th.text, fontSize = 11.tsp(), letterSpacing = 0.44.sp, maxLines = 1)
@@ -204,4 +204,37 @@ private fun SoundTitle(main: String, detail: String, preset: String, modifier: M
         if (preset.isNotEmpty()) withStyle(SpanStyle(color = th.text)) { append(" — $preset") }
     }
     Text(text, fontSize = 13.tsp(), fontWeight = FontWeight.Bold, maxLines = 2, modifier = modifier)
+}
+
+/** Форма волны сэмпла окна (wave из C++: мин. и макс. по столбцам); стерео — L и R полосами. */
+@Composable
+private fun SampleWave(s: ScreenState, modifier: Modifier) {
+    val th = LocalTheme.current
+    val w = s.wave
+    androidx.compose.foundation.Canvas(modifier.onSizeChanged { sz ->
+        val cols = maxOf(1, sz.width / 2)
+        if (cols != s.waveCols) {
+            s.waveCols = cols
+            s.reload()
+        }
+    }) {
+        val ch = w.getOrElse(0) { 0f }.toInt()
+        if (ch <= 0) return@Canvas
+        val cols = (w.size - 1) / (2 * ch)
+        if (cols <= 0) return@Canvas
+        val band = size.height / ch
+        val dx = size.width / cols
+        for (c in 0 until ch) {
+            val mid = band * c + band / 2
+            val amp = band / 2 * 0.92f
+            drawLine(th.line, androidx.compose.ui.geometry.Offset(0f, mid), androidx.compose.ui.geometry.Offset(size.width, mid), 1f)
+            for (k in 0 until cols) {
+                val lo = w[1 + 2 * (c * cols + k)]
+                val hi = w[2 + 2 * (c * cols + k)]
+                val x = k * dx + dx / 2
+                drawLine(th.text, androidx.compose.ui.geometry.Offset(x, mid - hi * amp),
+                    androidx.compose.ui.geometry.Offset(x, mid - lo * amp + 0.5f), maxOf(1f, dx * 0.8f))
+            }
+        }
+    }
 }

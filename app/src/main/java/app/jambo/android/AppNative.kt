@@ -138,6 +138,19 @@ object AppNative {
     external fun morphReturnNames(): Array<String>
 
     external fun act(code: Int, a: Int, b: Int, x: Double): Double
+
+    /** Библиотека (jni_lib.cpp): [открыт, в корне, выбор нескольких, отмечено, шагов загрузки, строк]. */
+    external fun lib(): IntArray
+    /** [путь, подпись внизу, по строке: id, вид (f, s, p), имя, справа, звук дорожки, отмечен]. */
+    external fun libRows(): Array<String>
+    external fun libAct(code: Int, id: String, text: String)
+    external fun libImportFolder(): String
+    /** IMPORT (поток вне UI): 1 — сэмпл, 3 — пресет, 2 — декодировать экраном (libImportPcm), 0 — нет. */
+    external fun libImportBytes(name: String, bytes: ByteArray, folder: String): Int
+    external fun libImportPcm(name: String, key: String, pcm: FloatArray, channels: Int, rate: Int, folder: String): Int
+    external fun libNote(text: String)
+    /** Форма волны окна: [каналов (0 — не сэмпл), по каналу cols пар мин., макс.]. */
+    external fun wave(cols: Int): FloatArray
     fun act(code: Int, a: Int = 0, b: Int = 0) = act(code, a, b, 0.0)
 
     /** [ревизия, ход открытого клипа, маска мигания, мигание доли, акцент, игра]. */
@@ -227,6 +240,23 @@ object StepBits {
     const val MANUAL_LOCK = 32
     const val COL4_LOCK = 64
     const val OWN_SOUND = 128
+}
+
+/** Действия библиотеки (libAct в jni_lib.cpp). */
+object LibAct {
+    const val OPEN = 1
+    const val CLOSE = 2
+    const val ENTER = 3
+    const val UP = 4
+    const val TAP = 5
+    const val HOLD = 6
+    const val PICK_ALL = 7
+    const val CANCEL_PICK = 8
+    const val LOAD_PICKED = 9
+    const val PREVIEW = 10
+    const val NEW_FOLDER = 11
+    const val RENAME = 12
+    const val DELETE = 13
 }
 
 /** Действия PROJECTS (projectAct в jni_app.cpp). */

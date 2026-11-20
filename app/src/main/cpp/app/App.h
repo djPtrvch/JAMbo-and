@@ -410,6 +410,8 @@ public:
     bool libImportPreset(const std::string& folder, const std::string& name, const std::string& data);
     const SampleStore* sampleStore() const { return samples_.get(); }
     SampleRef sampleData(const std::string& key) const;
+    /// Звук окна: пока зажат шаг со своим звуком — его звук.
+    std::string shownSound() const;
 
     // Проекты (AppProjects.cpp)
     /// Папка проектов: открыть Autosave, иначе последний проект, иначе новый (при первом запуске — firstRun).
@@ -638,8 +640,6 @@ private:
     int rawTrackPlayPos() const;
     std::vector<ParamDef> mixDefs_;
     std::optional<int> firstHeld() const;
-    /// Звук окна: пока зажат шаг со своим звуком — его звук.
-    std::string shownSound() const;
     /// Значение ручки для окна синта: p-lock зажатого шага, при игре — играющего, иначе ручка дорожки.
     double synthValue(const ParamDef& p) const;
     std::string sampleName(const std::string& key) const;

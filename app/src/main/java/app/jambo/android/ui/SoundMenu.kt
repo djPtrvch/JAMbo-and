@@ -25,8 +25,8 @@ import app.jambo.android.AppNative.Act
 /**
  * Меню звука дорожки (SoundMenu.swift ветки swift JAMbo): на месте левой колонки. Две колонки движков — DRUMS (под
  * ними SAMPLER) и SYNTH: тап — движок дорожки, с зажатыми шагами — их звук. Внизу группа LOAD SAMPLE · PRESET · MIDI:
- * LOAD, MIDI (для шагов — TRACK: вернуть звук дорожки), SAVE, TABLE (у GRANULAR — SOURCE). LOAD, MIDI, SAVE, TABLE и
- * SOURCE — с библиотекой и MIDI дорожки (позже).
+ * LOAD (браузер библиотеки), MIDI (для шагов — TRACK: вернуть звук дорожки), SAVE, TABLE (у GRANULAR — SOURCE). MIDI,
+ * SAVE, TABLE и SOURCE — позже.
  */
 @Composable
 fun SoundMenu(s: ScreenState, modifier: Modifier) {
@@ -53,7 +53,7 @@ fun SoundMenu(s: ScreenState, modifier: Modifier) {
             Spacer(Modifier.weight(1f))
             MenuTitle("LOAD SAMPLE · PRESET · MIDI")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                MenuItem("LOAD", Modifier.weight(1f), enabled = false, current = !forSteps && snd[4] != 0) {}
+                MenuItem("LOAD", Modifier.weight(1f), current = !forSteps && snd[4] != 0) { s.libAct(app.jambo.android.LibAct.OPEN) }
                 if (forSteps) MenuItem("TRACK", Modifier.weight(1f)) { s.act(Act.STEP_SOUND_TO_TRACK) }
                 else MenuItem("MIDI", Modifier.weight(1f), enabled = false) {}
             }
