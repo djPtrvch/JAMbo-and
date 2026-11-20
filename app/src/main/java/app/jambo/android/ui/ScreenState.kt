@@ -17,7 +17,11 @@ class ScreenState {
     var trackNames by mutableStateOf(emptyArray<String>()); private set
     var steps by mutableStateOf(IntArray(2)); private set
     var stepLabels by mutableStateOf(emptyArray<String>()); private set
-    var knobs by mutableStateOf(FloatArray(16 * 6)); private set
+    var knobs by mutableStateOf(FloatArray(16 * app.jambo.android.KNOB_STRIDE)); private set
+    var mod by mutableStateOf(IntArray(3)); private set
+    /** Модуляция ручек — каждый кадр, пока есть назначения. */
+    var modNorms by mutableStateOf(FloatArray(16) { -1f }); private set
+    var modTexts by mutableStateOf(Array(16) { "" }); private set
     var knobTexts by mutableStateOf(Array(32) { "" }); private set
     var keys by mutableStateOf(IntArray(2)); private set
     var keyLabels by mutableStateOf(emptyArray<String>()); private set
@@ -48,6 +52,10 @@ class ScreenState {
         flashMask = f[2]
         beatFlash = f[3]
         beatAccent = f[4]
+        if (mod[2] != 0) {
+            AppNative.modNorms().let { if (!it.contentEquals(modNorms)) modNorms = it }
+            AppNative.modTexts().let { if (!it.contentEquals(modTexts)) modTexts = it }
+        }
         if (f[0] == revision) return
         revision = f[0]
         AppNative.top().let { if (!it.contentEquals(top)) top = it }
@@ -57,6 +65,7 @@ class ScreenState {
         AppNative.steps().let { if (!it.contentEquals(steps)) steps = it }
         AppNative.stepLabels().let { if (!it.contentEquals(stepLabels)) stepLabels = it }
         AppNative.knobs().let { if (!it.contentEquals(knobs)) knobs = it }
+        AppNative.mod().let { if (!it.contentEquals(mod)) mod = it }
         AppNative.knobTexts().let { if (!it.contentEquals(knobTexts)) knobTexts = it }
         AppNative.keys().let { if (!it.contentEquals(keys)) keys = it }
         AppNative.keyLabels().let { if (!it.contentEquals(keyLabels)) keyLabels = it }

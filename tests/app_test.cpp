@@ -164,9 +164,36 @@ void sound() {
     app.cleanSampler();
     check(app.project().tracks[0].sample.empty() && !app.soundMenu(), "app: SAMPLER — без звука");
 }
+void mod() {
+    CoreAudio a;
+    App app(&a);
+    app.openSoundMenu();
+    app.pickSynth(17);
+    // Держат LFO2, поворот ручки 2.3 (Filter) — назначение со степенью; двойной тап с LFO2 — снять.
+    app.setSource(2, true, 0);
+    check(app.assignSource() == 2, "app: держат LFO2 — источник для ручки");
+    app.knobFinger(6, true);
+    app.setAssign(6, 2, 0.5);
+    check(app.assign(6) && app.assign(6)->lfo == 2 && app.assign(6)->amount == 0.5, "app: назначение LFO2 на ручку");
+    check(app.knobState(6).heldMatch && app.fingerSources() == std::set<int>{2}, "app: ручка показывает степень");
+    // Тап по другому источнику, пока держат ручку, — назначение переходит к нему.
+    app.setSource(2, false, 0.1);
+    app.setSource(3, true, 0.2);
+    check(app.assign(6)->lfo == 3 && app.assign(6)->amount == 0.5, "app: назначение переходит к LFO3");
+    app.knobFinger(6, false);
+    app.setSource(3, false, 0.3);
+    check(!app.assignSource() && app.modulatedNorm(6).has_value(), "app: отпустили — кольцо модуляции");
+    app.clearAssign(6, 2);
+    check(app.assign(6).has_value(), "app: снять можно только тем же источником");
+    app.clearAssign(6, 3);
+    check(!app.assign(6) && !app.anyAssign(), "app: назначение снято");
+    app.undo();
+    check(app.assign(6).has_value(), "app: UNDO возвращает назначение");
+}
 }  // namespace
 
 int runAppTests() {
+    mod();
     sound();
     steps();
     knobs();

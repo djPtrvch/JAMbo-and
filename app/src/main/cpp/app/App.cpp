@@ -182,6 +182,7 @@ void App::selectTrack(int i) {
 
 void App::selectChannel(Channel c) {
     channel_ = c;
+    if (c == Channel::master) heldSources_.clear();
     held_.clear();
     viewPage_ = std::min(viewPage_, int(seq().pages().size()) - 1);
     bump();

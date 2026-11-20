@@ -183,6 +183,15 @@ KnobState App::knobState(int slot) const {
     st.norm = p->toNorm(st.value);
     st.baseNorm = p->toNorm(base);
     st.locked = lock.has_value();
+    if (channel_ == Channel::track) {
+        st.assign = assign(slot);
+        if (st.assign) {
+            const auto r = sourceRange(*st.assign);
+            st.srcLo = r.first;
+            st.srcHi = r.second;
+            st.heldMatch = heldSource() == st.assign->lfo;
+        }
+    }
     return st;
 }
 

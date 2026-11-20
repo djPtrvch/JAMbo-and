@@ -30,6 +30,11 @@ object AppNative {
         const val KEY_UP = 81
         const val OCTAVE_STEP = 82
         const val MIDI_NOTE = 83
+        const val SET_SOURCE = 85
+        const val KNOB_FINGER = 86
+        const val ASSIGN_SOURCE = 87
+        const val ASSIGN_START = 88
+        const val SET_ASSIGN = 89
         const val OPEN_SOUND_MENU = 90
         const val CLOSE_SOUND_MENU = 91
         const val PICK_SYNTH = 92
@@ -54,7 +59,8 @@ object AppNative {
     /** [первая страница, последняя, по шагу — биты StepBits]. */
     external fun steps(): IntArray
     external fun stepLabels(): Array<String>
-    /** По слоту 6 чисел: активна, положение, база, p-lock, от центра, 4-я строка. */
+    /** По слоту KNOB_STRIDE чисел: активна, положение, база, p-lock, от центра, 4-я строка, источник назначения
+     *  (0 — нет), степень, ход источника от, до, держат этот источник. */
     external fun knobs(): FloatArray
     /** По слоту: подпись, значение. */
     external fun knobTexts(): Array<String>
@@ -71,9 +77,18 @@ object AppNative {
     external fun iconValues(): FloatArray
     /** Элементы иконки (формат — icon в jni_app.cpp). */
     external fun icon(engine: Int, h: Float, t: Float, m: Float, q: Float, d: Float, am: Int, ao: Boolean): FloatArray
+    /** Источники LFO1–3, ENV: [зажатые (бит 1 shl n), обведённые, есть назначения на ручках]. */
+    external fun mod(): IntArray
+    /** Положения ручек с модуляцией (−1 — без назначения) — каждый кадр, пока есть назначения. */
+    external fun modNorms(): FloatArray
+    /** Значения ручек с модуляцией (пусто — без назначения). */
+    external fun modTexts(): Array<String>
     /** Короткие имена движков по номеру. */
     external fun engineNames(): Array<String>
 }
+
+/** Чисел на ручку в knobs(). */
+const val KNOB_STRIDE = 11
 
 /** Биты шага (jni_app.cpp, steps). */
 object StepBits {

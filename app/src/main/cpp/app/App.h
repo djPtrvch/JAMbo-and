@@ -29,6 +29,8 @@ struct AppAudio {
     /// Снимки проекта; tables — таблицы WTABLE дорожек по ключу.
     virtual void publish(const Project& p, const std::map<std::string, std::shared_ptr<WtTable>>& tables) = 0;
     virtual bool popOut(SeqOut& e) = 0;
+    /// Выход источника модуляции для интерфейса: дорожка·4 + (LFO1–3, ENV).
+    virtual double modOut(int) const { return 0; }
 };
 
 /// Что выбрано в строке дорожек: дорожка, канал микшера MIX или мастер MST.
@@ -41,6 +43,10 @@ struct KnobState {
     double value = 0, norm = 0, baseNorm = 0;
     bool locked = false;
     bool col4 = false;
+    /// Назначенный LFO/ENV; heldMatch — держат этот источник (на ручке — степень, видна зона воздействия).
+    std::optional<ModAssign> assign;
+    bool heldMatch = false;
+    double srcLo = -1, srcHi = 1;
 };
 
 /// Что показать на шаге (StepInfo в SequencerRow.swift).
@@ -127,6 +133,23 @@ public:
     /// Стрелка: соседний звук папки; с зажатыми шагами — звук этих шагов.
     void folderArrow(int dir);
 
+    // LFO1–3, ENV (1–4): назначение на ручки
+    void setSource(int s, bool on, double now);
+    const std::set<int>& heldSources() const { return heldSources_; }
+    /// Источник для поворота ручки: держат источник, шаги не зажаты, ручки дорожки.
+    std::optional<int> assignSource() const;
+    void knobFinger(int slot, bool on);
+    std::optional<ModAssign> assign(int slot) const;
+    void setAssign(int slot, int lfo, double amount);
+    void clearAssign(int slot, int lfo);
+    /// Степень источника lfo на ручке (другой источник или нет — 0).
+    double assignStart(int slot, int lfo) const;
+    /// Положение ручки с модуляцией (0…1); nullopt — без назначения.
+    std::optional<double> modulatedNorm(int slot) const;
+    bool anyAssign() const;
+    /// Источники, назначенные на ручки, которые держит палец (обводка их кнопок).
+    std::set<int> fingerSources() const;
+
     // Клавиатура
     int octave() const;
     int keyCount() const;
@@ -171,6 +194,15 @@ private:
     std::optional<std::pair<int, Step>> lastCopy_;
     uint64_t revision_ = 1;
     std::optional<std::vector<int>> soundMenu_;
+    std::set<int> heldSources_, knobFingers_;
+    int lastSource_ = 0;
+    std::optional<std::pair<int, double>> lastSourceTap_;
+    std::optional<int> heldSource() const;
+    /// Назначения ставятся на ручки дорожки (FX — позже; не на MOD, MIX, MST).
+    bool canAssign() const { return channel_ == Channel::track; }
+    void sourceTapped(int s, double now);
+    std::pair<double, double> sourceRange(const ModAssign& a) const;
+    double modSource(int t, int lfo) const;
     /// Свои значения ручек по умолчанию (SHIFT + удержание — позже; пока пустые).
     KnobDefaults knobDefaults_;
     /// Таблицы WTABLE по ключу (встроенные строятся при первой нужде; свои — с библиотекой).

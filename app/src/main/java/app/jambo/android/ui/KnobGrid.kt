@@ -19,6 +19,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.changedToDown
@@ -28,6 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.jambo.android.AppNative.Act
+import app.jambo.android.KNOB_STRIDE
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
@@ -41,6 +43,8 @@ private const val SPACING = 2f
 private class KnobTurn(val slot: Int, val startY: Float, var lastY: Float, var acc: Double) {
     var moved = false
     var consumed = false
+    /** Назначение источника (1–4): накопитель — степень −1…+1. */
+    var lfo = 0
 }
 
 private class KnobTouches(val s: ScreenState) {
@@ -52,11 +56,19 @@ private class KnobTouches(val s: ScreenState) {
         val t = lastTap[slot]
         if (t != null && now - t < 350) {
             lastTap.remove(slot)
+            // С зажатым LFO/ENV — снять назначение этого источника.
             s.act(Act.KNOB_DOUBLE_TAP, slot)
             turn.consumed = true
         } else {
             lastTap[slot] = now
         }
+        // Удерживаемый LFO/ENV (без зажатого шага) — степень назначения −1…+1.
+        val src = s.act(Act.ASSIGN_SOURCE, slot).toInt()
+        if (src > 0) {
+            turn.lfo = src
+            turn.acc = s.act(Act.ASSIGN_START, slot, src)
+        }
+        s.act(Act.KNOB_FINGER, slot, 1)
         turns[id] = turn
         s.act(Act.BEGIN_GESTURE)
     }
@@ -72,12 +84,18 @@ private class KnobTouches(val s: ScreenState) {
         }
         val d = ((t.lastY - y) / TRAVEL).toDouble()
         t.lastY = y
+        if (t.lfo > 0) {
+            t.acc = (t.acc + d).coerceIn(-1.0, 1.0)
+            s.act(Act.SET_ASSIGN, t.slot, t.lfo, t.acc)
+            return
+        }
         t.acc = (t.acc + d).coerceIn(0.0, 1.0)
         s.act(Act.SET_KNOB, t.slot, 0, t.acc)
     }
 
     fun up(id: PointerId) {
-        turns.remove(id) ?: return
+        val turn = turns.remove(id) ?: return
+        if (turns.values.none { it.slot == turn.slot }) s.act(Act.KNOB_FINGER, turn.slot, 0)
         s.act(Act.END_GESTURE)
     }
 }
@@ -113,11 +131,17 @@ fun KnobGrid(s: ScreenState, modifier: Modifier) {
             Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(SPACING.dp)) {
                 for (col in 0 until 4) {
                     val k = row * 4 + col
+                    val o = k * KNOB_STRIDE
                     val v = s.knobs
+                    val lfo = v[o + 6].toInt()
+                    val mod = if (lfo > 0) s.modNorms[k].takeIf { it >= 0 } else null
+                    val modText = if (mod != null) s.modTexts[k] else ""
                     KnobCell(
-                        active = v[k * 6] > 0, norm = v[k * 6 + 1], base = v[k * 6 + 2], locked = v[k * 6 + 3] > 0,
-                        bipolar = v[k * 6 + 4] > 0, col4 = v[k * 6 + 5] > 0,
-                        label = s.knobTexts.getOrElse(k * 2) { "" }, value = s.knobTexts.getOrElse(k * 2 + 1) { "" },
+                        active = v[o] > 0, norm = v[o + 1], base = v[o + 2], locked = v[o + 3] > 0,
+                        bipolar = v[o + 4] > 0, col4 = v[o + 5] > 0,
+                        mod = ModRing(lfo, v[o + 7], v[o + 8], v[o + 9], v[o + 10] > 0, mod),
+                        label = s.knobTexts.getOrElse(k * 2) { "" },
+                        value = modText.ifEmpty { s.knobTexts.getOrElse(k * 2 + 1) { "" } },
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
                 }
@@ -127,9 +151,12 @@ fun KnobGrid(s: ScreenState, modifier: Modifier) {
 }
 
 /** Ручка: кольцо, дуга значения (от центра у двухполярных), p-lock — внутренняя дуга жёлтым (4-я строка — оранжевым). */
+/** Назначение LFO/ENV на ручке: источник (0 — нет), степень, ход источника, держат его, положение с модуляцией. */
+private class ModRing(val lfo: Int, val amount: Float, val lo: Float, val hi: Float, val held: Boolean, val norm: Float?)
+
 @Composable
 private fun KnobCell(
-    active: Boolean, norm: Float, base: Float, locked: Boolean, bipolar: Boolean, col4: Boolean,
+    active: Boolean, norm: Float, base: Float, locked: Boolean, bipolar: Boolean, col4: Boolean, mod: ModRing,
     label: String, value: String, modifier: Modifier,
 ) {
     val th = LocalTheme.current
@@ -146,7 +173,8 @@ private fun KnobCell(
                 val origin = if (bipolar) 0.5f else 0f
                 arc(c, 36 * k, origin, base, th.text, 6 * k)
                 if (locked) arc(c, 28 * k, origin, norm, lockColor, 5 * k)
-                val a = angle(norm)
+                if (mod.lfo > 0) drawMod(c, k, norm, mod, th.text)
+                val a = angle(mod.norm ?: norm)
                 drawLine(if (locked) lockColor else th.text, polar(c, 21 * k, a), polar(c, 28 * k, a), 3 * k,
                     StrokeCap.Round)
             }
@@ -156,14 +184,42 @@ private fun KnobCell(
     }
 }
 
+/**
+ * Кольцо модуляции (r 45) от значения до текущего (LFO1 ярче всех, LFO2 и LFO3 — по убыванию; ENV — пунктир); зона
+ * воздействия — пока держат этот источник: по ходу источника, со знаком степени.
+ */
+private fun DrawScope.drawMod(c: Offset, k: Float, n: Float, m: ModRing, ink: Color) {
+    if (m.held) {
+        val op = when (m.lfo) { 1 -> 0.18f; 2 -> 0.13f; 3 -> 0.09f; else -> 0.12f }
+        val e0 = n + m.amount * m.lo
+        val e1 = n + m.amount * m.hi
+        val lo = maxOf(0f, min(e0, e1))
+        val hi = min(1f, maxOf(e0, e1))
+        arc(c, 45 * k, lo, hi, ink.copy(alpha = op), 8 * k)
+    }
+    val cur = m.norm ?: return
+    val ops = floatArrayOf(0.95f, 0.7f, 0.45f, 0.85f)
+    val op = ops[(m.lfo - 1).coerceIn(0, 3)]
+    if (m.lfo == 4) {
+        arc(c, 45 * k, n, cur, ink.copy(alpha = op), 4 * k, StrokeCap.Butt,
+            PathEffect.dashPathEffect(floatArrayOf(3 * k, 3 * k)))
+    } else {
+        arc(c, 45 * k, n, cur, ink.copy(alpha = op), 4 * k)
+    }
+}
+
 /** Угол положения n (0…1): ход 270° от −135° (вверх — 0). */
 private fun angle(n: Float): Float = ((-135 + 270 * n - 90) * Math.PI / 180).toFloat()
 
 private fun polar(c: Offset, r: Float, a: Float) = Offset(c.x + r * cos(a), c.y + r * sin(a))
 
-private fun DrawScope.arc(c: Offset, r: Float, n0: Float, n1: Float, color: Color, width: Float) {
+private fun DrawScope.arc(
+    c: Offset, r: Float, n0: Float, n1: Float, color: Color, width: Float, cap: StrokeCap = StrokeCap.Round,
+    effect: PathEffect? = null,
+) {
     if (abs(n1 - n0) < 0.002f) return
     val a0 = Math.toDegrees(angle(min(n0, n1)).toDouble()).toFloat()
     val a1 = Math.toDegrees(angle(maxOf(n0, n1)).toDouble()).toFloat()
-    drawArc(color, a0, a1 - a0, false, Offset(c.x - r, c.y - r), Size(2 * r, 2 * r), style = Stroke(width, cap = StrokeCap.Round))
+    drawArc(color, a0, a1 - a0, false, Offset(c.x - r, c.y - r), Size(2 * r, 2 * r),
+        style = Stroke(width, cap = cap, pathEffect = effect))
 }

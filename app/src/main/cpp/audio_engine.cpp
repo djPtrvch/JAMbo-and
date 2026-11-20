@@ -93,6 +93,11 @@ void AudioEngine::tap(int64_t touchNanos) {
     tapSeq_.fetch_add(1);
 }
 
+double AudioEngine::modOut(int i) const {
+    if (!core_ || i < 0 || i >= jambo::ModEngine::tracks * 4) return 0;
+    return core_->mod.outs[size_t(i)].load();
+}
+
 void AudioEngine::publish(const jambo::Project& p,
                           const std::map<std::string, std::shared_ptr<jambo::WtTable>>& tables) {
     ensureCore();

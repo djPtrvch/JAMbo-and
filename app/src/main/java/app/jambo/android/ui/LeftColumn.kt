@@ -1,6 +1,12 @@
 package app.jambo.android.ui
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -64,15 +70,42 @@ fun LeftColumn(s: ScreenState, modifier: Modifier) {
                 }
                 SoundWindow(s, Modifier.weight(1f).fillMaxWidth())
             }
-            val names = when (channel) {
-                1 -> listOf("LEVEL", "PAN", "MASK", "FREQ")
-                2 -> listOf("COMP", "CLIP", "SAT", "LIM")
-                else -> listOf("LFO1", "LFO2", "LFO3", "ENV")
+            if (channel == 0) {
+                ButtonPair { SourceButton(s, "LFO1", 1, Modifier.weight(1f)); SourceButton(s, "LFO2", 2, Modifier.weight(1f)) }
+                ButtonPair { SourceButton(s, "LFO3", 3, Modifier.weight(1f)); SourceButton(s, "ENV", 4, Modifier.weight(1f)) }
+            } else {
+                val names = if (channel == 1) listOf("LEVEL", "PAN", "MASK", "FREQ") else listOf("COMP", "CLIP", "SAT", "LIM")
+                ButtonPair { SideButton(names[0], Modifier.weight(1f), enabled = false); SideButton(names[1], Modifier.weight(1f), enabled = false) }
+                ButtonPair { SideButton(names[2], Modifier.weight(1f), enabled = false); SideButton(names[3], Modifier.weight(1f), enabled = false) }
             }
-            ButtonPair { SideButton(names[0], Modifier.weight(1f), enabled = false); SideButton(names[1], Modifier.weight(1f), enabled = false) }
-            ButtonPair { SideButton(names[2], Modifier.weight(1f), enabled = false); SideButton(names[3], Modifier.weight(1f), enabled = false) }
         }
     }
+}
+
+/** LFO1–3, ENV — удержание (назначение на ручки); белый контур — пока палец держит ручку с этим источником. */
+@Composable
+private fun SourceButton(s: ScreenState, title: String, source: Int, modifier: Modifier) {
+    val th = LocalTheme.current
+    val held = s.mod[0] and (1 shl source) != 0
+    val outlined = s.mod[1] and (1 shl source) != 0
+    val line = if (outlined) th.text else Color.Transparent
+    HoldButton(title, held, modifier.border(1.dp, line, RoundedCornerShape(Layout.radius.dp))) { on ->
+        s.act(Act.SET_SOURCE, source, if (on) 1 else 0, System.nanoTime() / 1e9)
+    }
+}
+
+/** Кнопка удержания: пока зажата — белая (в светлой теме — чёрная). */
+@Composable
+fun HoldButton(title: String, held: Boolean, modifier: Modifier, set: (Boolean) -> Unit) {
+    val cb by rememberUpdatedState(set)
+    SideButton(title, modifier.pointerInput(Unit) {
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false).consume()
+            cb(true)
+            waitForUpOrCancellation()
+            cb(false)
+        }
+    }, lit = held)
 }
 
 /** Две кнопки в ряд высотой 56. */

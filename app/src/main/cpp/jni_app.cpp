@@ -38,6 +38,7 @@ enum Act {
     holdStep = 40, toggleStep, setNoteLength, copyStep, restoreCopy, setPatternLength, stepUsed,
     knobStart = 60, setKnob, knobDoubleTap,
     keyDown = 80, keyUp, octaveStep, midiNote,
+    setSource = 85, knobFinger, assignSource, assignStart, setAssign,
     openSoundMenu = 90, closeSoundMenu, pickSynth, cleanSampler, stepSoundToTrack, folderArrow,
     tick = 100,
 };
@@ -87,7 +88,16 @@ FN(jdouble, act)(JNIEnv*, jobject, jint code, jint a, jint b, jdouble x) {
     case stepUsed: return m.stepUsed(a) ? 1 : 0;
     case knobStart: return m.knobStart(a);
     case setKnob: m.setKnob(a, x); break;
-    case knobDoubleTap: m.knobDoubleTap(a); break;
+    case knobDoubleTap:
+        // Держат LFO/ENV — снять назначение этого источника; иначе — p-lock или значение по умолчанию.
+        if (auto src = m.assignSource()) m.clearAssign(a, *src);
+        else m.knobDoubleTap(a);
+        break;
+    case setSource: m.setSource(a, b != 0, x); break;
+    case knobFinger: m.knobFinger(a, b != 0); break;
+    case assignSource: return m.assignSource().value_or(0);
+    case assignStart: return m.assignStart(a, b);
+    case setAssign: m.setAssign(a, b, x); break;
     case keyDown: m.keyDown(a, b, x); break;
     case keyUp: m.keyUp(a); break;
     case octaveStep: m.setOctave(m.octave() + a); break;
@@ -169,7 +179,8 @@ FN(jobjectArray, stepLabels)(JNIEnv* env, jobject) {
     return strings(env, v);
 }
 
-/// Ручки: по 16 слотам [активна, положение, база, p-lock, от центра, 4-я строка] (float).
+/// Ручки: по 16 слотам [активна, положение, база, p-lock, от центра, 4-я строка, источник назначения (0 — нет),
+/// степень, ход источника от, до, держат этот источник] (float).
 FN(jfloatArray, knobs)(JNIEnv* env, jobject) {
     std::lock_guard<std::mutex> g(gLock);
     auto& m = app();
@@ -177,7 +188,9 @@ FN(jfloatArray, knobs)(JNIEnv* env, jobject) {
     for (int k = 0; k < 16; ++k) {
         const auto s = m.knobState(k);
         v.insert(v.end(), {s.param ? 1.f : 0.f, float(s.norm), float(s.baseNorm), s.locked ? 1.f : 0.f,
-                           s.param && s.param->bipolar ? 1.f : 0.f, s.col4 ? 1.f : 0.f});
+                           s.param && s.param->bipolar ? 1.f : 0.f, s.col4 ? 1.f : 0.f,
+                           s.assign ? float(s.assign->lfo) : 0.f, s.assign ? float(s.assign->amount) : 0.f,
+                           float(s.srcLo), float(s.srcHi), s.heldMatch ? 1.f : 0.f});
     }
     jfloatArray a = env->NewFloatArray(jsize(v.size()));
     env->SetFloatArrayRegion(a, 0, jsize(v.size()), v.data());
@@ -192,7 +205,14 @@ FN(jobjectArray, knobTexts)(JNIEnv* env, jobject) {
     for (int k = 0; k < 16; ++k) {
         const auto s = m.knobState(k);
         v.push_back(s.label);
-        v.push_back(s.param && s.param->format ? s.param->format(s.value) : "");
+        if (s.assign && s.heldMatch) {
+            // Две строки: источник (LFO1–3, ENV) и степень.
+            const int pct = int(std::lround(s.assign->amount * 100));
+            v.push_back(std::string(s.assign->lfo == 4 ? "ENV" : "LFO" + std::to_string(s.assign->lfo)) + "\n" +
+                        (pct > 0 ? "+" : "") + std::to_string(pct) + "%");
+        } else {
+            v.push_back(s.param && s.param->format ? s.param->format(s.value) : "");
+        }
     }
     return strings(env, v);
 }
@@ -332,4 +352,38 @@ FN(jfloatArray, icon)(JNIEnv* env, jobject, jint engine, jfloat h, jfloat t, jfl
     jfloatArray r = env->NewFloatArray(jsize(o.size()));
     env->SetFloatArrayRegion(r, 0, jsize(o.size()), o.data());
     return r;
+}
+
+/// Источники: [зажатые (бит 1 << n), обведённые — назначены на ручки под пальцем, есть назначения на ручках].
+FN(jintArray, mod)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    jint held = 0, finger = 0;
+    for (int s : m.heldSources()) held |= 1 << s;
+    for (int s : m.fingerSources()) finger |= 1 << s;
+    return ints(env, {held, finger, m.anyAssign() ? 1 : 0});
+}
+
+/// Кадр модуляции: по 16 ручкам положение с модуляцией (−1 — без назначения).
+FN(jfloatArray, modNorms)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    jfloat v[16];
+    for (int k = 0; k < 16; ++k) v[k] = float(m.modulatedNorm(k).value_or(-1));
+    jfloatArray r = env->NewFloatArray(16);
+    env->SetFloatArrayRegion(r, 0, 16, v);
+    return r;
+}
+
+/// Значения ручек с модуляцией (пусто — без назначения или держат его источник).
+FN(jobjectArray, modTexts)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    std::vector<std::string> v;
+    for (int k = 0; k < 16; ++k) {
+        const auto st = m.knobState(k);
+        const auto n = m.modulatedNorm(k);
+        v.push_back(n && st.param && st.param->format && !st.heldMatch ? st.param->format(st.param->fromNorm(*n)) : "");
+    }
+    return strings(env, v);
 }
