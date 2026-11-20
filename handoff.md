@@ -32,11 +32,17 @@
    - C++: AppMaster.cpp (BYPASS, скоп, вид полос MIX, анализ), MasterMeters.h, ScopeState, MixAnalysis (FREQ, MASK, LOUD), MixStereo (BandStereo, LoudHistory), AppMasterWin.cpp + MasterWin (окна модулей: поля, AUTO MAKEUP, UNITY, пресеты модулей, SAVE DEFAULT, история телеметрии, спектры сатуратора; пресеты EQ и LISTEN; двойной тап по MIX/MST — закрыть окно), AppMix.cpp (M, S, ●, меню дорожки, перестановка, запись стемов и ● MASTER в RECORDINGS); core/model MasterInput, MasterPresets, EqPresets; synth/TrackRotate.h (перестановка на ходу без провала звука). JNI — jni_master.cpp, jni_masterwin.cpp.
    - Экран: MasterViews (индикация, кнопки мастера, скоп), MasterWindow + MasterDisplays (окна SAT, COMP, CLIP, LIM), MixViews (обзор MIX), MixStereoViews, MixerWindow, MixCells (ячейки MIX: метр, M, S, ●, меню дорожки), EqPresets (меню PRESETS EQ), SETTINGS → APPEARANCE → MASTER FX DISPLAY SCALE.
    - Решения пользователя 22.11: LISTEN сбрасывается при закрытии EQ или смене канала; новая дорожка сразу играет свой клип; подъём ручки при перестановке — как было (с первым движением после 0,5 с); иконка приложения — J (res/mipmap*, буква уменьшена).
-7. Дальше — предложено пользователю (порядок — за ним): редактор сэмпла (маркеры, нарезка, TRIM, NORMALIZE, MONO, REC сэмпла, SAVE сэмпла); меню MIDI (маппинг, LEARN, Twister) и SYNC вместо экрана спайка; окно AUTO (автоматизация); EXPORT/IMPORT .jambo; ARP и RANDOM; аранжировщик.
+7. Следующие этапы (решение пользователя 22.11 — делать в следующей сессии, по порядку):
+   1. Редактор сэмпла: маркеры нарезки, TRIM, NORMALIZE, MONO, запись сэмпла (REC), SAVE сэмпла в библиотеку.
+   2. Меню MIDI и SYNC вместо экрана спайка: маппинг, LEARN, Twister, MIDI-клок.
+   3. Окно AUTO (автоматизация).
+   4. EXPORT/IMPORT проекта .jambo.
+   5. ARP и RANDOM.
+   6. Аранжировщик.
 
 ## Последняя правка (22.11)
 - Всё выше собрано в CI (последняя проверенная сборка — 127); правки после неё (иконка меньше, MASTER в EQ, область LISTEN, меньший значок LOOP, сброс LISTEN) — без проверки CI по решению пользователя.
-- Первое дело следующей сессии: спросить, что выбрать из пункта 7.
+- Первое дело следующей сессии: этап 7.1 — редактор сэмпла.
 
 ## Решения пользователя
 - Формат файла проекта — тот же, что у iPad-версии (совместимость в обе стороны).
