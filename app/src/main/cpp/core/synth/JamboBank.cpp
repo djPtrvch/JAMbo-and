@@ -1,5 +1,6 @@
 // Порт Core/Synth/JamboBank.swift (ветка swift JAMbo).
 #include "JamboBank.h"
+#include "TrackRotate.h"
 #include <algorithm>
 #include "Jambo.h"
 
@@ -18,6 +19,14 @@ JamboBank::JamboBank(int count, double sampleRate, int perTrack)
     }
     for (int v = 0; v < count; ++v)
         granular.push_back(std::make_unique<GranularVoice>(sampleRate, v + 1, &grainTracks[size_t(v / perTrack)]));
+}
+
+void JamboBank::moveTrack(const TrackMove& mv) {
+    mv.applyPerTrack(jambo, tracks);
+    mv.applyPerTrack(drums, tracks);
+    mv.applyPerTrack(kind, tracks);
+    mv.applyPerTrack(texture, tracks);
+    mv.applyPerTrack(granular, tracks);
 }
 
 void JamboBank::jamboTrigger(int v, int e, double note, double p1, double p2, double p3, double p4, double decay,

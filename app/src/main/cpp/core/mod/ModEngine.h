@@ -40,6 +40,13 @@ public:
     /// Значение цели j дорожки t с модуляцией (base — ручка или p-lock).
     double value(int t, int j, double base, int64_t frame) const;
     bool modulated(int t) const;
+    /// Перестановка дорожки во время игры: фазы LFO и ход ENV — вместе с дорожкой.
+    template <class M> void moveTrack(const M& mv) {
+        for (auto* v : {&phase, &rnd, &lfo, &p, &divBeats}) mv.applyPerTrack(*v, tracks);
+        mv.applyPerTrack(envStart, tracks);
+        mv.applyPerTrack(envGateEnd, tracks);
+        mv.applyPerTrack(live, tracks);
+    }
 
     /// Выходы источников для интерфейса: дорожка·4 + (LFO1–3, ENV).
     std::unique_ptr<AtomicFloat[]> outs;

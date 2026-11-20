@@ -243,7 +243,9 @@ void Sampler::adopt(SoundData& d, int64_t now) {
         }
         if (srcL[V] && !d.holds(srcL[V])) fade(v, now, 0.0015);
     }
-    if (old && !d.rebind) moveSynthNotes(*old, d, now);
+    // Перестановка дорожки: голоса синта переезжают вместе с ней; иначе — держащиеся ноты перезапускаются на новом месте.
+    const bool moved = old && synth && synth->moveTracks(*old, d);
+    if (old && !d.rebind && !moved) moveSynthNotes(*old, d, now);
     // Предпрослушка ▶ держит указатели прошлого снимка: сэмпла в новом нет — гаснет.
     if (pvL && !d.holds(pvL)) pvStop = true;
     if (synth) synth->adopt(d, now);

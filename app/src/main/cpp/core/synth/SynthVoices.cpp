@@ -1,5 +1,6 @@
 // Порт Core/Synth/SynthVoices.swift (ветка swift JAMbo): запуск и звук голосов.
 #include "SynthVoices.h"
+#include "TrackRotate.h"
 #include <cmath>
 #include "Jambo.h"
 #include "model/PitchKey.h"

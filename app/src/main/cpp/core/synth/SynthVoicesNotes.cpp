@@ -2,6 +2,7 @@
 // слота, legato, отпускание живых нот, новый снимок звука.
 #include <cfloat>
 #include "SynthVoices.h"
+#include "TrackRotate.h"
 
 namespace jambo {
 
@@ -65,6 +66,33 @@ void SynthVoices::release(int t, int id, int64_t at) {
         }
         if (pActive[i] != 0 && pLive[i] == id && pGate[i] == forever) pGate[i] = at > pStart[i] ? at - pStart[i] : -1;
     }
+}
+
+bool SynthVoices::moveTracks(const SoundData& old, const SoundData& d) {
+    if (old.trackCount != d.trackCount || d.rebind) return false;
+    const TrackMove mv = TrackMove::find(old.trackId.data(), d.trackId.data(), d.trackCount);
+    if (!mv.valid()) return false;
+    const int T = tracks;
+    mv.applyPerTrack(active, T); mv.applyPerTrack(fading, T); mv.applyPerTrack(own, T);
+    mv.applyPerTrack(released, T); mv.applyPerTrack(triggered, T);
+    mv.applyPerTrack(trackId, T); mv.applyPerTrack(note, T); mv.applyPerTrack(liveId, T);
+    mv.applyPerTrack(serial, T); mv.applyPerTrack(engine, T);
+    mv.applyPerTrack(start, T); mv.applyPerTrack(holdEnd, T); mv.applyPerTrack(stopAt, T); mv.applyPerTrack(fadeAt, T);
+    mv.applyPerTrack(attackF, T); mv.applyPerTrack(decaySec, T);
+    mv.applyPerTrack(decayK, T); mv.applyPerTrack(env, T); mv.applyPerTrack(env0, T); mv.applyPerTrack(fadeK, T);
+    mv.applyPerTrack(fadeG, T); mv.applyPerTrack(level, T); mv.applyPerTrack(send, T); mv.applyPerTrack(pan, T);
+    mv.applyPerTrack(hz, T); mv.applyPerTrack(qDb, T); mv.applyPerTrack(ftype, T); mv.applyPerTrack(coef, T);
+    mv.applyPerTrack(z, T); mv.applyPerTrack(zR, T); mv.applyPerTrack(fdip, T);
+    ladder.moveTrack(mv, T);
+    mv.applyPerTrack(busyUntil, T); mv.applyPerTrack(selfDecay, T); mv.applyPerTrack(keep, T);
+    mv.applyPerTrack(quiet, T); mv.applyPerTrack(lockMask, T); mv.applyPerTrack(lockVal, T);
+    mv.applyPerTrack(pActive, T); mv.applyPerTrack(pStart, T); mv.applyPerTrack(pNote, T); mv.applyPerTrack(pEngine, T);
+    mv.applyPerTrack(pGate, T); mv.applyPerTrack(pOwn, T); mv.applyPerTrack(pKeep, T); mv.applyPerTrack(pLive, T);
+    mv.applyPerTrack(pMask, T); mv.applyPerTrack(pVal, T);
+    mv.applyPerTrack(next, T); mv.applyPerTrack(drift, T);
+    bank.moveTrack(mv);
+    if (mod) mod->moveTrack(mv);
+    return true;
 }
 
 void SynthVoices::adopt(const SoundData& d, int64_t now) {

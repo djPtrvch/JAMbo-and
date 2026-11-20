@@ -22,6 +22,9 @@ public:
     /// по отсчётам; qDb — Q голоса (0,7…18,7 dB), grit — 0…1.
     void run(int v, float* buf, int m, double hz0, double hz1, double qDb, double grit, double sr, float fq, float dfq);
 
+    /// Перестановка дорожки: блоки состояния (perTrack голосов) — вместе с дорожкой.
+    template <class M> void moveTrack(const M& mv, int tracks) { mv.applyPerTrack(st, tracks); }
+
 private:
     std::vector<double> st;
     int slots;

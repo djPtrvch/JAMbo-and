@@ -36,6 +36,8 @@ public:
     void stereoRender(int v, float* outL, float* outR, int n, int window, const GrainSrc& src);
     /// Начало блока n кадров: дрейф GRANULAR каждой дорожки и число её нот с открытым окном запуска.
     void granularBegin(int n, double sampleRate, const uint8_t* active);
+    /// Перестановка дорожки во время игры: голоса её блока — вместе с ней (GRANULAR держит своё общее дорожки).
+    void moveTrack(const struct TrackMove& mv);
 
 private:
     std::vector<std::unique_ptr<JamboVoice>> jambo;

@@ -1,6 +1,7 @@
 // Состояние приложения (app/App): правки шагов и ручек, UNDO, клавиатура, ход игры — через настоящее ядро.
 #include <filesystem>
 #include "app/App.h"
+#include "model/SynthEngines.h"
 #include "engine/AudioCore.h"
 #include <cmath>
 #include <cstdio>
@@ -501,7 +502,35 @@ void projects() {
     std::filesystem::remove_all(dir);
 }
 
+/// Перестановка дорожки во время игры: голоса переезжают с ней — звук без провала (прежде — тишина до шага).
+void moveTrackKeepsSound() {
+    CoreAudio a;
+    App app(&a);
+    Project p;
+    p.tracks[0].setSynth(17);
+    p.tracks[1].setSynth(18);
+    app.loadProject(p);
+    app.selectTrack(0);
+    for (int s = 0; s < 16; s++) app.toggleStep(s);
+    app.selectTrack(1);
+    for (int s = 0; s < 16; s += 2) app.toggleStep(s);
+    app.togglePlay();
+    std::vector<float> l(256), r(256);
+    auto rms = [&]() {
+        a.core.render(256, l.data(), r.data());
+        double e = 0;
+        for (float x : l) e += double(x) * x;
+        return std::sqrt(e / 256);
+    };
+    for (int k = 0; k < 400; k++) rms();
+    app.moveTrack(0, 3);
+    double low = 1;
+    for (int k = 0; k < 20; k++) low = std::min(low, rms());
+    check(low > 0.02 && app.project().tracks[3].sample == SynthKey::key(17), "app: перестановка на ходу — звук без провала");
+}
+
 int runAppTests() {
+    moveTrackKeepsSound();
     eq();
     grid();
     projects();

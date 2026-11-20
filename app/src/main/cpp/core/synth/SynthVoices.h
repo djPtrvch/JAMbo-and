@@ -47,6 +47,9 @@ public:
     void release(int t, int id, int64_t at);
     /// Новый снимок: перестановка или удаление дорожек — голоса гаснут; переход MIX (rebind) — остаются.
     void adopt(const SoundData& d, int64_t now);
+    /// Перестановка дорожки во время игры (старый снимок → новый): голоса переезжают вместе с дорожкой (без
+    /// затухания); true — переставлено (перезапуск нот на новом месте не нужен).
+    bool moveTracks(const SoundData& old, const SoundData& d);
     int lastSerial() const { return serialCounter.load(std::memory_order_relaxed); }
     /// Держащиеся ноты дорожки t (не свой звук шага, созданные до serial last) — для перезапуска новым звуком.
     template <typename F>
