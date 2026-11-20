@@ -1,5 +1,5 @@
 // JNI окон модулей мастера (AppNative): строка полей, ввод числом, пресеты, данные дисплеев. Мьютекс и App —
-// jni_common.h. Шкала дисплеев — 48 dB (SCALE в SETTINGS — позже).
+// jni_common.h. Шкала дисплеев (48, 32, 16 dB) — от экрана.
 #include <cmath>
 #include "jni_common.h"
 #include "master/Clipper.h"
@@ -10,7 +10,6 @@
 #define FN(ret, name) extern "C" JNIEXPORT ret JNICALL Java_app_jambo_android_AppNative_##name
 
 namespace {
-constexpr double scale = 48;
 
 jfloatArray floats(JNIEnv* env, const std::vector<float>& v) {
     jfloatArray a = env->NewFloatArray(jsize(v.size()));
@@ -143,9 +142,10 @@ FN(jstring, masterInput)(JNIEnv* env, jobject, jstring jid, jstring jtext) {
 }
 
 /// Дисплей окна (каждый кадр): COMP, CLIP, LIM — [cols, вход dB ×cols, выход dB ×cols, GR ×cols, последний кадр: пик
-/// входа, детектор dB, GR (−999 — нет), tn, кривая TRANSFER ×tn (выход dB при входе −48…0), GUARD dB]; SAT —
+/// входа, детектор dB, GR (−999 — нет), tn, кривая TRANSFER ×tn (выход dB при входе −scale…0), GUARD dB]; SAT —
 /// [cols, вход dB ×cols, выход dB ×cols, tn, кривая ×tn (выход при входе −1…+1), пик входа].
-FN(jfloatArray, masterDisplay)(JNIEnv* env, jobject, jint cols, jint tn) {
+FN(jfloatArray, masterDisplay)(JNIEnv* env, jobject, jint cols, jint tn, jint scaleDb) {
+    const double scale = scaleDb > 0 ? scaleDb : 48;
     std::lock_guard<std::mutex> g(jniLock());
     auto& m = jniApp();
     const int mod = m.masterWin().value_or(-1);

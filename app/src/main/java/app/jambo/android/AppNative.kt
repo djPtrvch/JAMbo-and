@@ -183,7 +183,7 @@ object AppNative {
     /** text пусто — текст поля для ввода; иначе разбор ("1" — принято). */
     external fun masterInput(id: String, text: String): String
     /** Данные дисплея окна (см. jni_masterwin.cpp). */
-    external fun masterDisplay(cols: Int, tn: Int): FloatArray
+    external fun masterDisplay(cols: Int, tn: Int, scale: Int): FloatArray
     /** Окно микшера: [n, по дорожке (10): стерео, заглушена, L, холд L, R, холд R, Sidechain dB, клиппинг, пик, громкость dB]. */
     external fun mixerData(now: Double): FloatArray
     external fun mixerResetPeak(ch: Int)

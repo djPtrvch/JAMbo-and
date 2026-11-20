@@ -98,6 +98,13 @@ class ScreenState {
     var masterWinTexts by mutableStateOf(emptyArray<String>()); private set
     var masterDisp by mutableStateOf(FloatArray(0)); private set
     var dispCols = 0
+    /** Шкала дисплеев окон модулей мастера, dB (48, 32, 16; SharedPreferences). */
+    var displayScale by mutableIntStateOf(48)
+    /** MIX: поднятая ручка дорожки (перестановка): слот, сдвиг пальца (px) и место, куда встанет; −1 — нет. */
+    var liftSlot by mutableIntStateOf(-1)
+    var liftDx by mutableStateOf(0f)
+    var liftDy by mutableStateOf(0f)
+    var liftTarget by mutableIntStateOf(-1)
     var transferCols = 0
     /** Вид обзора MIX: 0 LEVEL, 1 PAN, 2 FREQ, 3 MASK (MixMode, в C++). */
     val mixMode get() = masterInfo.getOrElse(8) { 0 }
@@ -124,7 +131,7 @@ class ScreenState {
                 mixStereo = AppNative.mixStereo()
             }
         }
-        if (masterWin[0] >= 0 && dispCols > 0) masterDisp = AppNative.masterDisplay(dispCols, maxOf(2, transferCols))
+        if (masterWin[0] >= 0 && dispCols > 0) masterDisp = AppNative.masterDisplay(dispCols, maxOf(2, transferCols), displayScale)
         AppNative.mixInfo().let { if (!it.contentEquals(mixInfo)) mixInfo = it }
         (System.nanoTime() / 150_000_000L).let { if (it != recBlink) recBlink = it }
         val dt = nowSeconds - lastFrame

@@ -79,9 +79,11 @@ fun MainScreen(onMenu: () -> Unit) {
     LaunchedEffect(Unit) {
         val prefs = ctx.getSharedPreferences("jambo", 0)
         s.theme = prefs.getInt("theme", 0)
+        s.displayScale = prefs.getInt("displayScale", 48)
         s.act(AppNative.Act.SET_MORPH_SETTINGS, prefs.getInt("morphReturn", 0), if (prefs.getBoolean("morphHold", false)) 1 else 0)
         s.act(AppNative.Act.SET_LEVEL_RELATIVE, if (prefs.getBoolean("levelRelative", false)) 1 else 0)
-        snapshotFlow { Pair(s.settings.toList(), s.theme) }.collect { (st, theme) ->
+        snapshotFlow { Triple(s.settings.toList(), s.theme, s.displayScale) }.collect { (st, theme, scale) ->
+            prefs.edit().putInt("displayScale", scale).apply()
             if (st.size >= 5) prefs.edit().putBoolean("quantize", st[0] != 0).putInt("morphReturn", st[2])
                 .putBoolean("morphHold", st[3] != 0).putBoolean("levelRelative", st[4] != 0).putInt("theme", theme).apply()
         }

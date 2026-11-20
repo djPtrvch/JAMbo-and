@@ -4,6 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -208,12 +211,34 @@ private fun MasterOverlays(s: ScreenState, ui: MasterUi, m: Int) {
             if (presets.isEmpty()) MenuNote("No ${titles.getOrElse(m) { "" }} presets yet — save one with SAVE")
             else Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 var open by remember { mutableStateOf(-1) }
+                // Удержание и перетаскивание — порядок пресетов (строка 48 + зазор 4).
+                var dragK by remember { mutableStateOf(-1) }
+                var dragDy by remember { mutableStateOf(0f) }
+                val rowPx = 52 * d
                 presets.forEachIndexed { k, name ->
-                    SwipeRow(name, null, null, null, false, open == k, { o -> open = if (o) k else -1 }, {
-                        ui.menu = 0
-                        AppNative.masterWinAct(MasterWinAct.PRESET_LOAD, k, 0, ""); s.refresh()
-                    }, { ui.menu = 0; ui.rename = k }) {
-                        AppNative.masterWinAct(MasterWinAct.PRESET_DELETE, k, 0, ""); s.refresh()
+                    Box(Modifier.zIndex(if (dragK == k) 1f else 0f).graphicsLayer {
+                        if (dragK == k) {
+                            translationY = dragDy
+                            shadowElevation = 8 * density
+                        }
+                    }.pointerInput(k, presets.size) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = { dragK = k; dragDy = 0f; open = -1 },
+                            onDragEnd = {
+                                val to = (k + Math.round(dragDy / rowPx)).coerceIn(0, presets.size - 1)
+                                dragK = -1
+                                dragDy = 0f
+                                if (to != k) { AppNative.masterWinAct(MasterWinAct.PRESET_MOVE, k, to, ""); s.refresh() }
+                            },
+                            onDragCancel = { dragK = -1; dragDy = 0f },
+                        ) { c, delta -> c.consume(); dragDy += delta.y }
+                    }) {
+                        SwipeRow(name, null, null, null, false, open == k, { o -> open = if (o) k else -1 }, {
+                            ui.menu = 0
+                            AppNative.masterWinAct(MasterWinAct.PRESET_LOAD, k, 0, ""); s.refresh()
+                        }, { ui.menu = 0; ui.rename = k }) {
+                            AppNative.masterWinAct(MasterWinAct.PRESET_DELETE, k, 0, ""); s.refresh()
+                        }
                     }
                 }
             }

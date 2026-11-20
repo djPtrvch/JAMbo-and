@@ -40,9 +40,10 @@ import kotlin.math.log10
 import kotlin.math.log2
 import kotlin.math.pow
 
-/** Шкала дисплеев окон модулей мастера, dB (SCALE в SETTINGS — позже), сетка — восьмая часть; отступ 0 dB сверху. */
-private const val SCALE = 48f
-private const val GRID = 6
+/** Шкала дисплеев окон модулей мастера, dB (SETTINGS → APPEARANCE → MASTER FX DISPLAY SCALE: 48, 32, 16), сетка —
+ *  восьмая часть; отступ 0 dB сверху. Ставит MasterDisplay. */
+private var SCALE = 48f
+private val GRID get() = maxOf(1, SCALE.toInt() / 8)
 private const val TOP_INSET = 12f
 private const val LINE_HIT = 22f
 
@@ -75,6 +76,7 @@ private fun xOf(db: Float, w: Float) = ((1 + db / SCALE) * w).coerceIn(0f, w)
  */
 @Composable
 fun MasterDisplay(s: ScreenState, m: Int, modifier: Modifier) {
+    SCALE = s.displayScale.toFloat()
     BoxWithConstraints(modifier) {
         val w = maxWidth.value
         val h = maxHeight.value

@@ -81,6 +81,10 @@ private fun AppearanceTab(s: ScreenState) {
     FieldLabel("THEME")
     MenuChoices(listOf("SYSTEM", "LIGHT", "DARK").mapIndexed { i, t -> t to (s.theme == i) }) { s.theme = it }
     MenuNote("SYSTEM follows the tablet setting.")
+    FieldLabel("MASTER FX DISPLAY SCALE")
+    val scales = listOf(48, 32, 16)
+    MenuChoices(scales.map { "$it dB" to (s.displayScale == it) }) { s.displayScale = scales[it] }
+    MenuNote("Zoom of the level displays in the master effect windows (COMP, CLIP, LIM): from 0 dBFS down to −48, −32 or −16 dB.")
 }
 
 /** AUDIO ENGINE: фактическая частота, буфер и задержка (строка «Now:», раз в 0,5 с). */

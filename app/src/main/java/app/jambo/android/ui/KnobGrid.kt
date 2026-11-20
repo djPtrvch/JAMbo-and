@@ -1,6 +1,13 @@
 package app.jambo.android.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,6 +58,9 @@ private class KnobTurn(val slot: Int, val startY: Float, var lastY: Float, var a
     /** MIX: время касания и поднятая ручка (удержание 0,5 с без движения — перестановка дорожек). */
     var downAt = 0L
     var lifted = false
+    /** Палец при касании в координатах сетки, px (перенос поднятой ручки). */
+    var startPx = 0f
+    var startPy = 0f
 }
 
 private class KnobTouches(val s: ScreenState) {
@@ -64,9 +74,11 @@ private class KnobTouches(val s: ScreenState) {
         return -1
     }
 
-    fun down(id: PointerId, slot: Int, y: Float, now: Long) {
+    fun down(id: PointerId, slot: Int, y: Float, now: Long, px: Float = 0f, py: Float = 0f) {
         val turn = KnobTurn(slot, y, y, s.act(Act.KNOB_START, slot))
         turn.downAt = now
+        turn.startPx = px
+        turn.startPy = py
         // SHIFT для ручек: пока держат SHIFT + MORPH, ручки крутятся как без неё.
         val shift = s.side[7] != 0
         val mix = s.tracks[2] == 1
@@ -95,14 +107,27 @@ private class KnobTouches(val s: ScreenState) {
         s.act(Act.BEGIN_GESTURE)
     }
 
+    /** Перенос поднятой ручки: px — палец в координатах сетки, cell — шаг ячейки (px). */
+    fun drag(id: PointerId, px: Float, py: Float, cw: Float, ch: Float) {
+        val t = turns[id] ?: return
+        if (!t.lifted) return
+        s.liftDx = px - t.startPx
+        s.liftDy = py - t.startPy
+        val col = (px / cw).toInt().coerceIn(0, 3)
+        val row = (py / ch).toInt().coerceIn(0, 3)
+        s.liftTarget = minOf(s.tracks[0] - 1, row * 4 + col)
+    }
+
     fun move(id: PointerId, y: Float, now: Long) {
         val t = turns[id] ?: return
         if (t.consumed || t.lifted) return
         if (!t.moved) {
             if (abs(y - t.startY) < DEAD) return
-            // MIX: держали без движения 0,5 с — ручка поднята, палец переносит дорожку.
+            // MIX: держали без движения 0,5 с — ручка поднята (чуть крупнее, над остальными), палец переносит дорожку.
             if (s.tracks[2] == 1 && t.slot < s.tracks[0] && now - t.downAt >= 500) {
                 t.lifted = true
+                s.liftSlot = t.slot
+                s.liftTarget = t.slot
                 return
             }
             t.moved = true
@@ -121,9 +146,16 @@ private class KnobTouches(val s: ScreenState) {
         s.act(Act.SET_KNOB, t.slot, 0, t.acc)
     }
 
-    fun up(id: PointerId, target: Int = -1) {
+    fun up(id: PointerId) {
         val turn = turns.remove(id) ?: return
-        if (turn.lifted && target >= 0 && target != turn.slot && target < s.tracks[0]) AppNative.mixAct(11, turn.slot, target, "")
+        if (turn.lifted) {
+            val target = s.liftTarget
+            if (target >= 0 && target != turn.slot && target < s.tracks[0]) AppNative.mixAct(11, turn.slot, target, "")
+            s.liftSlot = -1
+            s.liftTarget = -1
+            s.liftDx = 0f
+            s.liftDy = 0f
+        }
         if (turn.shiftTap) s.act(Act.KNOB_SHIFT_TAP, turn.slot, 0)
         if (turns.values.none { it.slot == turn.slot }) s.act(Act.KNOB_FINGER, turn.slot, 0)
         s.act(Act.END_GESTURE)
@@ -134,8 +166,10 @@ private class KnobTouches(val s: ScreenState) {
 @Composable
 fun KnobGrid(s: ScreenState, modifier: Modifier) {
     val touches = remember(s) { KnobTouches(s) }
+    var gridSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+    val sp = SPACING * androidx.compose.ui.platform.LocalDensity.current.density
     Column(
-        modifier.pointerInput(Unit) {
+        modifier.onSizeChanged { gridSize = it }.pointerInput(Unit) {
             awaitPointerEventScope {
                 while (true) {
                     val ev = awaitPointerEvent()
@@ -155,10 +189,14 @@ fun KnobGrid(s: ScreenState, modifier: Modifier) {
                                 if (b >= 0) {
                                     AppNative.mixAct(b + 1, slot, 0, "")
                                     s.refresh()
-                                } else touches.down(c.id, slot, y, c.uptimeMillis)
+                                } else touches.down(c.id, slot, y, c.uptimeMillis, c.position.x, c.position.y)
                             }
-                            c.changedToUp() -> touches.up(c.id, row * 4 + col)
-                            c.pressed -> touches.move(c.id, y, c.uptimeMillis)
+                            c.changedToUp() -> touches.up(c.id)
+                            c.pressed -> {
+                                touches.move(c.id, y, c.uptimeMillis)
+                                touches.drag(c.id, c.position.x, c.position.y,
+                                    (size.width + SPACING * density) / 4f, (size.height + SPACING * density) / 4f)
+                            }
                         }
                         c.consume()
                     }
@@ -168,7 +206,8 @@ fun KnobGrid(s: ScreenState, modifier: Modifier) {
         verticalArrangement = Arrangement.spacedBy(SPACING.dp),
     ) {
         for (row in 0 until 4) {
-            Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(SPACING.dp)) {
+            Row(Modifier.weight(1f).fillMaxWidth().zIndex(if (s.liftSlot >= 0 && s.liftSlot / 4 == row) 1f else 0f),
+                horizontalArrangement = Arrangement.spacedBy(SPACING.dp)) {
                 for (col in 0 until 4) {
                     val k = row * 4 + col
                     val o = k * KNOB_STRIDE
@@ -177,6 +216,33 @@ fun KnobGrid(s: ScreenState, modifier: Modifier) {
                     val mod = if (lfo > 0) s.modNorms[k].takeIf { it >= 0 } else null
                     val modText = if (mod != null) s.modTexts[k] else ""
                     val mixCell = s.tracks[2] == 1
+                    // Перестановка в MIX: поднятая ручка идёт за пальцем (чуть крупнее, над остальными), дорожки между
+                    // ней и местом под пальцем плавно сдвигаются на соседние места.
+                    val from = s.liftSlot
+                    val to = s.liftTarget
+                    val dest = when {
+                        from < 0 || to < 0 || k == from -> k
+                        from < to && k in (from + 1)..to -> k - 1
+                        from > to && k in to until from -> k + 1
+                        else -> k
+                    }
+                    val cw = (gridSize.width + sp) / 4f
+                    val ch = (gridSize.height + sp) / 4f
+                    val sx by animateFloatAsState(((dest % 4) - col) * cw, label = "mixShiftX")
+                    val sy by animateFloatAsState(((dest / 4) - row) * ch, label = "mixShiftY")
+                    val lifted = k == from
+                    val cellMod = Modifier.zIndex(if (lifted) 1f else 0f).graphicsLayer {
+                        if (lifted) {
+                            translationX = s.liftDx
+                            translationY = s.liftDy
+                            scaleX = 1.08f
+                            scaleY = 1.08f
+                            shadowElevation = 12 * density
+                        } else {
+                            translationX = sx
+                            translationY = sy
+                        }
+                    }
                     KnobCell(
                         mix = mixCell,
                         active = v[o] > 0, norm = v[o + 1], base = v[o + 2], locked = v[o + 3] > 0,
@@ -184,7 +250,7 @@ fun KnobGrid(s: ScreenState, modifier: Modifier) {
                         mod = ModRing(lfo, v[o + 7], v[o + 8], v[o + 9], v[o + 10] > 0, mod),
                         label = s.knobTexts.getOrElse(k * 2) { "" },
                         value = modText.ifEmpty { s.knobTexts.getOrElse(k * 2 + 1) { "" } },
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        modifier = Modifier.weight(1f).fillMaxHeight().then(cellMod),
                         overlay = { if (mixCell && k < s.tracks[0]) MixCellParts(s, k) },
                     )
                 }
