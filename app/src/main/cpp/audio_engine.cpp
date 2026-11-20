@@ -98,6 +98,16 @@ double AudioEngine::modOut(int i) const {
     return core_->mod.outs[size_t(i)].load();
 }
 
+double AudioEngine::modPhase(int i) const {
+    if (!core_ || i < 0 || i >= jambo::ModEngine::tracks * 3) return 0;
+    return core_->mod.phaseOuts[size_t(i)].load();
+}
+
+double AudioEngine::envOut(int i) const {
+    if (!core_ || i < 0 || i >= jambo::ModEngine::tracks * 2) return i % 2 == 0 ? -1 : 0;
+    return core_->mod.envOuts[size_t(i)].load();
+}
+
 void AudioEngine::publish(const jambo::Project& p,
                           const std::map<std::string, std::shared_ptr<jambo::WtTable>>& tables) {
     ensureCore();

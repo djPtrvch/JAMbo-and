@@ -31,6 +31,9 @@ struct AppAudio {
     virtual bool popOut(SeqOut& e) = 0;
     /// Выход источника модуляции для интерфейса: дорожка·4 + (LFO1–3, ENV).
     virtual double modOut(int) const { return 0; }
+    /// Фаза LFO (дорожка·3 + n) и ENV (дорожка·2: мс от запуска, гейт в мс) для миниатюр MOD.
+    virtual double modPhase(int) const { return 0; }
+    virtual double envOut(int i) const { return i % 2 == 0 ? -1 : 0; }
 };
 
 /// Что выбрано в строке дорожек: дорожка, канал микшера MIX или мастер MST.
@@ -62,6 +65,13 @@ struct SoundInfo {
     std::string title, detail, preset, folderLabel;
     std::vector<std::string> rows;
     int folderTotal = 0;
+};
+
+/// Миниатюра LFO/ENV (MOD): подпись, кривая (x 0…1; y: LFO −1…1, ENV 0…1), точка.
+struct ModMini {
+    std::string title;
+    std::vector<double> xs, ys;
+    double dotX = 0, dotY = 0;
 };
 
 /// Ячейка миниатюры страницы.
@@ -188,6 +198,8 @@ public:
     void pagePress(GridPage p);
     void pageRelease(GridPage p);
     bool shiftHeld() const { return shiftHeld_; }
+    /// Миниатюра LFOn (1–3) или ENV (4) выбранной дорожки — пока держат MOD.
+    ModMini modMini(int n) const;
     void setShift(bool on);
     /// SHIFT + тап по ручке: Dly Time и Speed LFO — по темпу / свободно, RATE, Filter — тип, ANALOG — модуляция,
     /// октава B, режим (undo — второй тап двойного: отменить первый); true — обработан.

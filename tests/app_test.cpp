@@ -244,6 +244,10 @@ void fxPages() {
     check(app.modMode() && !app.knobState(0).assign, "app: MOD включён тапом, назначений нет");
     app.pagePress(App::GridPage::mod);
     check(!app.modMode(), "app: MOD выключен тапом");
+    const auto l1 = app.modMini(1), en = app.modMini(4);
+    check(l1.xs.size() == 101 && l1.title.rfind("LFO1 \u00b7 ", 0) == 0 && en.title.rfind("ENV \u00b7 A ", 0) == 0 &&
+              en.xs.size() == en.ys.size() && en.dotY >= 0 && en.dotY <= 1,
+          "app: миниатюры LFO и ENV");
     // SHIFT + тап по Filter — следующий тип; SHIFT + двойной тап — снять все p-lock.
     int fs = 0;
     for (int k = 0; k < 16; ++k)

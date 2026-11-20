@@ -434,3 +434,29 @@ FN(jintArray, side)(JNIEnv* env, jobject) {
     return ints(env, {m.pageOn(P::fx), m.pageOn(P::mod), m.latched(P::fx), m.latched(P::mod), m.shiftHeld(), m.fxMode(),
                       m.modMode()});
 }
+
+/// Миниатюры MOD: по LFO1–3 и ENV [точек n, x n, y n, точка x, y] подряд.
+FN(jfloatArray, modMinis)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    std::vector<jfloat> o;
+    for (int n = 1; n <= 4; ++n) {
+        const auto mm = m.modMini(n);
+        o.push_back(jfloat(mm.xs.size()));
+        for (double x : mm.xs) o.push_back(jfloat(x));
+        for (double y : mm.ys) o.push_back(jfloat(y));
+        o.push_back(jfloat(mm.dotX));
+        o.push_back(jfloat(mm.dotY));
+    }
+    jfloatArray r = env->NewFloatArray(jsize(o.size()));
+    env->SetFloatArrayRegion(r, 0, jsize(o.size()), o.data());
+    return r;
+}
+
+FN(jobjectArray, modMiniTitles)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    std::vector<std::string> v;
+    for (int n = 1; n <= 4; ++n) v.push_back(m.modMini(n).title);
+    return strings(env, v);
+}

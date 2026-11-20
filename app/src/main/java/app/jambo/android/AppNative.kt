@@ -100,6 +100,9 @@ object AppNative {
     external fun clipRates(): IntArray
     /** Кнопки правой колонки: [FX зажата, MOD зажата, FX toggle, MOD toggle, SHIFT, ручки FX, ручки MOD]. */
     external fun side(): IntArray
+    /** Миниатюры MOD: по LFO1–3 и ENV [точек n, x n, y n, точка x, y] подряд. */
+    external fun modMinis(): FloatArray
+    external fun modMiniTitles(): Array<String>
     external fun clipRateNames(): Array<String>
     /** Короткие имена движков по номеру. */
     external fun engineNames(): Array<String>

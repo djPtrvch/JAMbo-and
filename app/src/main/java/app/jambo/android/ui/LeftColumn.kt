@@ -161,6 +161,11 @@ private fun SoundWindow(s: ScreenState, modifier: Modifier) {
     val tap = if (channel == 0) Modifier.pointerTap { s.act(Act.OPEN_SOUND_MENU) } else Modifier
     Box(modifier.tile(th.panel).then(tap)) {
         if (channel != 0) return@Box
+        // Пока держат MOD — миниатюры LFO1–3 и ENV.
+        if (s.side[6] != 0) {
+            ModPreview(Modifier.fillMaxSize())
+            return@Box
+        }
         val t = s.soundTexts
         val rows = t.drop(4)
         Column(Modifier.fillMaxSize().padding(8.dp)) {
