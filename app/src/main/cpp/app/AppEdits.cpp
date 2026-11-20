@@ -281,7 +281,12 @@ void App::setKnob(int slot, double norm) {
 void App::knobDoubleTap(int slot) {
     if (channel_ == Channel::mix) {
         const ParamDef* p = param(slot);
-        if (!p || held_.empty()) return;  // меню дорожки — позже
+        // Без зажатых шагов — меню дорожки (у серой ручки — ADD TRACK).
+        if (held_.empty()) {
+            openTrackMenu(slot);
+            return;
+        }
+        if (!p) return;
         const std::string id = p->id;
         for (int i : held_) used_.insert(i);
         const auto held = held_;

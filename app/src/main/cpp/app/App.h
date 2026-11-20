@@ -11,6 +11,7 @@
 #include "MixStereo.h"
 #include "MasterWin.h"
 #include "model/MasterPresets.h"
+#include "engine/StemRing.h"
 #include "master/MasterChain.h"
 #include "icons/EngineIcons.h"
 #include "synth/Wavetable.h"
@@ -49,6 +50,9 @@ struct AppAudio {
     virtual bool popVoice(VoiceOut&) { return false; }
     /// Цепочка мастера колбэка (телеметрия COMP, CLIP, LIM и скоп); nullptr — звука нет.
     virtual MasterChain* master() { return nullptr; }
+    /// Кольцо записи стемов колбэка; кадров отрендерено (точка записи — мигание за 5 с до конца).
+    virtual StemRing* stemRing() { return nullptr; }
+    virtual long framesRendered() const { return 0; }
     /// Ход транспорта из колбэка (запись с REC).
     virtual PlayClock::State clock() const { return {}; }
     /// Время хоста (с, часы колбэка), чей звук слышен сейчас: сейчас минус задержка выхода.
@@ -418,6 +422,31 @@ public:
     /// Окно микшера при MIX (тап по обзору полос): фейдеры над дорожками.
     bool mixerOpen() const { return channel_ == Channel::mix && mixerOpen_; }
     void setMixerOpen(bool on);
+    /// Сброс наибольшего пика дорожки (нижняя подпись фейдера окна микшера).
+    void resetTrackPeak(int ch) { meters_.resetPeak(ch); bump(); }
+
+    // Микшер (AppMix.cpp): M, S, ● у ручек громкости, меню дорожки, перестановка, запись стемов и мастера.
+    void toggleMute(int i);
+    void toggleSolo(int i);
+    struct TrackMenu {
+        int slot;
+        bool add;
+    };
+    const std::optional<TrackMenu>& trackMenu() const { return trackMenu_; }
+    void openTrackMenu(int slot);
+    void closeTrackMenu();
+    void addTrack();
+    void copyTrack(int i);
+    bool hasTrackClip() const { return trackClipboard_.has_value(); }
+    void pasteTrack(int i);
+    void deleteTrack(int i);
+    void renameTrack(int i, const std::string& name);
+    void moveTrack(int from, int to);
+    /// ● (канал — дорожка или StemRing::master): готовность; во время записи — дописать до конца прохода.
+    void stemTap(int ch);
+    bool stemLit(int ch) const { return stemArmed_.count(ch) || stemRecording_.count(ch); }
+    /// Точка записи: видна, мигает часто (до конца меньше 5 с).
+    std::pair<bool, bool> stemDot(int ch) const;
     void closeMasterWindow();
     bool masterUnity() const { return masterUnity_; }
     void setUnity(bool on);
@@ -697,6 +726,13 @@ private:
     MixAnalysis mixAn_;
     BandStereo bandStereo_;
     std::optional<int> masterWin_;
+    std::optional<TrackMenu> trackMenu_;
+    std::optional<Track> trackClipboard_;
+    std::set<int> stemArmed_, stemRecording_;
+    std::map<int, std::string> stemNames_;
+    StemCollector stems_;
+    void drainStems();
+    void saveStem(const SampleRef& data, const std::string& base);
     bool mixerOpen_ = false;
     double mixTapAt_ = -1;
     bool masterUnity_ = false;

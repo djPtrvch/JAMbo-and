@@ -169,6 +169,28 @@ object AppNative {
     external fun mixBars(): FloatArray
     /** Справа при MIX: [3 × (сигнал, корреляция, ширина %), short-term, интегральная, PLR, LRA, 300 short-term]. */
     external fun mixStereo(): FloatArray
+
+    /** Окно модуля мастера (jni_masterwin.cpp): [модуль (−1 — нет), UNITY, BYPASS, полей, пресетов, SAVE DEFAULT мигает,
+     *  FREEZE, окно микшера]. */
+    external fun masterWin(): IntArray
+    /** [по полю id, подпись, значение], затем имена пресетов. */
+    external fun masterWinTexts(): Array<String>
+    external fun masterWinAct(code: Int, k: Int, k2: Int, text: String)
+    external fun masterPresetIndex(name: String, except: Int): Int
+    external fun masterPresetNextName(): String
+    /** code 1 — положение 0…1, 2 — значение, 3 — задать значение x, 4 — задать положение x, 5 — тап. */
+    external fun masterParam(id: String, code: Int, x: Double): Double
+    /** text пусто — текст поля для ввода; иначе разбор ("1" — принято). */
+    external fun masterInput(id: String, text: String): String
+    /** Данные дисплея окна (см. jni_masterwin.cpp). */
+    external fun masterDisplay(cols: Int, tn: Int): FloatArray
+    /** Окно микшера: [n, по дорожке (10): стерео, заглушена, L, холд L, R, холд R, Sidechain dB, клиппинг, пик, громкость dB]. */
+    external fun mixerData(now: Double): FloatArray
+    external fun mixerResetPeak(ch: Int)
+    /** Микшер: [слот меню (−1), ADD, есть копия, можно удалить, n, по дорожке mute, solo, ●, точка; MASTER ●, точка]. */
+    external fun mixInfo(): IntArray
+    /** 1 mute, 2 solo, 3 ● (−1 — MASTER), 4 меню, 5 закрыть, 6 ADD, 7 COPY, 8 PASTE, 9 DELETE, 10 RENAME, 11 a → b. */
+    external fun mixAct(code: Int, a: Int, b: Int, text: String)
     fun act(code: Int, a: Int = 0, b: Int = 0) = act(code, a, b, 0.0)
 
     /** [ревизия, ход открытого клипа, маска мигания, мигание доли, акцент, игра]. */
@@ -277,6 +299,22 @@ object LibAct {
     const val DELETE = 13
     const val SAVE = 14
     const val OPEN_SAVE = 15
+}
+
+/** Действия окна модуля мастера (masterWinAct). */
+object MasterWinAct {
+    const val OPEN = 1
+    const val CLOSE = 2
+    const val UNITY = 3
+    const val PRESET_SAVE = 4
+    const val PRESET_LOAD = 5
+    const val PRESET_RENAME = 6
+    const val PRESET_DELETE = 7
+    const val PRESET_MOVE = 8
+    const val SAVE_DEFAULT = 9
+    const val FREEZE = 10
+    const val MIXER_OPEN = 11
+    const val MIXER_CLOSE = 12
 }
 
 /** Действия PROJECTS (projectAct в jni_app.cpp). */

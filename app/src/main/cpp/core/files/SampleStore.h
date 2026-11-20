@@ -43,6 +43,8 @@ public:
     static std::string path(const std::string& key, const std::string& dir);
     /// Ключ — только буквы и цифры (имя файла).
     static bool validKey(const std::string& key);
+    /// Своя копия (стем, запись, правка): ключ по её отсчётам, копия на диске.
+    static std::string store(const SampleData& d, const std::string& dir);
     /// EXPORT: WAV 32-бит float 48 кГц; нет — пусто.
     static std::vector<uint8_t> wav(const SampleData& d);
 

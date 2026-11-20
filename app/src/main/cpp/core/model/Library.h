@@ -69,6 +69,12 @@ struct Library {
     void rename(const std::string& id, const std::string& name);
     void remove(const std::string& id);
 
+    /// Папка записей проекта и дня в RECORDINGS: «проект дд.мм.гггг» (без имени — Project).
+    static std::string recordingFolderName(const std::string& project, int day, int month, int year);
+    /// Имя записи: «дорожка чч-мм-сс».
+    static std::string recordingName(const std::string& base, int h, int m, int s);
+    /// Папка записей с этим именем в RECORDINGS (создаётся при первой записи) — id.
+    std::string recordingsFolder(const std::string& name);
     /// Сравнение имён как localizedStandardCompare: без учёта регистра, числа — по значению.
     static bool nameLess(const std::string& a, const std::string& b);
 };

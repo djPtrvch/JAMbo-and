@@ -87,7 +87,18 @@ class ScreenState {
     var scope by mutableStateOf(FloatArray(2)); private set
     var scopeWidth = 200
     var mixBars by mutableStateOf(FloatArray(1)); private set
+    /** Микшер: M, S, ●, меню дорожки, точки записи (каждый кадр); метры ячеек MIX — mixer (каждый кадр при MIX). */
+    var mixInfo by mutableStateOf(IntArray(7) { if (it == 0) -1 else 0 }); private set
+    var mixer by mutableStateOf(FloatArray(1)); private set
+    /** Мигание точек записи: фаза (обычное — 0,5 с, частое — 0,15 с). */
+    var recBlink by mutableStateOf(0L); private set
     var mixStereo by mutableStateOf(FloatArray(0)); private set
+    /** Окно модуля мастера: состояние (по ревизии), дисплей — каждый кадр (столбцов и точек TRANSFER задаёт окно). */
+    var masterWin by mutableStateOf(IntArray(8) { if (it == 0) -1 else 0 }); private set
+    var masterWinTexts by mutableStateOf(emptyArray<String>()); private set
+    var masterDisp by mutableStateOf(FloatArray(0)); private set
+    var dispCols = 0
+    var transferCols = 0
     /** Вид обзора MIX: 0 LEVEL, 1 PAN, 2 FREQ, 3 MASK (MixMode, в C++). */
     val mixMode get() = masterInfo.getOrElse(8) { 0 }
     /** Идёт IMPORT (файлов осталось). */
@@ -108,10 +119,14 @@ class ScreenState {
             scope = AppNative.scopeData(scopeWidth)
             if (tracks[2] == 2) masterBars = AppNative.masterBars(nowSeconds)
             if (tracks[2] == 1) {
+                mixer = AppNative.mixerData(nowSeconds)
                 mixBars = AppNative.mixBars()
                 mixStereo = AppNative.mixStereo()
             }
         }
+        if (masterWin[0] >= 0 && dispCols > 0) masterDisp = AppNative.masterDisplay(dispCols, maxOf(2, transferCols))
+        AppNative.mixInfo().let { if (!it.contentEquals(mixInfo)) mixInfo = it }
+        (System.nanoTime() / 150_000_000L).let { if (it != recBlink) recBlink = it }
         val dt = nowSeconds - lastFrame
         lastFrame = nowSeconds
         if (eq[0] != 0 && eqCols > 1) {
@@ -168,6 +183,8 @@ class ScreenState {
         AppNative.soundTexts().let { if (!it.contentEquals(soundTexts)) soundTexts = it }
         AppNative.lib().let { if (!it.contentEquals(lib)) lib = it }
         AppNative.masterInfo().let { if (!it.contentEquals(masterInfo)) masterInfo = it }
+        AppNative.masterWin().let { if (!it.contentEquals(masterWin)) masterWin = it }
+        AppNative.masterWinTexts().let { if (!it.contentEquals(masterWinTexts)) masterWinTexts = it }
         AppNative.libRows().let { if (!it.contentEquals(libRows)) libRows = it }
         if (waveCols > 0) AppNative.wave(waveCols).let { if (!it.contentEquals(wave)) wave = it }
     }

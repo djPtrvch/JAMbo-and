@@ -28,6 +28,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.jambo.android.AppNative
 import app.jambo.android.AppNative.Act
 import app.jambo.android.KNOB_STRIDE
 import kotlin.math.abs
@@ -47,14 +48,25 @@ private class KnobTurn(val slot: Int, val startY: Float, var lastY: Float, var a
     var lfo = 0
     /** SHIFT + касание: при отпускании — тап (Filter — тип, Dly Time и Speed LFO — по темпу / свободно…). */
     var shiftTap = false
+    /** MIX: время касания и поднятая ручка (удержание 0,5 с без движения — перестановка дорожек). */
+    var downAt = 0L
+    var lifted = false
 }
 
 private class KnobTouches(val s: ScreenState) {
     val turns = HashMap<PointerId, KnobTurn>()
     val lastTap = HashMap<Int, Long>()
 
+    /** MIX: кнопка M, S, ● под пальцем (0, 1, 2) или −1; local — в точках ячейки. */
+    fun mixButton(local: androidx.compose.ui.geometry.Offset, cell: androidx.compose.ui.geometry.Size): Int {
+        for ((k, r) in mixButtons(cell).withIndex())
+            if (local.x >= r.left - 4 && local.x <= r.right + 4 && local.y >= r.top - 2 && local.y <= r.bottom + 2) return k
+        return -1
+    }
+
     fun down(id: PointerId, slot: Int, y: Float, now: Long) {
         val turn = KnobTurn(slot, y, y, s.act(Act.KNOB_START, slot))
+        turn.downAt = now
         // SHIFT для ручек: пока держат SHIFT + MORPH, ручки крутятся как без неё.
         val shift = s.side[7] != 0
         val mix = s.tracks[2] == 1
@@ -83,11 +95,16 @@ private class KnobTouches(val s: ScreenState) {
         s.act(Act.BEGIN_GESTURE)
     }
 
-    fun move(id: PointerId, y: Float) {
+    fun move(id: PointerId, y: Float, now: Long) {
         val t = turns[id] ?: return
-        if (t.consumed) return
+        if (t.consumed || t.lifted) return
         if (!t.moved) {
             if (abs(y - t.startY) < DEAD) return
+            // MIX: держали без движения 0,5 с — ручка поднята, палец переносит дорожку.
+            if (s.tracks[2] == 1 && t.slot < s.tracks[0] && now - t.downAt >= 500) {
+                t.lifted = true
+                return
+            }
             t.moved = true
             t.shiftTap = false
             t.lastY = y
@@ -104,8 +121,9 @@ private class KnobTouches(val s: ScreenState) {
         s.act(Act.SET_KNOB, t.slot, 0, t.acc)
     }
 
-    fun up(id: PointerId) {
+    fun up(id: PointerId, target: Int = -1) {
         val turn = turns.remove(id) ?: return
+        if (turn.lifted && target >= 0 && target != turn.slot && target < s.tracks[0]) AppNative.mixAct(11, turn.slot, target, "")
         if (turn.shiftTap) s.act(Act.KNOB_SHIFT_TAP, turn.slot, 0)
         if (turns.values.none { it.slot == turn.slot }) s.act(Act.KNOB_FINGER, turn.slot, 0)
         s.act(Act.END_GESTURE)
@@ -123,14 +141,24 @@ fun KnobGrid(s: ScreenState, modifier: Modifier) {
                     val ev = awaitPointerEvent()
                     for (c in ev.changes) {
                         val y = c.position.y / density
+                        val col = (c.position.x / (size.width / 4f)).toInt().coerceIn(0, 3)
+                        val row = (c.position.y / (size.height / 4f)).toInt().coerceIn(0, 3)
                         when {
                             c.changedToDown() -> {
-                                val col = (c.position.x / (size.width / 4f)).toInt().coerceIn(0, 3)
-                                val row = (c.position.y / (size.height / 4f)).toInt().coerceIn(0, 3)
-                                touches.down(c.id, row * 4 + col, y, c.uptimeMillis)
+                                val slot = row * 4 + col
+                                val cw = (size.width - 3 * SPACING * density) / 4 / density
+                                val ch = (size.height - 3 * SPACING * density) / 4 / density
+                                val local = androidx.compose.ui.geometry.Offset(
+                                    c.position.x / density - col * (cw + SPACING), c.position.y / density - row * (ch + SPACING))
+                                val b = if (s.tracks[2] == 1 && slot < s.tracks[0])
+                                    touches.mixButton(local, androidx.compose.ui.geometry.Size(cw, ch)) else -1
+                                if (b >= 0) {
+                                    AppNative.mixAct(b + 1, slot, 0, "")
+                                    s.refresh()
+                                } else touches.down(c.id, slot, y, c.uptimeMillis)
                             }
-                            c.changedToUp() -> touches.up(c.id)
-                            c.pressed -> touches.move(c.id, y)
+                            c.changedToUp() -> touches.up(c.id, row * 4 + col)
+                            c.pressed -> touches.move(c.id, y, c.uptimeMillis)
                         }
                         c.consume()
                     }
@@ -148,13 +176,16 @@ fun KnobGrid(s: ScreenState, modifier: Modifier) {
                     val lfo = v[o + 6].toInt()
                     val mod = if (lfo > 0) s.modNorms[k].takeIf { it >= 0 } else null
                     val modText = if (mod != null) s.modTexts[k] else ""
+                    val mixCell = s.tracks[2] == 1
                     KnobCell(
+                        mix = mixCell,
                         active = v[o] > 0, norm = v[o + 1], base = v[o + 2], locked = v[o + 3] > 0,
                         bipolar = v[o + 4] > 0, col4 = v[o + 5] > 0,
                         mod = ModRing(lfo, v[o + 7], v[o + 8], v[o + 9], v[o + 10] > 0, mod),
                         label = s.knobTexts.getOrElse(k * 2) { "" },
                         value = modText.ifEmpty { s.knobTexts.getOrElse(k * 2 + 1) { "" } },
                         modifier = Modifier.weight(1f).fillMaxHeight(),
+                        overlay = { if (mixCell && k < s.tracks[0]) MixCellParts(s, k) },
                     )
                 }
             }
@@ -168,12 +199,16 @@ private class ModRing(val lfo: Int, val amount: Float, val lo: Float, val hi: Fl
 
 @Composable
 private fun KnobCell(
+    mix: Boolean = false, overlay: @Composable () -> Unit = {},
     active: Boolean, norm: Float, base: Float, locked: Boolean, bipolar: Boolean, col4: Boolean, mod: ModRing,
     label: String, value: String, modifier: Modifier,
 ) {
     val th = LocalTheme.current
     val lockColor = if (col4) th.gr else th.accent
-    Column(modifier.padding(vertical = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Box(modifier) {
+    // MIX: слева метр (21), справа столбик M, S, ● (26).
+    Column(Modifier.fillMaxSize().padding(vertical = 2.dp).padding(start = if (mix) (MIX_METER + 4).dp else 0.dp,
+        end = if (mix) (MIX_BUTTON + 6).dp else 0.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxSize()) {
                 val side = min(size.width, size.height)
@@ -193,6 +228,8 @@ private fun KnobCell(
             Text(value, color = if (locked) lockColor else th.text, fontSize = 11.tsp(), textAlign = TextAlign.Center)
         }
         Text(label, color = th.dim, fontSize = 11.tsp(), maxLines = 1)
+    }
+    overlay()
     }
 }
 

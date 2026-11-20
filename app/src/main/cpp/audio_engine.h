@@ -42,6 +42,8 @@ public:
     bool popOut(jambo::SeqOut& e) override;
     bool popVoice(jambo::VoiceOut& e) override;
     jambo::MasterChain* master() override { return core_ ? &core_->master : nullptr; }
+    jambo::StemRing* stemRing() override { return core_ ? &core_->sequencer.stemRing : nullptr; }
+    long framesRendered() const override { return core_ ? core_->framesRendered() : 0; }
 
     // Заполняет out (kInfoSize значений), см. порядок в audio_engine.cpp.
     static constexpr int kInfoSize = 20;

@@ -112,10 +112,20 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
     var body by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var left by remember { mutableStateOf(Rect.Zero) }
     var pagesRect by remember { mutableStateOf(Rect.Zero) }
+    var gridRect by remember { mutableStateOf(Rect.Zero) }
+    var renaming by remember { mutableStateOf(-1) }
     Box(Modifier.fillMaxSize().padding(horizontal = Layout.side.dp).onGloballyPositioned { body = it; s.body = it }) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
             TopBar(s) { s.mainMenu = !s.mainMenu }
             if (s.grid[0] != 0) PatternGrid(s, Modifier.weight(1f).fillMaxWidth(), width)
+            else if (s.masterWin[0] >= 0) Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
+                MasterWindow(s, Modifier.weight(1f).fillMaxHeight())
+                MeterColumn(s, Modifier.fillMaxHeight())
+            }
+            else if (s.masterWin.getOrElse(7) { 0 } != 0) Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
+                MixerWindow(s, Modifier.weight(1f).fillMaxHeight())
+                MeterColumn(s, Modifier.fillMaxHeight())
+            }
             else if (s.lib[0] != 0) Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
                 LibraryView(s, Modifier.weight(1f).fillMaxHeight())
                 MeterColumn(s, Modifier.fillMaxHeight())
@@ -128,7 +138,9 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
                 LeftColumn(s, Modifier.width(column()).fillMaxHeight().onGloballyPositioned { c ->
                     body?.let { b -> if (b.isAttached) left = b.localBoundingBoxOf(c) }
                 })
-                KnobGrid(s, Modifier.weight(1f).fillMaxHeight())
+                KnobGrid(s, Modifier.weight(1f).fillMaxHeight().onGloballyPositioned { c ->
+                    body?.let { b -> if (b.isAttached) gridRect = b.localBoundingBoxOf(c) }
+                })
                 RightColumn(s, Modifier.width(rightColumn()).fillMaxHeight()) { c ->
                     body?.let { b -> if (b.isAttached) pagesRect = b.localBoundingBoxOf(c) }
                 }
@@ -146,6 +158,12 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
         if (s.chordMenu) ChordMenuOverlay(s)
         if (s.pianoMenu) PianoMenuOverlay(s, Layout.step(width))
         s.choice?.let { ChoiceOverlay(s, it) }
+        if (s.mixInfo.getOrElse(0) { -1 } >= 0) TrackMenuOverlay(s, gridRect) { renaming = it }
+        if (renaming >= 0) InputDialog("RENAME", s.trackNames.getOrElse(renaming) { "" }, 12, { renaming = -1 }) { text ->
+            AppNative.mixAct(10, renaming, 0, text)
+            renaming = -1
+            s.refresh()
+        }
         if (s.mainMenu) MainMenuOverlay(s, onMenu)
     }
 }

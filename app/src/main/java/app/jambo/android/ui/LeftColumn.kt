@@ -1,5 +1,6 @@
 package app.jambo.android.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -37,6 +38,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.jambo.android.AppNative
 import app.jambo.android.AppNative.Act
 
 /** Размеры левой и правой колонок (Layout.swift, PagesColumn.swift). */
@@ -67,7 +69,7 @@ fun LeftColumn(s: ScreenState, modifier: Modifier) {
             Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Side.barGap.dp)) {
                 when (channel) {
                     0 -> FolderArrows(s, Modifier.height(bar.dp))
-                    1 -> SideButton("● MASTER", Modifier.fillMaxWidth().height(bar.dp), enabled = false)
+                    1 -> MasterRecButton(s, Modifier.fillMaxWidth().height(bar.dp))
                 }
                 SoundWindow(s, Modifier.weight(1f).fillMaxWidth())
             }
@@ -163,7 +165,12 @@ private fun FolderArrows(s: ScreenState, modifier: Modifier) {
 private fun SoundWindow(s: ScreenState, modifier: Modifier) {
     val th = LocalTheme.current
     val channel = s.tracks[2]
-    val tap = if (channel == 0) Modifier.pointerTap { s.act(Act.OPEN_SOUND_MENU) } else Modifier
+    val tap = when (channel) {
+        0 -> Modifier.pointerTap { s.act(Act.OPEN_SOUND_MENU) }
+        // MIX: тап по обзору полос — окно микшера (двойной тап по MIX — закрыть).
+        1 -> Modifier.pointerTap { AppNative.masterWinAct(app.jambo.android.MasterWinAct.MIXER_OPEN, 0, 0, ""); s.refresh() }
+        else -> Modifier
+    }
     Box(modifier.tile(th.panel).then(tap)) {
         if (channel == 2) {
             MasterIndicator(s, Modifier.fillMaxSize())
@@ -263,5 +270,19 @@ private fun SampleWave(s: ScreenState, modifier: Modifier) {
                     androidx.compose.ui.geometry.Size(2 * density, size.height))
             }
         }
+    }
+}
+
+/** ● MASTER (при MIX): запись конечного сигнала мастера — красная окантовка, горит, пока готова или пишет. */
+@Composable
+private fun MasterRecButton(s: ScreenState, modifier: Modifier) {
+    val th = LocalTheme.current
+    val info = s.mixInfo
+    val lit = info.getOrElse(info.size - 2) { 0 } != 0
+    Box(modifier.fillMaxHeight().background(if (lit) th.rec else th.panel2, RoundedCornerShape(Layout.radius.dp))
+        .border(1.dp, th.rec, RoundedCornerShape(Layout.radius.dp))
+        .pointerTap { AppNative.mixAct(3, -1, 0, ""); s.refresh() }, contentAlignment = Alignment.Center) {
+        Text("● MASTER", color = if (lit) androidx.compose.ui.graphics.Color.White else th.rec, fontSize = 13.tsp(),
+            fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp, maxLines = 1)
     }
 }

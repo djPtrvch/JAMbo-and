@@ -47,13 +47,15 @@ private fun moduleColor(th: Theme, k: Int) = when (k) {
  * Индикация мастера при MST в окне сэмпла (MasterIndicator.swift ветки swift JAMbo): блоки COMP | CLIP | LIM, в
  * каждом стержни IN | GR | OUT (9 точек, скругление 3): IN и OUT — снизу вверх, −48…0 dBFS, жёлтые, выше 0 — красные;
  * GR — сверху вниз, оранжевый (COMP — 18 dB, CLIP и LIM — 12 dB); риска THRESHOLD / CEILING — на IN; bypass — серые.
- * Тап по блоку — окно модуля (с окнами модулей).
+ * Тап по блоку — окно модуля.
  */
 @Composable
 fun MasterIndicator(s: ScreenState, modifier: Modifier) {
     val v = s.masterBars
     Row(modifier.padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        for (k in 0 until 3) Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally,
+        for (k in 0 until 3) Column(Modifier.weight(1f).fillMaxHeight()
+            .pointerTap { AppNative.masterWinAct(app.jambo.android.MasterWinAct.OPEN, k + 1, 0, ""); s.refresh() },
+            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(moduleNames[k + 1], color = LocalTheme.current.dim, fontSize = 10.tsp(), letterSpacing = 1.sp)
             DynBars(v, k, if (k == 0) 18f else 12f, Modifier.weight(1f).fillMaxWidth())
@@ -62,7 +64,7 @@ fun MasterIndicator(s: ScreenState, modifier: Modifier) {
 }
 
 @Composable
-private fun DynBars(v: FloatArray, k: Int, grMax: Float, modifier: Modifier) {
+fun DynBars(v: FloatArray, k: Int, grMax: Float, modifier: Modifier, scale: Float = 48f, alignTop: Boolean = false) {
     val th = LocalTheme.current
     val text = rememberTextMeasurer()
     val labelStyle = TextStyle(color = th.dim, fontSize = 9.tsp())
@@ -72,12 +74,14 @@ private fun DynBars(v: FloatArray, k: Int, grMax: Float, modifier: Modifier) {
         val inDb = v[o]; val outDb = v[o + 1]; val gr = v[o + 2]
         val inRed = v[o + 3] != 0f; val outRed = v[o + 4] != 0f; val bypass = v[o + 5] != 0f; val mark = v[o + 6]
         val labelH = 14.dp.toPx()
-        val barH = size.height - labelH
+        // В окне модуля — шкала дисплея слева (0 dB у верхнего края), стержни кончаются над подписями.
+        val barH = if (alignTop) size.height - labelH - 10.dp.toPx() else size.height - labelH
         if (barH <= 0) return@Canvas
+        val span = if (alignTop) size.height else barH
         val barW = 9.dp.toPx()
         val cx = listOf(size.width / 6, size.width / 2, 5 * size.width / 6)
         val off = lerp(th.meterTrack, Color.White, 0.2f)
-        fun yOf(db: Float) = (-db / 48f * barH).coerceIn(0f, barH)
+        fun yOf(db: Float) = (-db / scale * span).coerceIn(0f, barH)
         fun bar(i: Int, fill: Color, top: Float, h: Float) {
             val x = Math.round(cx[i] - barW / 2).toFloat()
             val r = CornerRadius(3.dp.toPx())
@@ -86,23 +90,23 @@ private fun DynBars(v: FloatArray, k: Int, grMax: Float, modifier: Modifier) {
             if (h > 0) clipRect(x, top, x + barW, barH) { drawRoundRect(fill, Offset(x, 0f), Size(barW, barH), r) }
         }
         fun level(red: Boolean) = if (bypass) off else if (red) th.rec else th.accent
-        val yIn = if (inDb <= -48) barH else yOf(inDb)
-        val yOut = if (outDb <= -48) barH else yOf(outDb)
+        val yIn = if (inDb <= -scale) barH else yOf(inDb)
+        val yOut = if (outDb <= -scale) barH else yOf(outDb)
         bar(0, level(inRed), yIn, barH - yIn)
         bar(2, level(outRed), yOut, barH - yOut)
-        bar(1, if (bypass) off else th.gr, 0f, minOf(barH, maxOf(0f, gr) / grMax * barH))
+        bar(1, if (bypass) off else th.gr, 0f, minOf(barH, maxOf(0f, gr) / grMax * span))
         val ry = Math.round(yOf(mark) - 1).toFloat().coerceIn(0f, barH - 2)
         val x0 = Math.round(cx[0] - barW / 2).toFloat()
         drawRect(th.text, Offset(x0 - 6.dp.toPx(), ry), Size(barW + 12.dp.toPx(), 2.dp.toPx()))
         for ((i, n) in listOf("IN", "GR", "OUT").withIndex()) {
             val t = text.measure(n, labelStyle)
-            drawText(t, topLeft = Offset(cx[i] - t.size.width / 2, size.height - t.size.height))
+            drawText(t, topLeft = Offset(cx[i] - t.size.width / 2, (if (alignTop) size.height - 4.dp.toPx() else size.height) - t.size.height))
         }
     }
 }
 
 /** Кнопка модуля мастера (MasterButtons.swift): рамка цветом модуля — модуль работает; bypass — рамки нет. Тап —
- *  окно модуля (позже), с SHIFT — BYPASS. */
+ *  окно модуля, с SHIFT — BYPASS. */
 @Composable
 fun MasterButton(s: ScreenState, k: Int, modifier: Modifier) {
     val th = LocalTheme.current

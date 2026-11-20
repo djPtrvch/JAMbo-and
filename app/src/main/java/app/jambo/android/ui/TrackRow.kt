@@ -59,7 +59,18 @@ private fun ChannelCell(s: ScreenState, title: String, channel: Int, selected: B
     ) {
         Text(title, color = th.text, fontSize = 12.tsp(), fontWeight = if (selected) FontWeight.Black else FontWeight.SemiBold,
             letterSpacing = 0.7.sp)
+        // Запись мастера: мигающая красная точка слева вверху.
+        if (channel == 2) RecDot(s, s.mixInfo.let { it.getOrElse(it.size - 1) { 0 } }, Modifier.align(Alignment.TopStart))
     }
+}
+
+/** Мигающая красная точка записи стема: dot 1 — пишет (0,5 с), 2 — до конца меньше 5 с (чаще). */
+@Composable
+fun RecDot(s: ScreenState, dot: Int, modifier: Modifier) {
+    if (dot == 0) return
+    val th = LocalTheme.current
+    val on = if (dot == 2) s.recBlink % 2 == 0L else (s.recBlink / 3) % 2 == 0L
+    if (on) Box(modifier.padding(start = 7.dp, top = 6.dp).size(7.dp).background(th.rec, CircleShape))
 }
 
 @Composable
@@ -107,6 +118,7 @@ private fun TrackCell(
                 fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.TopEnd).padding(top = 3.dp, end = 7.dp),
             )
         }
+        RecDot(s, s.mixInfo.getOrElse(5 + 4 * index + 3) { 0 }, Modifier.align(Alignment.TopStart))
         // Жёлтая точка: параметры дорожки меняли в режиме MORPH.
         if (morph) {
             Box(Modifier.align(Alignment.TopStart).padding(start = 7.dp, top = 6.dp).size(6.dp)

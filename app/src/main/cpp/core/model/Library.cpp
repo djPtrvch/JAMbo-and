@@ -2,6 +2,7 @@
 #include "Library.h"
 #include <algorithm>
 #include <chrono>
+#include <cstdio>
 #include <cctype>
 #include <filesystem>
 #include <fstream>
@@ -299,6 +300,25 @@ void Library::remove(const std::string& id) {
     }
     nodes.erase(std::remove_if(nodes.begin(), nodes.end(), [&](const LibNode& x) { return gone.count(x.id) > 0; }),
                 nodes.end());
+}
+
+std::string Library::recordingFolderName(const std::string& project, int day, int month, int year) {
+    char d[16];
+    std::snprintf(d, sizeof d, "%02d.%02d.%04d", day, month, year);
+    const std::string p = trim(project);
+    return (p.empty() ? std::string("Project") : p) + " " + d;
+}
+
+std::string Library::recordingName(const std::string& base, int h, int m, int s) {
+    char t[16];
+    std::snprintf(t, sizeof t, "%02d-%02d-%02d", h, m, s);
+    return base + " " + t;
+}
+
+std::string Library::recordingsFolder(const std::string& name) {
+    for (const auto& n : nodes)
+        if (n.parent == recordings && n.kind == LibKind::folder && n.name == name) return n.id;
+    return createFolder(recordings, name).id;
 }
 
 // MARK: — JSON (как у iPad: nodes, marks)

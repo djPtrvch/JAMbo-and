@@ -102,6 +102,15 @@ std::optional<SampleStore::Loaded> SampleStore::fromPcm(const std::string& key, 
     return Loaded{key, name, d, PitchDetect::root(*d)};
 }
 
+std::string SampleStore::store(const SampleData& d, const std::string& dir) {
+    Sha256 h;
+    h.update(d.left(), size_t(d.frames()) * 4);
+    if (d.channels() == 2) h.update(d.right(), size_t(d.frames()) * 4);
+    const std::string key = Sha256::hex24(h.finish());
+    write(d, path(key, dir));
+    return key;
+}
+
 std::vector<uint8_t> SampleStore::wav(const SampleData& d) {
     const std::vector<float> l(d.left(), d.left() + d.frames());
     std::vector<float> r;

@@ -21,13 +21,14 @@ FN(jintArray, masterInfo)(JNIEnv* env, jobject) {
     return jniInts(env, v);
 }
 
-/// code 1 — кнопка модуля k (с SHIFT — BYPASS), 2 — точка скопа k, 3 — вид полос MIX, 4 — сброс стерео по полосам, 5 — сброс истории громкости.
+/// code 1 — кнопка модуля k (с SHIFT — BYPASS), 2 — точка скопа k, 3 — вид полос MIX, 4 — сброс стерео по полосам, 5 — сброс истории громкости, 6 — BYPASS модуля.
 FN(void, masterAct)(JNIEnv*, jobject, jint code, jint k) {
     std::lock_guard<std::mutex> g(jniLock());
     auto& m = jniApp();
     if (code == 1) m.masterButton(k);
     else if (code == 2) m.toggleScope(k);
     else if (code == 3) m.setMixMode(k);
+    else if (code == 6) m.toggleMasterBypass(k);
     else if (code == 4) m.resetBandStereo();
     else if (code == 5) m.resetLoudHistory();
 }
@@ -139,4 +140,71 @@ FN(jfloatArray, mixStereo)(JNIEnv* env, jobject) {
         v.push_back(std::isfinite(x) && x > -70 ? x : -999.f);
     }
     return floats(env, v);
+}
+
+/// Окно микшера (каждый кадр): [n, по дорожке (10): стерео, заглушена, L, холд L, R, холд R, Sidechain dB, клиппинг,
+/// наибольший пик, громкость (ручка MIX, dB)].
+FN(jfloatArray, mixerData)(JNIEnv* env, jobject, jdouble now) {
+    std::lock_guard<std::mutex> g(jniLock());
+    auto& m = jniApp();
+    const int n = std::min(int(m.project().tracks.size()), jambo::MeterState::channels);
+    std::vector<float> v{float(n)};
+    for (int t = 0; t < n; t++) {
+        const bool stereo = m.trackStereo(t);
+        const auto b = m.meters().bars(t, stereo);
+        const float l = b.size() > 0 ? b[0].level : 0, hl = b.size() > 0 ? b[0].hold : 0;
+        const float r = b.size() > 1 ? b[1].level : 0, hr = b.size() > 1 ? b[1].hold : 0;
+        v.insert(v.end(), {stereo && b.size() > 1 ? 1.f : 0.f, m.project().audible(t) ? 0.f : 1.f, l, hl, r, hr,
+                           m.meters().duckDb(t), m.meters().clip(t, now) ? 1.f : 0.f, m.meters().maxPeak[size_t(t)],
+                           float(m.knobState(t).value)});
+    }
+    return floats(env, v);
+}
+
+FN(void, mixerResetPeak)(JNIEnv*, jobject, jint ch) {
+    std::lock_guard<std::mutex> g(jniLock());
+    jniApp().resetTrackPeak(ch);
+}
+
+/// Микшер: [слот меню дорожки (−1 — нет), меню ADD, есть скопированная, можно удалить слот меню, дорожек n,
+/// по дорожке: mute, solo, ● горит, точка записи (0 — нет, 1 — пишет, 2 — до конца меньше 5 с); MASTER: ● горит, точка].
+FN(jintArray, mixInfo)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(jniLock());
+    auto& m = jniApp();
+    const auto& tm = m.trackMenu();
+    const int n = int(m.project().tracks.size());
+    std::vector<jint> v{tm ? tm->slot : -1, tm && tm->add ? 1 : 0, m.hasTrackClip() ? 1 : 0,
+                        tm && m.project().canDeleteTrack(tm->slot) ? 1 : 0, n};
+    auto dot = [&](int ch) {
+        const auto d = m.stemDot(ch);
+        return d.first ? (d.second ? 2 : 1) : 0;
+    };
+    for (int t = 0; t < n; t++) {
+        const auto& tr = m.project().tracks[size_t(t)];
+        v.insert(v.end(), {tr.mute ? 1 : 0, tr.solo ? 1 : 0, m.stemLit(t) ? 1 : 0, dot(t)});
+    }
+    v.insert(v.end(), {m.stemLit(jambo::StemRing::master) ? 1 : 0, dot(jambo::StemRing::master)});
+    return jniInts(env, v);
+}
+
+/// code 1 mute, 2 solo, 3 ● (a — канал, −1 — MASTER), 4 меню дорожки, 5 закрыть меню, 6 ADD TRACK, 7 COPY, 8 PASTE,
+/// 9 DELETE TRACK, 10 RENAME (text), 11 перестановка a → b.
+FN(void, mixAct)(JNIEnv* env, jobject, jint code, jint a, jint b, jstring jtext) {
+    const std::string text = jniString(env, jtext);
+    std::lock_guard<std::mutex> g(jniLock());
+    auto& m = jniApp();
+    switch (code) {
+    case 1: m.toggleMute(a); break;
+    case 2: m.toggleSolo(a); break;
+    case 3: m.stemTap(a < 0 ? jambo::StemRing::master : a); break;
+    case 4: m.openTrackMenu(a); break;
+    case 5: m.closeTrackMenu(); break;
+    case 6: m.addTrack(); break;
+    case 7: m.copyTrack(a); break;
+    case 8: m.pasteTrack(a); break;
+    case 9: m.deleteTrack(a); break;
+    case 10: m.renameTrack(a, text); break;
+    case 11: m.moveTrack(a, b); break;
+    default: break;
+    }
 }
