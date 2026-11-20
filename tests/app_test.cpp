@@ -112,9 +112,41 @@ void keysAndPlay() {
     app.togglePlay();
     check(!app.playing() && app.openPlayPos() == -1 && app.revision() != r, "app: стоп");
 }
+void sound() {
+    CoreAudio a;
+    App app(&a);
+    check(app.soundInfo().engine == -1 && app.soundInfo().title == "No sample", "app: без звука — No sample");
+    app.openSoundMenu();
+    check(app.soundMenu() && app.soundMenu()->empty(), "app: меню звука дорожки");
+    app.pickSynth(17);
+    const auto info = app.soundInfo();
+    check(!app.soundMenu() && app.project().tracks[0].sample == "mi:17" && info.title == "ANALOG" &&
+              info.rows.size() == 4 && info.rows[0].rfind("Wave A \u00b7 ", 0) == 0,
+          "app: ANALOG на дорожку — окно синта");
+    app.undo();
+    check(app.project().tracks[0].sample.empty(), "app: UNDO выбора движка");
+    // Зажатые шаги: движок — их свой звук; TRACK — снова звук дорожки.
+    app.toggleStep(3);
+    app.holdStep(3, true);
+    app.openSoundMenu();
+    app.holdStep(3, false);
+    check(app.soundMenu() && *app.soundMenu() == std::vector<int>{3}, "app: меню звука шагов");
+    app.pickSynth(18);
+    check(app.project().tracks[0].step(3)->sound == std::optional<std::string>("mi:18"), "app: свой звук шага");
+    app.holdStep(3, true);
+    check(app.soundInfo().title == "FM", "app: зажат шаг — окно показывает его звук");
+    app.openSoundMenu();
+    app.stepSoundToTrack();
+    app.holdStep(3, false);
+    check(!app.project().tracks[0].step(3)->sound, "app: TRACK — звук дорожки");
+    app.openSoundMenu();
+    app.cleanSampler();
+    check(app.project().tracks[0].sample.empty() && !app.soundMenu(), "app: SAMPLER — без звука");
+}
 }  // namespace
 
 int runAppTests() {
+    sound();
     steps();
     knobs();
     keysAndPlay();

@@ -21,6 +21,11 @@ class ScreenState {
     var knobTexts by mutableStateOf(Array(32) { "" }); private set
     var keys by mutableStateOf(IntArray(2)); private set
     var keyLabels by mutableStateOf(emptyArray<String>()); private set
+    var sound by mutableStateOf(IntArray(6)); private set
+    var soundTexts by mutableStateOf(arrayOf("", "", "", "")); private set
+    /** Меню звука: колонки и имена движков (не меняются). */
+    val engines: IntArray by lazy { AppNative.engines() }
+    val engineNames: Array<String> by lazy { AppNative.engineNames() }
 
     var playPos by mutableIntStateOf(-1); private set
     var flashMask by mutableIntStateOf(0); private set
@@ -54,6 +59,8 @@ class ScreenState {
         AppNative.knobTexts().let { if (!it.contentEquals(knobTexts)) knobTexts = it }
         AppNative.keys().let { if (!it.contentEquals(keys)) keys = it }
         AppNative.keyLabels().let { if (!it.contentEquals(keyLabels)) keyLabels = it }
+        AppNative.sound().let { if (!it.contentEquals(sound)) sound = it }
+        AppNative.soundTexts().let { if (!it.contentEquals(soundTexts)) soundTexts = it }
     }
 
     /** Действие и сразу новые данные. */

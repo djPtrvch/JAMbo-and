@@ -9,6 +9,7 @@
 #include "audio_bridge.h"
 #include "audio_engine.h"
 #include "model/Scales.h"
+#include "model/SynthEngines.h"
 
 namespace {
 std::mutex gLock;
@@ -37,6 +38,7 @@ enum Act {
     holdStep = 40, toggleStep, setNoteLength, copyStep, restoreCopy, setPatternLength, stepUsed,
     knobStart = 60, setKnob, knobDoubleTap,
     keyDown = 80, keyUp, octaveStep, midiNote,
+    openSoundMenu = 90, closeSoundMenu, pickSynth, cleanSampler, stepSoundToTrack, folderArrow,
     tick = 100,
 };
 
@@ -90,6 +92,12 @@ FN(jdouble, act)(JNIEnv*, jobject, jint code, jint a, jint b, jdouble x) {
     case keyUp: m.keyUp(a); break;
     case octaveStep: m.setOctave(m.octave() + a); break;
     case midiNote: m.midiNote(a, b); break;
+    case openSoundMenu: m.openSoundMenu(); break;
+    case closeSoundMenu: m.closeSoundMenu(); break;
+    case pickSynth: m.pickSynth(a); break;
+    case cleanSampler: m.cleanSampler(); break;
+    case stepSoundToTrack: m.stepSoundToTrack(); break;
+    case folderArrow: m.folderArrow(a); break;
     case tick: m.tick(x); break;
     default: break;
     }
@@ -212,5 +220,48 @@ FN(jobjectArray, keyLabels)(JNIEnv* env, jobject) {
     auto& m = app();
     std::vector<std::string> v;
     for (int k = 0; k < m.keyCount(); ++k) v.push_back(jambo::Params::noteName(m.keyNote(k)));
+    return strings(env, v);
+}
+
+/// Окно и меню звука: [движок окна (−1 — сэмпл), звуков в папке, меню открыто, движок дорожки, сэмпл на дорожке,
+/// число шагов меню, шаги меню…].
+FN(jintArray, sound)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    const auto info = m.soundInfo();
+    const auto& menu = m.soundMenu();
+    const std::string& sample = m.project().tracks[size_t(m.selectedTrack())].sample;
+    const int te = jambo::SynthKey::engine(sample);
+    std::vector<jint> v{info.engine, info.folderTotal, menu ? 1 : 0, te, !sample.empty() && te < 0 ? 1 : 0,
+                        menu ? jint(menu->size()) : 0};
+    if (menu) v.insert(v.end(), menu->begin(), menu->end());
+    return ints(env, v);
+}
+
+/// Подписи окна звука: [заголовок, после тире, пресет, подпись стрелок, строки…].
+FN(jobjectArray, soundTexts)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    const auto info = app().soundInfo();
+    std::vector<std::string> v{info.title, info.detail, info.preset, info.folderLabel};
+    v.insert(v.end(), info.rows.begin(), info.rows.end());
+    return strings(env, v);
+}
+
+/// Колонки меню звука: [число DRUMS, номера…, число SYNTH, номера…].
+FN(jintArray, engines)(JNIEnv* env, jobject) {
+    std::vector<jint> v{jint(jambo::SynthEngines::drums.size())};
+    v.insert(v.end(), jambo::SynthEngines::drums.begin(), jambo::SynthEngines::drums.end());
+    v.push_back(jint(jambo::SynthEngines::synths.size()));
+    v.insert(v.end(), jambo::SynthEngines::synths.begin(), jambo::SynthEngines::synths.end());
+    return ints(env, v);
+}
+
+/// Короткие имена движков по номеру (0…count−1; не занятый номер — пусто).
+FN(jobjectArray, engineNames)(JNIEnv* env, jobject) {
+    std::vector<std::string> v;
+    for (int e = 0; e < jambo::SynthEngines::count(); ++e) {
+        const auto* se = jambo::SynthEngines::engine(e);
+        v.push_back(se ? se->name : "");
+    }
     return strings(env, v);
 }

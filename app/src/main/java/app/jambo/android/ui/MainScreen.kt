@@ -24,10 +24,21 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import app.jambo.android.AppNative
 
 /**
  * Главный экран (RootView.swift ветки swift JAMbo, сверху вниз): верхняя панель, центр (левая колонка | сетка ручек |
- * правая колонка | измеритель), строка дорожек, секвенсор, клавиатура. Колонки и измеритель — пустые панели до своих вех.
+ * правая колонка | измеритель), строка дорожек, секвенсор, клавиатура. Правая колонка и измеритель — пустые панели до своих вех; меню звука — поверх левой колонки.
  */
 @Composable
 fun MainScreen(onMenu: () -> Unit) {
@@ -58,11 +69,16 @@ private fun Screen(s: ScreenState, th: Theme, onMenu: () -> Unit) {
 
 @Composable
 private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
-    Box(Modifier.fillMaxSize().padding(horizontal = Layout.side.dp)) {
+    // Место левой колонки (для меню звука поверх неё), в координатах Body.
+    var body by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var left by remember { mutableStateOf(Rect.Zero) }
+    Box(Modifier.fillMaxSize().padding(horizontal = Layout.side.dp).onGloballyPositioned { body = it }) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
             TopBar(s, onMenu)
             Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-                Box(Modifier.width(column()).fillMaxHeight().tile(th.panel))
+                LeftColumn(s, Modifier.width(column()).fillMaxHeight().onGloballyPositioned { c ->
+                    body?.let { b -> if (b.isAttached) left = b.localBoundingBoxOf(c) }
+                })
                 KnobGrid(s, Modifier.weight(1f).fillMaxHeight())
                 Box(Modifier.width(column()).fillMaxHeight().tile(th.panel))
                 Box(Modifier.width(Layout.meterWidth.dp).fillMaxHeight().tile(th.panel, 4f))
@@ -71,5 +87,15 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
             SequencerRow(s)
             KeyboardPanel(s, width)
         }
+        if (s.sound[2] != 0) SoundMenuOverlay(s, left)
     }
+}
+
+/** Меню звука — на месте левой колонки; тап мимо — закрыть. */
+@Composable
+private fun SoundMenuOverlay(s: ScreenState, r: Rect) {
+    val d = LocalDensity.current.density
+    Box(Modifier.fillMaxSize().pointerTap { s.act(AppNative.Act.CLOSE_SOUND_MENU) })
+    SoundMenu(s, Modifier.offset((r.left / d).dp, (r.top / d).dp).size((r.width / d).dp, (r.height / d).dp)
+        .pointerInput(Unit) { detectTapGestures { } })
 }

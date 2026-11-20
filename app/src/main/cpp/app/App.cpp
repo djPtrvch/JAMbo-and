@@ -58,9 +58,18 @@ void App::setBpm(double value) {
 void App::edit(const std::function<void(Project&)>& change) {
     const Project before = project_;
     change(project_);
+    // Новые блоки аранжировки — со своей копией клипа (AppModel.edit).
+    if (needsOwnPatterns(project_)) project_.ownArrPatterns();
     if (project_ == before) return;
     history_.record(before, project_);
     changed();
+}
+
+bool App::needsOwnPatterns(const Project& p) {
+    for (const auto& t : p.tracks)
+        for (const auto& b : t.blocks)
+            if (!b.pattern) return true;
+    return false;
 }
 
 void App::editTrack(const std::function<void(Track&)>& change) {

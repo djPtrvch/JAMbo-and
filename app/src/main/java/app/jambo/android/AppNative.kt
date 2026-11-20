@@ -30,6 +30,12 @@ object AppNative {
         const val KEY_UP = 81
         const val OCTAVE_STEP = 82
         const val MIDI_NOTE = 83
+        const val OPEN_SOUND_MENU = 90
+        const val CLOSE_SOUND_MENU = 91
+        const val PICK_SYNTH = 92
+        const val CLEAN_SAMPLER = 93
+        const val STEP_SOUND_TO_TRACK = 94
+        const val FOLDER_ARROW = 95
         const val TICK = 100
     }
 
@@ -55,6 +61,14 @@ object AppNative {
     /** [число клавиш, число клавиш двух октав, по клавише: нота, биты подсвечена 1 | обведена 2 | корневая 4]. */
     external fun keys(): IntArray
     external fun keyLabels(): Array<String>
+    /** [движок окна (−1 — сэмпл), звуков в папке, меню открыто, движок дорожки, сэмпл на дорожке, число шагов меню, шаги…]. */
+    external fun sound(): IntArray
+    /** [заголовок, после тире, пресет, подпись стрелок, строки…]. */
+    external fun soundTexts(): Array<String>
+    /** Колонки меню звука: [число DRUMS, номера…, число SYNTH, номера…]. */
+    external fun engines(): IntArray
+    /** Короткие имена движков по номеру. */
+    external fun engineNames(): Array<String>
 }
 
 /** Биты шага (jni_app.cpp, steps). */

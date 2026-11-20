@@ -4,6 +4,7 @@
 #pragma once
 #include "engine/CoreEvent.h"
 #include "model/History.h"
+#include "model/KnobDefaults.h"
 #include "model/Params.h"
 #include "model/Project.h"
 #include "sequencer/SeqOut.h"
@@ -43,6 +44,14 @@ struct StepInfo {
     bool on = false, tail = false, playing = false, held = false, outside = false, last = false;
     bool manualLock = false, col4Lock = false, ownSound = false;
     std::string label;
+};
+
+/// Окно звука (левая колонка): заголовок, строки «подпись · значение», подпись стрелок папки.
+struct SoundInfo {
+    int engine = -1;  // −1 — сэмпл (или без звука)
+    std::string title, detail, preset, folderLabel;
+    std::vector<std::string> rows;
+    int folderTotal = 0;
 };
 
 class App {
@@ -94,6 +103,22 @@ public:
     void setKnob(int slot, double norm);
     void knobDoubleTap(int slot);
 
+    // Звук дорожки (левая колонка)
+    SoundInfo soundInfo() const;
+    /// Меню звука открыто; шаги, для которых (пусто — для дорожки).
+    const std::optional<std::vector<int>>& soundMenu() const { return soundMenu_; }
+    /// Тап по окну звука: меню (зажаты шаги — для них; пальцы потом можно убрать).
+    void openSoundMenu();
+    void closeSoundMenu();
+    /// Движок на дорожку или, с зажатыми шагами, — их свой звук.
+    void pickSynth(int engine);
+    /// SAMPLER: дорожка без звука.
+    void cleanSampler();
+    /// Меню звука шагов → TRACK: снова звук дорожки.
+    void stepSoundToTrack();
+    /// Стрелка: соседний звук папки; с зажатыми шагами — звук этих шагов.
+    void folderArrow(int dir);
+
     // Клавиатура
     int octave() const;
     int keyCount() const;
@@ -137,6 +162,9 @@ private:
     std::map<int, KeyHold> keyHolds_;
     std::optional<std::pair<int, Step>> lastCopy_;
     uint64_t revision_ = 1;
+    std::optional<std::vector<int>> soundMenu_;
+    /// Свои значения ручек по умолчанию (SHIFT + удержание — позже; пока пустые).
+    KnobDefaults knobDefaults_;
 
     // Ход игры (LiveState.swift): позиции шагов, клип дорожки, мигание.
     std::vector<int> playPos_, cell_;
@@ -151,6 +179,8 @@ private:
     const Track& seq() const;
     std::vector<int> trigNotes() const;
     void edit(const std::function<void(Project&)>& change);
+    /// Есть блок аранжировки без своей копии клипа.
+    static bool needsOwnPatterns(const Project& p);
     void editTrack(const std::function<void(Track&)>& change);
     void editSeq(const std::function<void(Track&)>& change);
     void mutatePlay(const std::function<void(Project&)>& change, bool publish);
@@ -164,6 +194,12 @@ private:
     std::optional<double> playLock(const std::string& id) const;
     int rawTrackPlayPos() const;
     std::vector<ParamDef> mixDefs_;
+    std::optional<int> firstHeld() const;
+    /// Звук окна: пока зажат шаг со своим звуком — его звук.
+    std::string shownSound() const;
+    /// Значение ручки для окна синта: p-lock зажатого шага, при игре — играющего, иначе ручка дорожки.
+    double synthValue(const ParamDef& p) const;
+    std::string sampleName(const std::string& key) const;
 };
 
 }  // namespace jambo
