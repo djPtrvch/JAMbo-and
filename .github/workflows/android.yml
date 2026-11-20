@@ -23,7 +23,7 @@ jobs:
       - name: Build and run
         run: |
           cmake -S tests -B build/tests -DCMAKE_BUILD_TYPE=Release
-          cmake --build build/tests -j
+          cmake --build build/tests -j "$(nproc)"
           timeout 600 build/tests/core_tests
 
   build:
