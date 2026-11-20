@@ -155,6 +155,15 @@ object AppNative {
     external fun wave(cols: Int): FloatArray
     /** Полосы воспроизведения окна сэмпла: пары доля, непрозрачность. */
     external fun heads(): FloatArray
+
+    /** Мастер (jni_master.cpp): [bypass SAT, COMP, CLIP, LIM, точки скопа SAT, COMP, CLIP, LIM]. */
+    external fun masterInfo(): IntArray
+    /** code 1 — кнопка модуля k (с SHIFT — BYPASS), 2 — точка скопа k. */
+    external fun masterAct(code: Int, k: Int)
+    /** По блоку COMP, CLIP, LIM: [IN dB, OUT dB, GR dB, IN красный, OUT красный, bypass, риска dB]. */
+    external fun masterBars(now: Double): FloatArray
+    /** [корреляция (−9 — тишина), n, n пар side, mid, по точке 0…3: w, w мин., w макс.]. */
+    external fun scopeData(width: Int): FloatArray
     fun act(code: Int, a: Int = 0, b: Int = 0) = act(code, a, b, 0.0)
 
     /** [ревизия, ход открытого клипа, маска мигания, мигание доли, акцент, игра]. */

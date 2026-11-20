@@ -40,8 +40,21 @@ fun RightColumn(s: ScreenState, modifier: Modifier, onPages: (LayoutCoordinates)
     val th = LocalTheme.current
     val channel = s.tracks[2]
     BoxWithConstraints(modifier) {
-        if (channel != 0) {
-            Box(Modifier.fillMaxSize().background(th.panel, RoundedCornerShape(Layout.radius.dp)))
+        if (channel == 1) {
+            // Скоп мастера того же размера, что при MST; на месте осциллоскопа и кнопок — позже стерео по полосам и
+            // история громкости.
+            MasterScope(s, Modifier.fillMaxSize(), osc = false)
+            return@BoxWithConstraints
+        }
+        if (channel == 2) {
+            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
+                MasterScope(s, Modifier.weight(1f).fillMaxWidth())
+                ButtonPair { ScopeButton(s, 1, Modifier.weight(1f)); ScopeButton(s, 2, Modifier.weight(1f)) }
+                ButtonPair {
+                    HoldButton("SHIFT", s.side[4] != 0, Modifier.weight(1f)) { on -> s.act(Act.SET_SHIFT, if (on) 1 else 0) }
+                    ScopeButton(s, 3, Modifier.weight(1f))
+                }
+            }
             return@BoxWithConstraints
         }
         val bar = Side.bar(maxHeight.value)

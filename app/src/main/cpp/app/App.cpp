@@ -285,6 +285,7 @@ void App::tick(double now) {
     stepMorphGlide(now);
     tickMeters(now);
     drainVoices();
+    tickMasterMeters(now);
     const int before = openPlayPos();
     SeqOut e;
     while (audio_->popOut(e)) {

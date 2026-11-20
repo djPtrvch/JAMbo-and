@@ -74,8 +74,12 @@ fun LeftColumn(s: ScreenState, modifier: Modifier) {
             if (channel == 0) {
                 ButtonPair { SourceButton(s, "LFO1", 1, Modifier.weight(1f)); SourceButton(s, "LFO2", 2, Modifier.weight(1f)) }
                 ButtonPair { SourceButton(s, "LFO3", 3, Modifier.weight(1f)); SourceButton(s, "ENV", 4, Modifier.weight(1f)) }
+            } else if (channel == 2) {
+                // По цепочке: SAT снизу слева, над ним COMP, справа от него CLIP, под CLIP — LIM.
+                ButtonPair { MasterButton(s, 1, Modifier.weight(1f)); MasterButton(s, 2, Modifier.weight(1f)) }
+                ButtonPair { MasterButton(s, 0, Modifier.weight(1f)); MasterButton(s, 3, Modifier.weight(1f)) }
             } else {
-                val names = if (channel == 1) listOf("LEVEL", "PAN", "MASK", "FREQ") else listOf("COMP", "CLIP", "SAT", "LIM")
+                val names = listOf("LEVEL", "PAN", "MASK", "FREQ")
                 ButtonPair { SideButton(names[0], Modifier.weight(1f), enabled = false); SideButton(names[1], Modifier.weight(1f), enabled = false) }
                 ButtonPair { SideButton(names[2], Modifier.weight(1f), enabled = false); SideButton(names[3], Modifier.weight(1f), enabled = false) }
             }
@@ -161,6 +165,10 @@ private fun SoundWindow(s: ScreenState, modifier: Modifier) {
     val channel = s.tracks[2]
     val tap = if (channel == 0) Modifier.pointerTap { s.act(Act.OPEN_SOUND_MENU) } else Modifier
     Box(modifier.tile(th.panel).then(tap)) {
+        if (channel == 2) {
+            MasterIndicator(s, Modifier.fillMaxSize())
+            return@Box
+        }
         if (channel != 0) return@Box
         // Пока держат MOD — миниатюры LFO1–3 и ENV.
         if (s.side[6] != 0) {

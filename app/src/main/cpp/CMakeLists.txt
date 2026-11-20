@@ -30,6 +30,7 @@ add_library(jambo SHARED
   jni_bridge.cpp
   jni_app.cpp
   jni_lib.cpp
+  jni_master.cpp
   ${CORE_SOURCES}
   ${APP_SOURCES}
 )

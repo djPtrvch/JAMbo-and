@@ -41,6 +41,7 @@ public:
                  const std::map<std::string, jambo::SampleRef>& samples) override;
     bool popOut(jambo::SeqOut& e) override;
     bool popVoice(jambo::VoiceOut& e) override;
+    jambo::MasterChain* master() override { return core_ ? &core_->master : nullptr; }
 
     // Заполняет out (kInfoSize значений), см. порядок в audio_engine.cpp.
     static constexpr int kInfoSize = 20;

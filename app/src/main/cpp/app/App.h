@@ -5,6 +5,9 @@
 #include "engine/CoreEvent.h"
 #include "EqDisplay.h"
 #include "MeterState.h"
+#include "MasterMeters.h"
+#include "ScopeState.h"
+#include "master/MasterChain.h"
 #include "icons/EngineIcons.h"
 #include "synth/Wavetable.h"
 #include "files/SampleStore.h"
@@ -40,6 +43,8 @@ struct AppAudio {
     virtual bool popOut(SeqOut& e) = 0;
     /// Голоса сэмплера из колбэка (полосы воспроизведения окна сэмпла).
     virtual bool popVoice(VoiceOut&) { return false; }
+    /// Цепочка мастера колбэка (телеметрия COMP, CLIP, LIM и скоп); nullptr — звука нет.
+    virtual MasterChain* master() { return nullptr; }
     /// Ход транспорта из колбэка (запись с REC).
     virtual PlayClock::State clock() const { return {}; }
     /// Время хоста (с, часы колбэка), чей звук слышен сейчас: сейчас минус задержка выхода.
@@ -376,6 +381,21 @@ public:
     double cellProgress(int i, int k) const;
     std::pair<int, double> scenePass() const;
 
+    // Мастер (AppMaster.cpp): индикация COMP | CLIP | LIM, BYPASS модулей (SAT 0, COMP 1, CLIP 2, LIM 3).
+    const MasterMeters& masterMeters() const { return masterMeters_; }
+    bool masterBypass(int m) const;
+    /// Включить и выключить bypass модуля (одна запись в UNDO).
+    void toggleMasterBypass(int m);
+    /// Кнопка мастера: с SHIFT — BYPASS; без — окно модуля (с окнами модулей).
+    void masterButton(int m);
+    /// Значение параметра мастера (риски THRESHOLD и CEILING).
+    double masterValue(const std::string& id, double def) const;
+    /// Скоп (при MIX и MST): точки съёма COMP, CLIP, LIM — тап (SAT всегда).
+    const ScopeState& scope() const { return scope_; }
+    void setScopeWidth(int w) { scope_.width = std::max(1, w); }
+    const std::array<bool, 4>& scopeOn() const { return scopeOn_; }
+    void toggleScope(int k);
+
     // Библиотека (AppLibrary.cpp)
     /// Хранилище сэмплов (base/Samples) и дерево библиотеки (base/Library.json).
     void openLibraryStorage(const std::string& base);
@@ -620,6 +640,10 @@ private:
     std::optional<std::string> libPreviewKey_;
     bool previewOn_ = false;
     std::map<int, VoiceOut> heads_;
+    MasterMeters masterMeters_;
+    ScopeState scope_;
+    std::array<bool, 4> scopeOn_{true, false, false, false};
+    void tickMasterMeters(double now);
     /// Голоса из колбэка → полосы воспроизведения.
     void drainVoices();
     /// Кадр ядра, который слышен сейчас (по времени хоста с поправкой на задержку выхода).

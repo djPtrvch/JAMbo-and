@@ -81,6 +81,11 @@ class ScreenState {
     var wave by mutableStateOf(FloatArray(1)); private set
     /** Полосы воспроизведения (каждый кадр, пока звучат голоса сэмплера). */
     var heads by mutableStateOf(FloatArray(0)); private set
+    /** Мастер: bypass и точки скопа (по ревизии); индикация и скоп — каждый кадр при MIX и MST. */
+    var masterInfo by mutableStateOf(IntArray(8)); private set
+    var masterBars by mutableStateOf(FloatArray(21)); private set
+    var scope by mutableStateOf(FloatArray(2)); private set
+    var scopeWidth = 200
     /** Идёт IMPORT (файлов осталось). */
     var importing by mutableIntStateOf(0)
 
@@ -95,6 +100,10 @@ class ScreenState {
     fun frame(nowSeconds: Double) {
         AppNative.act(AppNative.Act.TICK, 0, 0, nowSeconds)
         refresh()
+        if (tracks[2] != 0) {
+            scope = AppNative.scopeData(scopeWidth)
+            if (tracks[2] == 2) masterBars = AppNative.masterBars(nowSeconds)
+        }
         val dt = nowSeconds - lastFrame
         lastFrame = nowSeconds
         if (eq[0] != 0 && eqCols > 1) {
@@ -150,6 +159,7 @@ class ScreenState {
         AppNative.iconValues().let { if (!it.contentEquals(iconValues)) iconValues = it }
         AppNative.soundTexts().let { if (!it.contentEquals(soundTexts)) soundTexts = it }
         AppNative.lib().let { if (!it.contentEquals(lib)) lib = it }
+        AppNative.masterInfo().let { if (!it.contentEquals(masterInfo)) masterInfo = it }
         AppNative.libRows().let { if (!it.contentEquals(libRows)) libRows = it }
         if (waveCols > 0) AppNative.wave(waveCols).let { if (!it.contentEquals(wave)) wave = it }
     }
