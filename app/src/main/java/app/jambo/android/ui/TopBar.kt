@@ -57,8 +57,10 @@ fun TopBar(s: ScreenState, onMenu: () -> Unit) {
         }
         val pi = s.piano
         val dens = density()
+        // SCALE и EQ — шириной с PATTERNS (половина правой колонки); остаток — ROOT и кнопке пианоролла.
+        val side = ((rightColumn().value - Layout.gap) / 2).dp
         DragField(s, "SCALE", s.topTexts[0], { pi[5] }, { s.act(Act.SET_SCALE, it) },
-            Modifier.width(mid(Layout.topButton))) { r ->
+            Modifier.width(side)) { r ->
             s.choice = Choice(s.scaleNames, 3, pi[5], r) { s.act(Act.SET_SCALE, it) }
         }
         // ROOT: меню (4 столбца) — от левого края ROOT до правого края REDO.
@@ -71,7 +73,7 @@ fun TopBar(s: ScreenState, onMenu: () -> Unit) {
         RecButton(s, top.getOrElse(5) { 0 } != 0, Modifier.width(mid(half)))
         Glyph("↷", top[2] != 0, Modifier.width(mid(Layout.topButton))) { s.act(Act.REDO) }
         RollIcon(Modifier.weight(1f))
-        Later("EQ", Modifier.width(mid(Layout.topButton)))
+        Later("EQ", Modifier.width(side))
         // PATTERNS и ARRANGE — ровно над правой колонкой, затем место измерителя.
         Row(Modifier.width(rightColumn()).fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
             Later("PATTERNS", Modifier.weight(1f))
