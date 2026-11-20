@@ -18,7 +18,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.windowInsetsPadding
 
 /**
  * Главный экран (RootView.swift ветки swift JAMbo, сверху вниз): верхняя панель, центр (левая колонка | сетка ручек |
@@ -31,21 +36,33 @@ fun MainScreen(onMenu: () -> Unit) {
     LaunchedEffect(Unit) {
         while (true) withFrameNanos { s.frame(it / 1e9) }
     }
-    CompositionLocalProvider(LocalTheme provides th) {
-        BoxWithConstraints(Modifier.fillMaxSize().background(th.bg).padding(horizontal = Layout.side.dp)) {
-            val width = maxWidth.value
-            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-                TopBar(s, onMenu)
-                Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-                    Box(Modifier.width(Layout.leftColumn.dp).fillMaxHeight().tile(th.panel))
-                    KnobGrid(s, Modifier.weight(1f).fillMaxHeight())
-                    Box(Modifier.width(Layout.leftColumn.dp).fillMaxHeight().tile(th.panel))
-                    Box(Modifier.width(Layout.meterWidth.dp).fillMaxHeight().tile(th.panel, 4f))
-                }
-                TrackRow(s, Layout.step(width))
-                SequencerRow(s)
-                KeyboardPanel(s, width)
+    // Фон темы — и под вырезом камеры; раскладка — внутри безопасной зоны.
+    BoxWithConstraints(Modifier.fillMaxSize().background(th.bg).windowInsetsPadding(WindowInsets.displayCutout)) {
+        // Раскладка — в точках iPad (Layout.swift): высота экрана — всегда designHeight точек, ширина — не меньше
+        // designWidth (на широком экране лишнее растягивается). Плотность — пикселей на точку.
+        val px = with(LocalDensity.current) { Pair(maxWidth.toPx(), maxHeight.toPx()) }
+        val scale = minOf(px.first / Layout.designWidth, px.second / Layout.designHeight)
+        CompositionLocalProvider(LocalTheme provides th, LocalDensity provides Density(scale, 1f)) {
+            Screen(s, th, onMenu)
+        }
+    }
+}
+
+@Composable
+private fun Screen(s: ScreenState, th: Theme, onMenu: () -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = Layout.side.dp)) {
+        val width = maxWidth.value
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
+            TopBar(s, onMenu)
+            Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
+                Box(Modifier.width(Layout.leftColumn.dp).fillMaxHeight().tile(th.panel))
+                KnobGrid(s, Modifier.weight(1f).fillMaxHeight())
+                Box(Modifier.width(Layout.leftColumn.dp).fillMaxHeight().tile(th.panel))
+                Box(Modifier.width(Layout.meterWidth.dp).fillMaxHeight().tile(th.panel, 4f))
             }
+            TrackRow(s, Layout.step(width))
+            SequencerRow(s)
+            KeyboardPanel(s, width)
         }
     }
 }

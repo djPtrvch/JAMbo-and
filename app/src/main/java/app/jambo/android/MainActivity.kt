@@ -60,15 +60,15 @@ class MainActivity : ComponentActivity() {
         setContent {
             // Бутерброд — пока экран спайка (MIDI-устройства, Bluetooth, Link, звук); меню JAMbo — позже.
             var spike by remember { mutableStateOf(false) }
-            Box(Modifier.fillMaxSize().background(Color.Black).windowInsetsPadding(WindowInsets.displayCutout)) {
+            Box(Modifier.fillMaxSize().background(Color.Black)) {
                 if (spike) {
-                    SpikeScreen(
+                    Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.displayCutout)) { SpikeScreen(
                         midi = midi,
                         ble = blePeripheral,
                         onScanBle = ::requestBleScan,
                         onAdvertise = ::setAdvertise,
                         onLink = ::setLink,
-                    )
+                    ) }
                     Text("BACK", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).clickable { spike = false }
                             .padding(12.dp))

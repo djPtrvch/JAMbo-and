@@ -12,6 +12,9 @@ object Layout {
     const val leftColumn = 220f
     const val meterWidth = 30f
     const val side = 12f
+    /// Экран iPad Pro 11" в альбомной ориентации (точки): по нему масштабируется раскладка (MainScreen).
+    const val designWidth = 1194f
+    const val designHeight = 834f
 
     /** Ширина шага секвенсора (16 шагов с зазором 4) — и столбцов MIX и MST; width — без полей. */
     fun step(width: Float) = maxOf(1f, (width - 15 * stepGap) / 16)
