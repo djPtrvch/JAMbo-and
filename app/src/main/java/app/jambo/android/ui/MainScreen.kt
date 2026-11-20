@@ -50,15 +50,22 @@ fun MainScreen(onMenu: () -> Unit) {
 
 @Composable
 private fun Screen(s: ScreenState, th: Theme, onMenu: () -> Unit) {
-    BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = Layout.side.dp)) {
-        val width = maxWidth.value
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val stretch = maxOf(1f, maxWidth.value / Layout.designWidth)
+        CompositionLocalProvider(LocalStretch provides stretch) { Body(s, th, onMenu, maxWidth.value - 2 * Layout.side * stretch) }
+    }
+}
+
+@Composable
+private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
+    Box(Modifier.fillMaxSize().padding(horizontal = wide(Layout.side))) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
             TopBar(s, onMenu)
             Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-                Box(Modifier.width(Layout.leftColumn.dp).fillMaxHeight().tile(th.panel))
+                Box(Modifier.width(wide(Layout.leftColumn)).fillMaxHeight().tile(th.panel))
                 KnobGrid(s, Modifier.weight(1f).fillMaxHeight())
-                Box(Modifier.width(Layout.leftColumn.dp).fillMaxHeight().tile(th.panel))
-                Box(Modifier.width(Layout.meterWidth.dp).fillMaxHeight().tile(th.panel, 4f))
+                Box(Modifier.width(wide(Layout.leftColumn)).fillMaxHeight().tile(th.panel))
+                Box(Modifier.width(wide(Layout.meterWidth)).fillMaxHeight().tile(th.panel, 4f))
             }
             TrackRow(s, Layout.step(width))
             SequencerRow(s)

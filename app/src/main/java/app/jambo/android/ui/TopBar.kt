@@ -45,25 +45,25 @@ fun TopBar(s: ScreenState, onMenu: () -> Unit) {
     val top = s.top
     val half = (Layout.topButton - Layout.gap) / 2
     Row(Modifier.fillMaxWidth().height(Layout.topHeight.dp), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-        Row(Modifier.width(Layout.leftColumn.dp).fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-            Box(Modifier.width(52.dp).fillMaxHeight().pointerInput(Unit) { detectTapGestures(onTap = { onMenu() }) },
+        Row(Modifier.width(wide(Layout.leftColumn)).fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
+            Box(Modifier.width(wide(52f)).fillMaxHeight().pointerInput(Unit) { detectTapGestures(onTap = { onMenu() }) },
                 contentAlignment = Alignment.Center) { Burger(th.text) }
             BpmField(s, top[0] / 10.0, Modifier.weight(1f))
-            Metronome(s, top[4] != 0, Modifier.width(52.dp))
+            Metronome(s, top[4] != 0, Modifier.width(wide(52f)))
         }
-        Later(s.topTexts[0], Modifier.width(Layout.topButton.dp))
+        Later(s.topTexts[0], Modifier.width(wide(Layout.topButton)))
         Later(s.topTexts[1], Modifier.weight(1f))
-        Glyph("↶", top[1] != 0, Modifier.width(Layout.topButton.dp)) { s.act(Act.UNDO) }
-        PlayButton(s, top[3] != 0, Modifier.width(half.dp))
-        Box(Modifier.width(half.dp).fillMaxHeight().framed(th.panel2, th.rec.copy(alpha = 0.4f)), contentAlignment = Alignment.Center) {
+        Glyph("↶", top[1] != 0, Modifier.width(wide(Layout.topButton))) { s.act(Act.UNDO) }
+        PlayButton(s, top[3] != 0, Modifier.width(wide(half)))
+        Box(Modifier.width(wide(half)).fillMaxHeight().framed(th.panel2, th.rec.copy(alpha = 0.4f)), contentAlignment = Alignment.Center) {
             Text("●", color = th.rec.copy(alpha = 0.4f), fontSize = 16.sp)
         }
-        Glyph("↷", top[2] != 0, Modifier.width(Layout.topButton.dp)) { s.act(Act.REDO) }
-        Later("ROLL", Modifier.weight(1f))
-        Later("EQ", Modifier.width(Layout.topButton.dp))
-        Later("PATTERNS", Modifier.width(Layout.topButton.dp))
-        Later("ARRANGE", Modifier.width(Layout.topButton.dp))
-        Spacer(Modifier.width(Layout.meterWidth.dp))
+        Glyph("↷", top[2] != 0, Modifier.width(wide(Layout.topButton))) { s.act(Act.REDO) }
+        RollIcon(Modifier.weight(1f))
+        Later("EQ", Modifier.width(wide(Layout.topButton)))
+        Later("PATTERNS", Modifier.width(wide(Layout.topButton)))
+        Later("ARRANGE", Modifier.width(wide(Layout.topButton)))
+        Spacer(Modifier.width(wide(Layout.meterWidth)))
     }
 }
 
@@ -161,5 +161,21 @@ private fun Metronome(s: ScreenState, on: Boolean, modifier: Modifier) {
 fun Burger(color: Color) {
     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
         repeat(3) { Box(Modifier.width(22.dp).height(2.dp).tile(color, 1f)) }
+    }
+}
+
+/** ROLL — окно пианоролла (значок клавиш, как pianokeys в Swift-версии); окно — позже, пока серая. */
+@Composable
+private fun RollIcon(modifier: Modifier) {
+    val th = LocalTheme.current
+    Box(modifier.fillMaxHeight().tile(th.panel2), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(width = 22.dp, height = 18.dp)) {
+            val w = size.width
+            val h = size.height
+            val sw = 1.6.dp.toPx()
+            drawRect(th.dim, style = Stroke(sw))
+            for (k in 1..2) drawLine(th.dim, Offset(w * k / 3, h * 0.55f), Offset(w * k / 3, h), sw)
+            for (k in 1..2) drawRect(th.dim, Offset(w * k / 3 - w * 0.09f, 0f), androidx.compose.ui.geometry.Size(w * 0.18f, h * 0.55f))
+        }
     }
 }

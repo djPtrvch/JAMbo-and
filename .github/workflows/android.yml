@@ -12,15 +12,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Тесты Core на Linux: сверка C++-порта с эталонами ветки swift JAMbo.
+  # Тесты Core на Linux: сверка C++-порта с эталонами ветки swift JAMbo. Только если в push менялись Core (C++),
+  # тесты или скрипты и CI; правки экрана (Kotlin), документов — без тестов (решение пользователя 20.11).
   core-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Changed Core?
+        id: changed
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE" 2>/dev/null; then
+            echo "core=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if git diff --name-only "$BEFORE" "$GITHUB_SHA" | grep -qE '^(app/src/main/cpp/|tests/|scripts/|\.github/)'; then
+            echo "core=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "core=false" >> "$GITHUB_OUTPUT"; echo "No Core changes - tests skipped"
+          fi
       - name: Fetch golden files and json
+        if: steps.changed.outputs.core == 'true'
         run: scripts/fetch-test-deps.sh
       - name: Build and run
+        if: steps.changed.outputs.core == 'true'
         run: |
           cmake -S tests -B build/tests -DCMAKE_BUILD_TYPE=Release
           cmake --build build/tests -j "$(nproc)"

@@ -1,5 +1,18 @@
 package app.jambo.android.ui
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+
+/** Растяжение по ширине: ширина экрана в точках / designWidth (не меньше 1). Ширины раскладки iPad умножаются на него —
+ * экран шире iPad растягивается равномерно, пропорции кнопок и колонок сохраняются. */
+val LocalStretch = staticCompositionLocalOf { 1f }
+
+/** Ширина v точек iPad с растяжением экрана. */
+@Composable
+fun wide(v: Float): Dp = (v * LocalStretch.current).dp
+
 /** Размеры раскладки (Layout.swift ветки swift JAMbo), dp. */
 object Layout {
     const val gap = 6f

@@ -36,10 +36,12 @@ fun KeyboardPanel(s: ScreenState, width: Float) {
     // Сторона клавиши — по двум октавам гаммы (с одной октавой клавиши шире, высота та же).
     val count = s.keys.getOrElse(1) { 15 }
     val step = Layout.step(width)
-    Row(Modifier.fillMaxWidth().height(Layout.pianoHeight(width, count).dp),
+    // Высота клавиатуры — как на iPad (по ширине без растяжения): центр не сжимается на широком экране.
+    val base = width / LocalStretch.current
+    Row(Modifier.fillMaxWidth().height(Layout.pianoHeight(base, count).dp),
         horizontalArrangement = Arrangement.spacedBy(Layout.stepGap.dp)) {
         Column(Modifier.width(step.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-            Box(Modifier.fillMaxWidth().height(Layout.keyHeight(width, count).dp).tile(th.panel2), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().height(Layout.keyHeight(base, count).dp).tile(th.panel2), contentAlignment = Alignment.Center) {
                 Text("CHORD", color = th.dim, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
             }
             Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { Burger(th.dim) }
