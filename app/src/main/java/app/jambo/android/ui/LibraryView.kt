@@ -41,7 +41,8 @@ import java.security.MessageDigest
 /**
  * Браузер библиотеки (LibraryBrowser.swift ветки swift JAMbo) на месте центра экрана: вверху ‹, путь, NEW FOLDER,
  * IMPORT и ✕; список папок, сэмплов и пресетов; в выборе нескольких — SELECT ALL, LOAD, CANCEL; внизу — что и куда
- * загружено. IMPORT — системный выбор файлов (можно несколько): аудио и видео, .jambopreset. Нет пока: SAVE, EXPORT,
+ * загружено; в SAVE — поле NAME и SAVE HERE. IMPORT — системный выбор файлов (можно несколько): аудио и видео,
+ * .jambopreset. Нет пока: SAVE сэмпла, EXPORT,
  * .zip, перетаскивание папок, LOAD TABLE.
  */
 @Composable
@@ -56,6 +57,12 @@ fun LibraryView(s: ScreenState, modifier: Modifier) {
     }
     var openRow by remember { mutableStateOf<String?>(null) }
     var ask by remember { mutableStateOf<Pair<String, String>?>(null) }  // (id или "" — новая папка, имя)
+    var exists by remember { mutableStateOf<String?>(null) }
+    var saveAs by remember { mutableStateOf<String?>(null) }
+    // SAVE HERE: имя занято — вопрос OVERWRITE / SAVE AS.
+    val save: (String) -> Unit = { name ->
+        if (AppNative.libText(2, name).isEmpty()) s.libAct(LibAct.SAVE, "", name) else exists = name
+    }
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
         val folder = AppNative.libImportFolder()
@@ -88,6 +95,7 @@ fun LibraryView(s: ScreenState, modifier: Modifier) {
                 }
             }
         }
+        if (info.getOrElse(6) { 0 } != 0) SaveBar(s) { name -> save(name) }
         if (info[2] != 0) Row(Modifier.fillMaxWidth().height(48.dp), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Text("${info[3]} selected · tap samples and presets to add or remove", color = th.text, fontSize = 12.tsp(), maxLines = 1,
@@ -97,6 +105,16 @@ fun LibraryView(s: ScreenState, modifier: Modifier) {
             Tool("CANCEL", Modifier.width(110.dp)) { s.libAct(LibAct.CANCEL_PICK) }
         }
         Text(rows.getOrElse(1) { "" }, color = th.dim, fontSize = 12.tsp(), maxLines = 1, modifier = Modifier.padding(horizontal = 6.dp))
+    }
+    exists?.let { name ->
+        ChoiceDialog("“$name” already exists", null, listOf(
+            Triple("OVERWRITE", true) { exists = null; s.libAct(LibAct.SAVE, AppNative.libText(2, name), name) },
+            Triple("SAVE AS…", true) { exists = null; saveAs = AppNative.libText(3, name) },
+            Triple("CANCEL", true) { exists = null },
+        )) { exists = null }
+    }
+    saveAs?.let { name ->
+        InputDialog("Save as", name, 40, { saveAs = null }) { text -> saveAs = null; save(text) }
     }
     ask?.let { (id, name) ->
         InputDialog(if (id.isEmpty()) "New folder" else "Rename", name, 40, { ask = null }) { text ->
@@ -150,3 +168,23 @@ private fun displayName(ctx: Context, u: Uri): String {
 /** Ключ сэмпла — как SampleStore у iPad: SHA-256 байтов файла, первые 24 hex-знака. */
 private fun sampleKey(b: ByteArray): String =
     MessageDigest.getInstance("SHA-256").digest(b).take(12).joinToString("") { "%02x".format(it) }
+
+/** Строка SAVE: поле NAME (по умолчанию — движок и номер) и SAVE HERE — в открытую папку. */
+@Composable
+private fun SaveBar(s: ScreenState, save: (String) -> Unit) {
+    val th = LocalTheme.current
+    var name by remember { mutableStateOf(AppNative.libText(1, "")) }
+    Row(Modifier.fillMaxWidth().height(48.dp), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Text("NAME", color = th.dim, fontSize = 9.tsp(), modifier = Modifier.padding(start = 6.dp))
+        androidx.compose.foundation.text.BasicTextField(
+            name, { v -> if (v.length <= 40 || v.length <= name.length) name = v }, singleLine = true,
+            textStyle = androidx.compose.ui.text.TextStyle(color = th.text, fontSize = 14.tsp(), fontWeight = FontWeight.SemiBold),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(th.text),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { save(name) }),
+            modifier = Modifier.weight(1f).fillMaxHeight().tile(th.panel, 8f).padding(horizontal = 10.dp, vertical = 14.dp),
+        )
+        Tool("SAVE HERE", Modifier.width(130.dp)) { save(name) }
+    }
+}

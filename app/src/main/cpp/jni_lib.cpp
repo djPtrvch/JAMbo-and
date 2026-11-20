@@ -8,17 +8,17 @@
 #define FN(ret, name) extern "C" JNIEXPORT ret JNICALL Java_app_jambo_android_AppNative_##name
 
 namespace {
-enum LibAct { libOpen = 1, libClose, libEnterF, libUpF, libTapF, libHoldF, libPickAllF, libCancelPickF, libLoadPickedF, libPreviewF, libNewFolderF, libRenameF, libDeleteF };
+enum LibAct { libOpen = 1, libClose, libEnterF, libUpF, libTapF, libHoldF, libPickAllF, libCancelPickF, libLoadPickedF, libPreviewF, libNewFolderF, libRenameF, libDeleteF, libSaveF, libOpenSaveF };
 }
 
-/// Браузер: [открыт, в корне, выбор нескольких, отмечено, шагов загрузки, строк].
+/// Браузер: [открыт, в корне, выбор нескольких, отмечено, шагов загрузки, строк, SAVE].
 FN(jintArray, lib)(JNIEnv* env, jobject) {
     std::lock_guard<std::mutex> g(jniLock());
     auto& m = jniApp();
-    if (!m.browserOpen()) return jniInts(env, {0, 1, 0, 0, 0, 0});
+    if (!m.browserOpen()) return jniInts(env, {0, 1, 0, 0, 0, 0, 0});
     const auto& p = m.libPicked();
     return jniInts(env, {1, m.libAtRoot(), p ? 1 : 0, p ? jint(p->size()) : 0, jint(m.browserSteps().size()),
-                         jint(m.libItems().size())});
+                         jint(m.libItems().size()), m.libSaveMode() ? 1 : 0});
 }
 
 /// Строки браузера: [путь, подпись внизу, затем по строке: id, вид (f, s, p), имя, справа (число в папке, движок),
@@ -70,8 +70,23 @@ FN(void, libAct)(JNIEnv* env, jobject, jint code, jstring jid, jstring jtext) {
     case libNewFolderF: m.libNewFolder(text); break;
     case libRenameF: m.libRename(id, text); break;
     case libDeleteF: m.libDelete(id); break;
+    case libSaveF: m.libSave(text, id); break;
+    case libOpenSaveF: m.openBrowserSave(); break;
     default: break;
     }
+}
+
+/// Подписи SAVE: code 1 — имя по умолчанию, 2 — id узла с именем text (пусто — свободно), 3 — свободное имя.
+FN(jstring, libText)(JNIEnv* env, jobject, jint code, jstring jtext) {
+    const std::string text = jniString(env, jtext);
+    std::lock_guard<std::mutex> g(jniLock());
+    auto& m = jniApp();
+    std::string out;
+    if (code == 1) out = m.libDefaultName();
+    else if (code == 2) {
+        if (const auto* n = m.libSameName(text)) out = n->id;
+    } else if (code == 3) out = m.libFreeName(text);
+    return env->NewStringUTF(out.c_str());
 }
 
 /// Папка IMPORT (запоминается экраном до конца импорта).

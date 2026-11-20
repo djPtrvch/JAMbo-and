@@ -145,6 +145,8 @@ object AppNative {
     external fun libRows(): Array<String>
     external fun libAct(code: Int, id: String, text: String)
     external fun libImportFolder(): String
+    /** SAVE: 1 — имя по умолчанию, 2 — id узла с этим именем (пусто — свободно), 3 — свободное имя. */
+    external fun libText(code: Int, text: String): String
     /** IMPORT (поток вне UI): 1 — сэмпл, 3 — пресет, 2 — декодировать экраном (libImportPcm), 0 — нет. */
     external fun libImportBytes(name: String, bytes: ByteArray, folder: String): Int
     external fun libImportPcm(name: String, key: String, pcm: FloatArray, channels: Int, rate: Int, folder: String): Int
@@ -259,6 +261,8 @@ object LibAct {
     const val NEW_FOLDER = 11
     const val RENAME = 12
     const val DELETE = 13
+    const val SAVE = 14
+    const val OPEN_SAVE = 15
 }
 
 /** Действия PROJECTS (projectAct в jni_app.cpp). */

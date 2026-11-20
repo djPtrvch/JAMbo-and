@@ -383,6 +383,17 @@ public:
     /// Шаги, на которые грузится звук (меню звука шагов); пусто — дорожка.
     std::vector<int> browserSteps() const { return browser_ ? browser_->steps : std::vector<int>{}; }
     void openBrowser(const std::vector<int>& steps);
+    /// SAVE в меню звука: браузер в режиме сохранения пресета синта дорожки.
+    void openBrowserSave();
+    bool libSaveMode() const { return browser_ && browser_->savePreset; }
+    /// Имя по умолчанию в поле NAME: движок и номер.
+    std::string libDefaultName() const;
+    /// Узел с тем же именем в папке сохранения (вопрос OVERWRITE / SAVE AS) или nullptr.
+    const LibNode* libSameName(const std::string& name) const;
+    /// Свободное имя («Name 2») — подсказка для SAVE AS.
+    std::string libFreeName(const std::string& name) const;
+    /// SAVE HERE (over — перезаписать этот узел); затем браузер — в загрузке.
+    void libSave(const std::string& name, const std::string& over);
     void closeBrowser();
     const Library& library() const { return library_; }
     const std::string& libFolder() const { return libFolder_; }
@@ -595,6 +606,8 @@ private:
     // Библиотека
     struct Browser {
         std::vector<int> steps;
+        /// SAVE: пресет синта дорожки — в открытую папку.
+        bool savePreset = false;
     };
     std::optional<Browser> browser_;
     std::unique_ptr<SampleStore> samples_;
