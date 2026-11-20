@@ -90,6 +90,14 @@ fun EqPlot(s: ScreenState, modifier: Modifier) {
         }) {
             val g = EqGeom(size.width, size.height)
             drawGrid(this, g, th, text)
+            // LISTEN: область прослушиваемой полосы — жёлтая полупрозрачная полоса на всю высоту (bell и notch — по Q,
+            // low cut и low shelf — от левого края, high cut и high shelf — до правого).
+            s.eqListen.takeIf { it.size == 2 }?.let { sp ->
+                val x0 = if (sp[0] > 0) maxOf(0f, g.x(sp[0].toDouble())) else 0f
+                val x1 = if (sp[1] > 0) minOf(size.width, g.x(sp[1].toDouble())) else size.width
+                drawRect(th.accent.copy(alpha = 0.16f), androidx.compose.ui.geometry.Offset(x0, 0f),
+                    androidx.compose.ui.geometry.Size(maxOf(1f, x1 - x0), size.height))
+            }
             drawSpectrum(this, s, th)
             drawCurves(this, s, g, th)
             drawPoints(this, s, g, th, text)

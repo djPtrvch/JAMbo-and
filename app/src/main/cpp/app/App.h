@@ -356,6 +356,8 @@ public:
     /// LISTEN (тап — вкл./выкл.): канал звучит только в области выбранной полосы.
     bool eqListenOn() const { return eqListenHeld_; }
     void toggleEqListen();
+    /// Область прослушиваемой полосы (Гц: низ, верх; верх ≤ 0 — до правого края); nullopt — не слушают.
+    std::optional<std::pair<double, double>> eqListenSpan() const;
     void syncEqListen();
     /// Сдвиги динамических полос сейчас, dB.
     std::vector<double> eqDynOffsets() const;

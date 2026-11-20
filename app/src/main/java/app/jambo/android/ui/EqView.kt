@@ -96,7 +96,9 @@ private fun EqBar(s: ScreenState, ui: EqUi, origin: Float, modifier: Modifier) {
     val w2 = maxOf(0f, (listen - qRight - 3 * g) / 2)
     Box(modifier) {
         Box(Modifier.width(52.dp).fillMaxHeight(), contentAlignment = Alignment.Center) {
-            Text("${t[0]}\nEQ", color = th.dim, fontSize = 11.tsp(), letterSpacing = 0.9.sp, textAlign = TextAlign.Center, maxLines = 2)
+            // Имя канала и EQ — каждое в одну строку (MASTER не переносится): длинное имя — мельче.
+            Text("${t[0]}\nEQ", color = th.dim, fontSize = (if (t[0].length > 4) 9 else 11).tsp(), letterSpacing = 0.4.sp,
+                textAlign = TextAlign.Center, maxLines = 2, softWrap = false)
         }
         val at = { x: Float, w: Float -> Modifier.offset(x.dp, 0.dp).width(w.dp).fillMaxHeight() }
         val bands = s.eqBands

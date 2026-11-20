@@ -106,6 +106,7 @@ class ScreenState {
     var eqExtra by mutableStateOf(IntArray(3)); private set
     var eqPresetNames by mutableStateOf(emptyArray<String>()); private set
     var eqPresetsOpen by mutableStateOf(false)
+    var eqListen by mutableStateOf(FloatArray(0)); private set
     /** MIX: поднятая ручка дорожки (перестановка): слот, сдвиг пальца (px) и место, куда встанет; −1 — нет. */
     var liftSlot by mutableIntStateOf(-1)
     var liftDx by mutableStateOf(0f)
@@ -199,6 +200,7 @@ class ScreenState {
         AppNative.masterWin().let { if (!it.contentEquals(masterWin)) masterWin = it }
         AppNative.eqExtra().let { if (!it.contentEquals(eqExtra)) eqExtra = it }
         AppNative.eqPresetNames().let { if (!it.contentEquals(eqPresetNames)) eqPresetNames = it }
+        AppNative.eqListenSpan().let { if (!it.contentEquals(eqListen)) eqListen = it }
         AppNative.masterWinTexts().let { if (!it.contentEquals(masterWinTexts)) masterWinTexts = it }
         AppNative.libRows().let { if (!it.contentEquals(libRows)) libRows = it }
         if (waveCols > 0) AppNative.wave(waveCols).let { if (!it.contentEquals(wave)) wave = it }

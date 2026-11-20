@@ -195,6 +195,8 @@ object AppNative {
     external fun eqPresetAct(code: Int, k: Int, k2: Int, text: String)
     external fun eqPresetIndex(name: String, except: Int): Int
     external fun eqPresetNextName(): String
+    /** LISTEN: область прослушиваемой полосы [низ Гц, верх Гц (≤ 0 — до края)]; пусто — не слушают. */
+    external fun eqListenSpan(): FloatArray
     /** 1 mute, 2 solo, 3 ● (−1 — MASTER), 4 меню, 5 закрыть, 6 ADD, 7 COPY, 8 PASTE, 9 DELETE, 10 RENAME, 11 a → b. */
     external fun mixAct(code: Int, a: Int, b: Int, text: String)
     fun act(code: Int, a: Int = 0, b: Int = 0) = act(code, a, b, 0.0)

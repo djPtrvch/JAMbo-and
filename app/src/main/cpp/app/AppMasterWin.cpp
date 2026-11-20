@@ -2,6 +2,7 @@
 // CLIP, LIM на месте центра при MST; PATTERNS, EQ и браузер не открыты одновременно с ними. Поля, тапы по RATIO,
 // TYPE, RELEASE, AUTO MAKEUP, UNITY, пресеты модулей и SAVE DEFAULT.
 #include "App.h"
+#include <cmath>
 #include <fstream>
 #include <sstream>
 #include "master/Glue.h"
@@ -298,6 +299,14 @@ void App::syncEqListen() {
     x->freq.store(float(b->freq));
     x->ms.store(b->ms);
     x->channel.store(eqChannel());
+}
+
+std::optional<std::pair<double, double>> App::eqListenSpan() const {
+    if (!eqListenHeld_ || eqListenBand_ < 0) return std::nullopt;
+    const auto b = eqTarget().band(eqListenBand_);
+    if (!b) return std::nullopt;
+    const auto s = EqListen::span(*b);
+    return std::make_pair(s.lo, std::isfinite(s.hi) ? s.hi : -1.0);
 }
 
 void App::stopEqListen() {

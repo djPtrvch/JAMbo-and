@@ -180,10 +180,10 @@ private fun GridMenu(s: ScreenState, d: GridData, modifier: Modifier) {
 @Composable
 private fun LoopIcon(color: androidx.compose.ui.graphics.Color) {
     val k = LocalIconScale.current
-    androidx.compose.foundation.Canvas(Modifier.size((28 * k).dp, (20 * k).dp)) {
+    androidx.compose.foundation.Canvas(Modifier.size((18 * k).dp, (13 * k).dp)) {
         val w = size.width
         val h = size.height
-        val sw = 2.2f * density * k
+        val sw = 1.8f * density * k
         val r = h * 0.32f
         val m = sw
         val st = androidx.compose.ui.graphics.drawscope.Stroke(sw, cap = androidx.compose.ui.graphics.StrokeCap.Round,

@@ -240,3 +240,11 @@ FN(jstring, eqPresetNextName)(JNIEnv* env, jobject) {
     std::lock_guard<std::mutex> g(jniLock());
     return env->NewStringUTF(jniApp().eqPresets().nextName().c_str());
 }
+
+/// LISTEN: область прослушиваемой полосы [низ Гц, верх Гц (≤ 0 — до правого края)]; пусто — не слушают.
+FN(jfloatArray, eqListenSpan)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(jniLock());
+    std::vector<float> v;
+    if (const auto s = jniApp().eqListenSpan()) v = {float(s->first), float(s->second)};
+    return floats(env, v);
+}
