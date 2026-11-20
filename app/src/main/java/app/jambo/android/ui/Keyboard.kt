@@ -29,7 +29,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.jambo.android.AppNative.Act
 
-private const val KEY_GAP = 3f
+/** Зазор между клавишами. */
+object Keyboard { const val GAP = 3f }
+
+private const val KEY_GAP = Keyboard.GAP
 
 /** Клавиатура: CHORD и бутерброд (меню клавиатуры) | клавиши гаммы (с CHORD — подписи аккордов) | ▲ ▼ октавы. */
 @Composable

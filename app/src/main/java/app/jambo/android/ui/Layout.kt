@@ -6,9 +6,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Раскладка по ширине экрана (решение пользователя 20.11): левая колонка — ровно до правого края 3-го шага
- * секвенсора, правая зеркально — от левого края 14-го шага (вместе с зазором и измерителем справа — 3 шага).
- * Середина — сетка ручек и кнопки над ней — остаток; midStretch — её растяжение против iPad.
+ * Раскладка по ширине экрана (решение пользователя 21.11): левая колонка — ровно до правого края первой клавиши
+ * клавиатуры, правая зеркально — от левого края последней клавиши (вместе с зазором и измерителем справа).
+ * Клавиш — сколько на экране (1 или 2 октавы). Середина — сетка ручек и кнопки над ней — остаток; midStretch — её
+ * растяжение против iPad.
  */
 class Dims(val col: Float, val right: Float, val midStretch: Float) {
     companion object {
@@ -16,11 +17,14 @@ class Dims(val col: Float, val right: Float, val midStretch: Float) {
         const val ipadWidth = Layout.designWidth - 2 * Layout.side
         val ipadMid = ipadWidth - 2 * Layout.leftColumn - Layout.meterWidth - 3 * Layout.gap
 
-        fun of(width: Float): Dims {
-            val three = 3 * Layout.step(width) + 2 * Layout.stepGap
-            val right = maxOf(60f, three - Layout.meterWidth - Layout.gap)
-            val mid = width - three - right - Layout.meterWidth - 3 * Layout.gap
-            return Dims(three, right, maxOf(0.5f, mid / ipadMid))
+        fun of(width: Float, keys: Int): Dims {
+            val step = Layout.step(width)
+            val area = width - 2 * step - 2 * Layout.stepGap
+            val key = (area - Keyboard.GAP * (keys - 1)) / maxOf(1, keys)
+            val edge = step + Layout.stepGap + key
+            val right = maxOf(60f, edge - Layout.meterWidth - Layout.gap)
+            val mid = width - edge - right - Layout.meterWidth - 3 * Layout.gap
+            return Dims(edge, right, maxOf(0.5f, mid / ipadMid))
         }
     }
 }

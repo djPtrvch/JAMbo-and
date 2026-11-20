@@ -97,7 +97,7 @@ fun MainScreen(onMenu: () -> Unit) {
 private fun Screen(s: ScreenState, th: Theme, onMenu: () -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val width = maxWidth.value - 2 * Layout.side
-        CompositionLocalProvider(LocalDims provides Dims.of(width)) { Body(s, th, onMenu, width) }
+        CompositionLocalProvider(LocalDims provides Dims.of(width, maxOf(1, s.keys[0]))) { Body(s, th, onMenu, width) }
     }
 }
 
