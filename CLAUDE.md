@@ -10,6 +10,8 @@
 - `ios/JAMbo.swiftpm/UI` — экран и меню (SwiftUI);
 - `CLAUDE.md`, `ios/CLAUDE.md`, `docs/ai/*.md` — правила и описание поведения.
 
+Читать — из «голого» клона `scripts/fetch-swift-src.sh` (third_party/jambo-swift.git): `git -C third_party/jambo-swift.git show swift:<путь>`. Сессию открывать только с репозиторием JAMbo-and: клон JAMbo в сессии загружает его большой CLAUDE.md в контекст.
+
 Поведение JAMbo здесь не копировать: ссылаться на файлы djPtrvch/JAMbo (`docs/ai/…`), в своих `docs/ai` писать только отличия Android-версии.
 
 ## Принципы
