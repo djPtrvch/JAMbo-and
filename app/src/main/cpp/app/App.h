@@ -28,6 +28,7 @@
 #include "model/Params.h"
 #include "model/Project.h"
 #include "model/ProjectSession.h"
+#include "model/ProjectPack.h"
 #include "sequencer/PlayClock.h"
 #include "sequencer/SeqOut.h"
 #include <array>
@@ -594,6 +595,8 @@ public:
     void deleteProject(const std::string& id);
     /// LOAD: проект — в том виде, в каком он сохранён SAVE; Autosave — в проект, из которого он.
     void openProject(const std::string& id);
+    std::optional<ProjectPack::Storage> projectPackStorage() const;
+    std::optional<ProjectInfo> saveImportedProject(const ProjectPack::Imported& imported);
     /// Уход в фон: записать Autosave сразу.
     void flushAutosave();
 
@@ -832,9 +835,8 @@ private:
     double heardFrame() const;
     void ensureLibrary();
     void libEdit(const std::function<void(Library&)>& change);
-    std::vector<std::string> projectSampleKeys() const;
     /// Сэмплы проекта, которых нет в памяти, — с диска.
-    void ensureSamples();
+    void ensureSamples(const std::set<std::string>& keys);
     bool libUseSamples(const std::vector<std::pair<std::string, std::string>>& list);
     std::string trackLabel(int i) const;
     ProjectSession session_;

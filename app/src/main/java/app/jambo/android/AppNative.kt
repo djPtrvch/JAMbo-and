@@ -131,6 +131,10 @@ object AppNative {
     /** По 6 на проект: id, подпись, время (с), темп, тональность, признаки (a — Autosave, c — текущий); в конце имя
      *  текущего проекта. */
     external fun projectRows(): Array<String>
+    /** Передача .jambo из потока IO: export — число отсутствующих медиа или −1. */
+    external fun exportProjectPack(path: String): Int
+    /** [id, имя, число отсутствующих медиа] или [пустой id, ошибка]. */
+    external fun importProjectPack(path: String): Array<String>
     /** Действие PROJECTS (ProjectAct) со строками; ответ — у NAMED (id) и RANDOM_NAME. */
     external fun projectAct(code: Int, id: String, text: String): String
     /** [QUANTIZE, OVERDUB, MORPH RETURN, MORPH HOLD, LEVEL RELATIVE]. */

@@ -48,7 +48,9 @@ float sampleAt(const uint8_t* s, int bytes, Fmt f, bool unsigned8) {
 
 std::optional<PcmAudio> frames(const Reader& r, size_t at, size_t len, int channels, int bytes, Fmt f, double rate,
                                bool unsigned8) {
-    if (channels < 1 || bytes < 1 || bytes > 8 || rate < 1000 || rate > 768000) return std::nullopt;
+    const bool floating = f == Fmt::floatLE || f == Fmt::floatBE;
+    if (channels < 1 || !std::isfinite(rate) || rate < 1000 || rate > 768000) return std::nullopt;
+    if (floating ? (bytes != 4 && bytes != 8) : (bytes < 1 || bytes > 4)) return std::nullopt;
     len = std::min(len, r.n - std::min(at, r.n));
     const size_t frameBytes = size_t(channels) * size_t(bytes);
     const size_t count = len / frameBytes;

@@ -42,8 +42,11 @@ static SampleRef toData(PcmAudio a) {
 }
 
 SampleRef SampleStore::read(const std::string& key, const std::string& dir) {
-    if (!validKey(key)) return nullptr;
-    std::ifstream f(path(key, dir), std::ios::binary);
+    return validKey(key) ? readFile(path(key, dir)) : nullptr;
+}
+
+SampleRef SampleStore::readFile(const std::string& path) {
+    std::ifstream f(path, std::ios::binary);
     if (!f) return nullptr;
     const std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
     auto a = AudioFile::parse(bytes.data(), bytes.size());

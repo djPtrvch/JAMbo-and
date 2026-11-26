@@ -1,6 +1,8 @@
 // JNI экрана: app.jambo.android.AppNative. «Выполни действие» — act(code, a, b, x) (коды — Act в AppNative.kt),
 // «дай данные» — массивы по разделам. Вызовы из UI- и MIDI-потоков — под одним мьютексом.
 #include <jni.h>
+#include <codecvt>
+#include <locale>
 #include <cmath>
 #include <cstdio>
 #include <mutex>
@@ -60,11 +62,24 @@ jintArray ints(JNIEnv* env, const std::vector<jint>& v) {
     return a;
 }
 
+// В проекте и .jambo — обычный UTF-8; NewStringUTF ждёт Modified UTF-8.
+jstring javaString(JNIEnv* env, const std::string& value) {
+    using Utf = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>;
+    try {
+        const auto utf16 = Utf().from_bytes(value);
+        const std::vector<jchar> chars(utf16.begin(), utf16.end());
+        return env->NewString(chars.data(), jsize(chars.size()));
+    } catch (const std::range_error&) {
+        // Старые локальные строки могли уже быть сохранены в Modified UTF-8.
+        return env->NewStringUTF(value.c_str());
+    }
+}
+
 jobjectArray strings(JNIEnv* env, const std::vector<std::string>& v) {
     jclass cls = env->FindClass("java/lang/String");
     jobjectArray a = env->NewObjectArray(jsize(v.size()), cls, nullptr);
     for (size_t i = 0; i < v.size(); ++i) {
-        jstring s = env->NewStringUTF(v[i].c_str());
+        jstring s = javaString(env, v[i]);
         env->SetObjectArrayElement(a, jsize(i), s);
         env->DeleteLocalRef(s);
     }
@@ -80,10 +95,16 @@ jintArray jniInts(JNIEnv* env, const std::vector<jint>& v) { return ints(env, v)
 jobjectArray jniStrings(JNIEnv* env, const std::vector<std::string>& v) { return strings(env, v); }
 std::string jniString(JNIEnv* env, jstring s) {
     if (!s) return {};
-    const char* c = env->GetStringUTFChars(s, nullptr);
-    std::string out(c);
-    env->ReleaseStringUTFChars(s, c);
-    return out;
+    const jchar* chars = env->GetStringChars(s, nullptr);
+    if (!chars) return {};
+    const std::u16string text(chars, chars + env->GetStringLength(s));
+    env->ReleaseStringChars(s, chars);
+    using Utf = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>;
+    try {
+        return Utf().to_bytes(text);
+    } catch (const std::range_error&) {
+        return {};
+    }
 }
 
 #define FN(ret, name) extern "C" JNIEXPORT ret JNICALL Java_app_jambo_android_AppNative_##name
@@ -279,10 +300,7 @@ FN(jintArray, gridLive)(JNIEnv* env, jobject) {
 
 FN(void, setScene)(JNIEnv* env, jobject, jint k, jstring name, jint repeats) {
     std::lock_guard<std::mutex> g(gLock);
-    const char* c = env->GetStringUTFChars(name, nullptr);
-    const std::string n = c ? c : "";
-    if (c) env->ReleaseStringUTFChars(name, c);
-    app().setScene(k, n, repeats);
+    app().setScene(k, jniString(env, name), repeats);
 }
 
 namespace {
@@ -428,15 +446,8 @@ FN(jobjectArray, projectRows)(JNIEnv* env, jobject) {
 /// 4 удалить (id), 5 открыть LOAD (id), 6 занятое имя (text) → id, 7 случайное имя.
 FN(jstring, projectAct)(JNIEnv* env, jobject, jint code, jstring id, jstring text) {
     std::lock_guard<std::mutex> g(gLock);
-    auto str = [&](jstring s) {
-        if (!s) return std::string();
-        const char* c = env->GetStringUTFChars(s, nullptr);
-        std::string out = c ? c : "";
-        if (c) env->ReleaseStringUTFChars(s, c);
-        return out;
-    };
     auto& m = app();
-    const std::string a = str(id), t = str(text);
+    const std::string a = jniString(env, id), t = jniString(env, text);
     std::string r;
     switch (code) {
     case 0: m.newProject(); break;
@@ -449,7 +460,7 @@ FN(jstring, projectAct)(JNIEnv* env, jobject, jint code, jstring id, jstring tex
     case 7: r = jambo::ProjectSession::randomName(m.projectList()); break;
     default: break;
     }
-    return env->NewStringUTF(r.c_str());
+    return javaString(env, r);
 }
 
 /// Кадр (каждый кадр экрана): [ревизия (младшие 31 бит), ход открытого клипа, маска мигания, мигание доли,

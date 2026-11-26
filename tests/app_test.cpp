@@ -531,6 +531,27 @@ void moveTrackKeepsSound() {
     check(low > 0.02 && app.project().tracks[3].sample == SynthKey::key(17), "app: перестановка на ходу — звук без провала");
 }
 
+void projectImport() {
+    const auto dir = std::filesystem::temp_directory_path() / ("jambo-import-" + Library::newId());
+    {
+        CoreAudio audio;
+        App app(&audio);
+        app.openStorage((dir / "Projects").string(), Project{});
+        app.saveProjectAs("Jam", "");
+        const auto original = app.session().id;
+        Project next;
+        next.bpm = 147;
+        const auto first = app.saveImportedProject({"Jam", next, 0});
+        const auto second = app.saveImportedProject({"Jam", next, 0});
+        check(first && second && first->id != second->id && first->name == "Jam (imported)" &&
+                  second->name == "Jam (imported 2)", "app: imported projects are separate copies");
+        check(app.session().id == original && app.project().bpm == 120, "app: import preserves current project");
+        if (first) app.openProject(first->id);
+        check(first && app.session().id == first->id && app.project().bpm == 147, "app: imported project loads normally");
+    }
+    std::filesystem::remove_all(dir);
+}
+
 void sampleEditor() {
     const auto dir = std::filesystem::temp_directory_path() / ("jambo-editor-" + Library::newId());
     {
@@ -688,6 +709,7 @@ void midiTargets() {
 }
 
 int runAppTests() {
+    projectImport();
     midiTargets();
     midi();
     sampleEditor();

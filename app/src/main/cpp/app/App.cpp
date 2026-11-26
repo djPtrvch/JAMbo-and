@@ -149,27 +149,26 @@ void App::restore(const Project& snap) {
 }
 
 const WtTable* App::table(const std::string& key) {
-    if (key.rfind("wt:", 0) == 0) return nullptr;
     auto& tb = tables_[key];
-    if (!tb) tb = WtTable::builtin(WavetableKey::name(key));
+    if (!tb) {
+        if (key.rfind("wt:", 0) == 0) {
+            const auto user = WavetableKey::parseUser(key);
+            const auto storage = projectPackStorage();
+            if (user && storage) {
+                const auto wave = WtTable::readUserWave(storage->tables / (user->wav + ".wav"));
+                if (wave) tb = WtTable::user(*wave, user->frameSize);
+            }
+        } else tb = WtTable::builtin(WavetableKey::name(key));
+    }
     return tb.get();
 }
 
 void App::publishAudio() {
-    // Таблицы, нужные проекту: дорожек, их папок (стрелки переключают без паузы), звуков клипов.
-    std::vector<std::string> keys;
-    for (const auto& t : project_.tracks) {
-        keys.push_back(t.table);
-        for (const auto& it : t.folder.items)
-            if (it.preset && it.preset->table) keys.push_back(*it.preset->table);
-        if (t.home) keys.push_back(t.home->table);
-        for (const auto& c : t.clips)
-            if (c && c->src) keys.push_back(c->src->table);
-    }
+    const auto assets = projectAssets(project_);
     std::map<std::string, std::shared_ptr<WtTable>> tables;
-    for (const auto& k : keys)
-        if (table(k)) tables[k] = tables_[k];
-    ensureSamples();
+    for (const auto& key : assets.tables)
+        if (table(key)) tables[key] = tables_[key];
+    ensureSamples(assets.samples);
     SoundSnapshot::Options o;
     o.tables = tables;
     o.levelRelative = levelRelative_;

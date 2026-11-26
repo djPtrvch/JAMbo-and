@@ -1,8 +1,11 @@
 // Таблицы движка WTABLE (порт WtTable из Core/Jambo/Wavetable.swift): встроенные — по спектру кадров
 // (гармоники 1…1023 при кадре 2048); мипмапы по октавам — обратным FFT с обрезкой гармоник (уровень L — гармоники
-// до 1024 >> L), вне аудиопотока. Свои таблицы (WAV) — позже.
+// до 1024 >> L), вне аудиопотока. Свои таблицы — из WAV проекта.
 #pragma once
+#include <cstdint>
+#include <filesystem>
 #include <functional>
+#include <optional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -10,7 +13,7 @@
 namespace jambo {
 
 /// Ключ таблицы дорожки (Track.table; порт enum WavetableKey): "" — BASIC, "builtin:NAME" — встроенная,
-/// «wt:<ключ WAV>:<размер кадра>» — своя (разбор parseUser — со своими таблицами, позже).
+/// «wt:<ключ WAV>:<размер кадра>» — своя.
 namespace WavetableKey {
 inline std::string builtin(const std::string& name) { return name == "BASIC" ? "" : "builtin:" + name; }
 inline std::string name(const std::string& key) {
@@ -19,6 +22,8 @@ inline std::string name(const std::string& key) {
     return "TABLE";
 }
 inline std::string user(const std::string& wav, int frameSize) { return "wt:" + wav + ":" + std::to_string(frameSize); }
+struct User { std::string wav; int frameSize; };
+std::optional<User> parseUser(const std::string& key);
 }  // namespace WavetableKey
 
 /// Таблица для колбэка — только указатели (WtTable живёт в кэше).
@@ -33,12 +38,16 @@ public:
     static constexpr int tableSize = 2048;
     static constexpr int builtinFrames = 64;
     static constexpr int levelCount = 11;
+    static constexpr int maxUserFrames = 256;
+    static constexpr uint64_t maxUserBytes = 4U * 1024U * 1024U;
     static constexpr int harmonics = tableSize / 2 - 1;
     static const char* const builtins[6];
 
     explicit WtTable(int frames);
     /// Встроенная таблица по имени (BASIC — и для неизвестного).
     static std::unique_ptr<WtTable> builtin(const std::string& name);
+    static std::optional<std::vector<float>> readUserWave(const std::filesystem::path& path);
+    static std::unique_ptr<WtTable> user(const std::vector<float>& samples, int frameSize);
     WtRef ref() const { return {frames, sizes_, ptrs_}; }
 
     const int frames;

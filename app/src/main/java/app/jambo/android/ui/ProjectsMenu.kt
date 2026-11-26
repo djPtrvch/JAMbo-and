@@ -31,7 +31,7 @@ private class ProjectRow(val id: String, val title: String, val updated: Long, v
 
 private const val NAME_LIMIT = 24
 
-/** Меню PROJECTS (ProjectsMenu.swift): «имя · unsaved»; NEW, SAVE, SAVE AS; EXPORT, IMPORT (позже); список: тап —
+/** Меню PROJECTS (ProjectsMenu.swift): «имя · unsaved»; NEW, SAVE, SAVE AS; EXPORT, IMPORT .jambo; список: тап —
  *  окно открытия (LOAD; MIX и IMPORT строк — позже), свайп влево — EDIT и корзина (у Autosave — только корзина).
  *  SAVE AS с именем существующего проекта спрашивает, перезаписать ли его. */
 @Composable
@@ -59,7 +59,7 @@ fun ProjectsPage(s: ScreenState, back: () -> Unit, close: () -> Unit) {
             }
             Unit
         }
-        MenuChoices(listOf("EXPORT" to false, "IMPORT" to false), enabled = listOf(false, false)) { }
+        ProjectFileButtons(s, name, close)
         MenuHead("PROJECTS")
         if (rows.isEmpty()) MenuNote("No saved projects yet — save one with SAVE")
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -97,10 +97,10 @@ fun ProjectsPage(s: ScreenState, back: () -> Unit, close: () -> Unit) {
     }
     opening?.let { p ->
         val text = if (p.current && unsaved) "Open saved “${p.title}”? Unsaved changes will be lost." else "Open “${p.title}”"
-        ChoiceDialog(text, "LOAD replaces the current project now. MIX and IMPORT — later.", listOf(
+        ChoiceDialog(text, null, listOf(
             Triple("LOAD", true) { opening = null; close(); act(ProjectAct.OPEN, p.id, "") },
             Triple("MIX", false) { },
-            Triple("IMPORT", false) { },
+            Triple("IMPORT ROWS", false) { },
         )) { opening = null }
     }
 }

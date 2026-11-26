@@ -38,6 +38,7 @@ public:
                                          int channels, double rate, const std::string& dir);
     /// Сэмпл с диска по ключу; нет файла — nullptr.
     static SampleRef read(const std::string& key, const std::string& dir);
+    static SampleRef readFile(const std::string& path);
     /// Своя копия на диск.
     static bool write(const SampleData& d, const std::string& path);
     static std::string path(const std::string& key, const std::string& dir);

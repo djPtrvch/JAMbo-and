@@ -1,6 +1,6 @@
 // App: проекты на диске (порт AppModelProjects.swift, ветка swift JAMbo): открытие при запуске, автосохранение в
-// запись Autosave, меню PROJECTS (NEW, SAVE, SAVE AS, RENAME, удаление, открытие LOAD). MIX, IMPORT строк, EXPORT и
-// IMPORT .jambo и сэмплы проекта с диска — позже. Запись — в основном потоке (в Swift — своя очередь).
+// запись Autosave, меню PROJECTS (NEW, SAVE, SAVE AS, RENAME, LOAD, EXPORT/IMPORT .jambo).
+// Передача медиа .jambo идёт вне потока экрана; запись списка проекта — под тем же мьютексом, что SAVE.
 #include "App.h"
 #include <filesystem>
 #include <chrono>
@@ -136,6 +136,24 @@ void App::openProject(const std::string& id) {
     loadProject(p);
     projectChanged();
     refreshProjects();
+}
+
+std::optional<ProjectPack::Storage> App::projectPackStorage() const {
+    if (!samples_) return std::nullopt;
+    const std::filesystem::path samples = samples_->dir();
+    return ProjectPack::Storage{samples, samples.parent_path() / "Tables"};
+}
+
+std::optional<ProjectInfo> App::saveImportedProject(const ProjectPack::Imported& imported) {
+    if (!store_) return std::nullopt;
+    const auto projects = store_->list();
+    ProjectInfo info;
+    do { info.id = ProjectStore::newId(); } while (std::filesystem::exists(*store_->path(info.id)));
+    info.name = ProjectSession::importedName(imported.name, projects);
+    info.updated = wallNow();
+    if (!store_->save(imported.project, info)) return std::nullopt;
+    refreshProjects();
+    return info;
 }
 
 }  // namespace jambo

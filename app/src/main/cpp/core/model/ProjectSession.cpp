@@ -1,5 +1,6 @@
 // Порт Core/Model/ProjectSession.swift (ветка swift JAMbo).
 #include "ProjectSession.h"
+#include <algorithm>
 #include "Scales.h"
 #include <cmath>
 #include <random>
@@ -179,12 +180,21 @@ std::string ProjectSession::keyName(const ProjectInfo& i) {
     return std::string(noteNames[((i.root % 12) + 12) % 12]) + " " + Scales::all[size_t(scale)].shortName;
 }
 
-std::string ProjectSession::importedName(const std::string& nm, const std::vector<ProjectInfo>& list) {
-    const std::string n = trim(nm);
-    const std::string base = n.empty() ? nextName(list) : n;
-    for (const auto& i : list)
-        if (i.name == base) return base + " (imported)";
-    return base;
+std::string ProjectSession::importedName(const std::string& name, const std::vector<ProjectInfo>& list) {
+    const auto trimmed = trim(name);
+    const auto base = trimmed.empty() ? nextName(list) : trimmed;
+    const auto taken = [&](const std::string& candidate) {
+        return std::any_of(list.begin(), list.end(), [&](const ProjectInfo& info) {
+            return info.id != ProjectStore::autosaveId && info.name == candidate;
+        });
+    };
+    if (!taken(base)) return base;
+    const auto first = base + " (imported)";
+    if (!taken(first)) return first;
+    for (int i = 2;; ++i) {
+        const auto candidate = base + " (imported " + std::to_string(i) + ")";
+        if (!taken(candidate)) return candidate;
+    }
 }
 
 std::string ProjectSession::exportFileName(const std::string& nm) {

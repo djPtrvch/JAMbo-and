@@ -36,27 +36,9 @@ void App::libEdit(const std::function<void(Library&)>& change) {
     bump();
 }
 
-std::vector<std::string> App::projectSampleKeys() const {
-    std::set<std::string> keys;
-    auto add = [&](const std::string& k) {
-        if (!k.empty() && SynthKey::engine(k) < 0) keys.insert(k);
-    };
-    for (const auto& [k, _] : project_.files) add(k);
-    for (const auto& t : project_.tracks) {
-        add(t.sample);
-        add(t.grain);
-        for (const auto& it : t.folder.items)
-            if (it.sample) add(*it.sample);
-        if (t.home) add(t.home->sample);
-        for (const auto& c : t.clips)
-            if (c && c->src) add(c->src->sample);
-    }
-    return {keys.begin(), keys.end()};
-}
-
-void App::ensureSamples() {
+void App::ensureSamples(const std::set<std::string>& keys) {
     if (!samples_) return;
-    for (const auto& k : projectSampleKeys())
+    for (const auto& k : keys)
         if (!samples_->data(k))
             if (auto d = SampleStore::read(k, samples_->dir())) samples_->add(k, d);
 }
