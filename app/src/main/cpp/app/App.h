@@ -2,6 +2,7 @@
 // и канала, зажатые шаги, правки шагов и ручек, клавиатура, транспорт, ход игры из очереди секвенсора. Экран (Kotlin)
 // зовёт действия и читает данные для отрисовки; всё — в основном потоке (JNI — под мьютексом jni_bridge).
 #pragma once
+#include "engine/Capture.h"
 #include "engine/CoreEvent.h"
 #include "EqDisplay.h"
 #include "MeterState.h"
@@ -505,7 +506,7 @@ public:
     void openBrowser(const std::vector<int>& steps);
     /// SAVE в меню звука: браузер в режиме сохранения пресета синта дорожки.
     void openBrowserSave();
-    bool libSaveMode() const { return browser_ && browser_->savePreset; }
+    bool libSaveMode() const { return browser_ && (browser_->savePreset || !browser_->sample.empty()); }
     /// Имя по умолчанию в поле NAME: движок и номер.
     std::string libDefaultName() const;
     /// Узел с тем же именем в папке сохранения (вопрос OVERWRITE / SAVE AS) или nullptr.
@@ -549,6 +550,21 @@ public:
     int headCount() const { return int(heads_.size()); }
     /// Звук окна: пока зажат шаг со своим звуком — его звук.
     std::string shownSound() const;
+
+    // Редактор сэмпла
+    std::string editorKey() const;
+    std::string editorName() const;
+    void editorEdit(int operation, double a, double b);
+    void editorSlice(int index, double at);
+    void editorPreview(double a, double b);
+    bool editorPreviewing() const { return previewOn_; }
+    void editorSave();
+    void applyLibraryMarks(Track& t, const std::string& key) const;
+    bool startSampleCapture(int source);
+    void stopSampleCapture();
+    void finishSampleCapture(const SampleRef& data);
+    std::vector<float> capturePeaks(int columns);
+    bool sampleCapturing() const { return captureTrack_.has_value(); }
 
     // Проекты (AppProjects.cpp)
     /// Папка проектов: открыть Autosave, иначе последний проект, иначе новый (при первом запуске — firstRun).
@@ -728,6 +744,8 @@ private:
         std::vector<int> steps;
         /// SAVE: пресет синта дорожки — в открытую папку.
         bool savePreset = false;
+        std::string sample;
+        Json sampleMarks;
     };
     std::optional<Browser> browser_;
     std::unique_ptr<SampleStore> samples_;
@@ -739,6 +757,12 @@ private:
     std::string libNote_;
     std::optional<std::string> libPreviewKey_;
     bool previewOn_ = false;
+    std::optional<int> captureTrack_;
+    std::string captureName_;
+    std::string captureProject_;
+    std::string captureProjectName_;
+    double captureDeadline_ = 0;
+    RecPeaks capturePeaks_;
     std::map<int, VoiceOut> heads_;
     MasterMeters masterMeters_;
     ScopeState scope_;

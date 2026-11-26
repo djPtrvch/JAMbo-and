@@ -27,7 +27,6 @@ void App::tickMasterMeters(double now) {
     // приглушения звука.
     if (eqListenHeld_ && (!eqView_ || eqChannel() != eqListenChannel_)) stopEqListen();
     tickMakeup();
-    drainStems();
     if (Levels* lv = audio_->levels()) loudHist_.tick(lv->mixLoudness, meters_.framePeak(Levels::master), playing_, now);
     if (channel_ != Channel::master) return;
     masterMeters_.comp.tick(m->compTele, project_.cmpBypass, now);

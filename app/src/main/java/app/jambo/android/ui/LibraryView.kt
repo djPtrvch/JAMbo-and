@@ -126,7 +126,7 @@ fun LibraryView(s: ScreenState, modifier: Modifier) {
 
 /** Кнопка строки браузера (ToolButton): жирная, по центру. */
 @Composable
-private fun Tool(title: String, modifier: Modifier, enabled: Boolean = true, action: () -> Unit) {
+internal fun Tool(title: String, modifier: Modifier, enabled: Boolean = true, action: () -> Unit) {
     val th = LocalTheme.current
     Box(modifier.fillMaxHeight().tile(th.panel2).then(if (enabled) Modifier.pointerTap(action) else Modifier),
         contentAlignment = Alignment.Center) {

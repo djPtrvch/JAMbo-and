@@ -29,6 +29,7 @@ struct CoreAudio : AppAudio {
                  const std::map<std::string, SampleRef>& samples) override {
         core.publish(p, samples, o, now);
     }
+    StemRing* stemRing() override { return &core.sequencer.stemRing; }
     Levels* levels() override { return &core.levels; }
     Spectra* spectra() override { return &core.spectra; }
     PlayClock::State clock() const override { return core.sequencer.clock.read(); }
@@ -529,7 +530,68 @@ void moveTrackKeepsSound() {
     check(low > 0.02 && app.project().tracks[3].sample == SynthKey::key(17), "app: перестановка на ходу — звук без провала");
 }
 
+void sampleEditor() {
+    const auto dir = std::filesystem::temp_directory_path() / ("jambo-editor-" + Library::newId());
+    {
+        CoreAudio audio;
+        App app(&audio);
+        app.openLibraryStorage(dir.string());
+        auto pcm = std::make_shared<SampleData>(480, true);
+        for (int i = 0; i < pcm->frames(); ++i) {
+            pcm->left()[i] = 0.25f;
+            pcm->right()[i] = 0.5f;
+        }
+        const auto raw = SampleStore::store(*pcm, app.sampleStore()->dir());
+        app.libImported(Library::root, {raw, "Editor test.wav", pcm, 48});
+        app.openBrowser({});
+        const auto* original = app.library().sameName(Library::root, "Editor test.wav");
+        if (original) app.libTap(original->id);
+        app.closeBrowser();
+        check(!raw.empty() && app.editorKey() == raw, "editor: LOAD sets the selected track's sample");
+        app.editorSlice(-1, 0.125);
+        app.editorSlice(-1, 0.5);
+        app.editorSlice(1, 0.625);
+        app.editorEdit(0, 0.25, 0.75);
+        const auto trimmed = app.editorKey();
+        const auto trimData = app.sampleData(trimmed);
+        const auto marks = app.project().tracks[0].sliceMarks(trimmed);
+        check(trimData && trimData->frames() == 240 && trimmed != raw, "editor: TRIM saves a shorter copy");
+        check(marks.size() == 1 && std::abs(marks[0].at - 0.75) < 1e-6, "editor: TRIM remaps the remaining slice");
+        app.editorEdit(2, 0, 1);
+        const auto mono = app.sampleData(app.editorKey());
+        check(mono && mono->channels() == 1 && std::abs(mono->left()[0] - 0.375f) < 1e-6, "editor: MONO averages stereo");
+        app.editorEdit(1, 0, 1);
+        const auto normalized = app.sampleData(app.editorKey());
+        check(normalized && std::abs(normalized->left()[0] - std::pow(10.0, -0.1 / 20)) < 1e-6,
+            "editor: NORMALIZE uses a -0.1 dBFS peak");
+        const auto processed = app.editorKey();
+        app.editorSave();
+        app.libSave("Edited", "");
+        app.closeBrowser();
+        app.selectTrack(1);
+        app.openBrowser({});
+        const auto* saved = app.library().sameName(Library::root, "Edited");
+        if (saved) app.libTap(saved->id);
+        check(app.editorKey() == processed && app.project().tracks[1].sliceMarks(processed).size() == 1,
+            "editor: SAVE and LOAD carry slice markers to another track");
+        app.closeBrowser();
+        check(app.startSampleCapture(StemRing::master), "editor: REC starts from master");
+        audio.run(1024);
+        app.tick(1);
+        app.selectTrack(2);
+        app.stopSampleCapture();
+        audio.run(512);
+        app.tick(1.1);
+        check(!app.sampleCapturing() && app.project().tracks[1].sample != processed,
+            "editor: recording replaces the sample on the track selected at start");
+        app.undo();
+        check(app.project().tracks[1].sample == processed, "editor: recording is one undoable change");
+    }
+    std::filesystem::remove_all(dir);
+}
+
 int runAppTests() {
+    sampleEditor();
     moveTrackKeepsSound();
     eq();
     grid();

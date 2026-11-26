@@ -288,6 +288,8 @@ void App::tick(double now) {
     tickMeters(now);
     drainVoices();
     tickMasterMeters(now);
+    drainStems();
+    if (captureTrack_ && captureDeadline_ > 0 && now_ > captureDeadline_) finishSampleCapture(nullptr);
     const int before = openPlayPos();
     SeqOut e;
     while (audio_->popOut(e)) {

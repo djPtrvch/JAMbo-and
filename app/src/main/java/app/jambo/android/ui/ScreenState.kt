@@ -123,7 +123,8 @@ class ScreenState {
     var beatFlash by mutableIntStateOf(0); private set
     var beatAccent by mutableIntStateOf(0); private set
 
-    private var revision = -1
+    var revision by mutableIntStateOf(-1)
+        private set
 
     /** Кадр экрана: ход игры из колбэка, затем данные по ревизии. */
     fun frame(nowSeconds: Double) {
@@ -212,6 +213,8 @@ class ScreenState {
         refresh()
         return r
     }
+
+    var sampleEditor by mutableStateOf(false)
 
     /** Действие библиотеки и сразу новые данные. */
     fun libAct(code: Int, id: String = "", text: String = "") {

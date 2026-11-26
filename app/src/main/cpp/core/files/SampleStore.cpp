@@ -107,8 +107,7 @@ std::string SampleStore::store(const SampleData& d, const std::string& dir) {
     h.update(d.left(), size_t(d.frames()) * 4);
     if (d.channels() == 2) h.update(d.right(), size_t(d.frames()) * 4);
     const std::string key = Sha256::hex24(h.finish());
-    write(d, path(key, dir));
-    return key;
+    return write(d, path(key, dir)) ? key : std::string{};
 }
 
 std::vector<uint8_t> SampleStore::wav(const SampleData& d) {

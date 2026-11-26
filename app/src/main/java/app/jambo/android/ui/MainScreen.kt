@@ -132,6 +132,10 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
                 LibraryView(s, Modifier.weight(1f).fillMaxHeight())
                 MeterColumn(s, Modifier.fillMaxHeight())
             }
+            else if (s.sampleEditor) Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
+                SampleEditor(s, Modifier.weight(1f).fillMaxHeight())
+                MeterColumn(s, Modifier.fillMaxHeight())
+            }
             else if (s.eq[0] != 0) Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
                 EqView(s, Modifier.weight(1f).fillMaxHeight())
                 MeterColumn(s, Modifier.fillMaxHeight())

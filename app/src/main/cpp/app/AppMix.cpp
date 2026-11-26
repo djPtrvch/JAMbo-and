@@ -174,7 +174,11 @@ void App::drainStems() {
         bump();
     }
     for (const auto& s : done) {
-        if (s.channel == StemRing::capture || !s.data) continue;
+        if (s.channel == StemRing::capture) {
+            finishSampleCapture(s.data);
+            continue;
+        }
+        if (!s.data) continue;
         std::string base = stemNames_.count(s.channel) ? stemNames_[s.channel] : std::to_string(s.channel + 1);
         stemNames_.erase(s.channel);
         saveStem(s.data, base);
@@ -189,6 +193,7 @@ void App::saveStem(const SampleRef& data, const std::string& base) {
     const std::string name = Library::recordingName(base, lt.tm_hour, lt.tm_min, lt.tm_sec);
     const std::string folder = Library::recordingFolderName(session_.name, lt.tm_mday, lt.tm_mon + 1, lt.tm_year + 1900);
     const std::string key = SampleStore::store(*data, samples_->dir());
+    if (key.empty()) return;
     samples_->add(key, data);
     libEdit([&](Library& lib) {
         const std::string id = lib.recordingsFolder(folder);

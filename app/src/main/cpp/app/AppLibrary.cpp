@@ -103,7 +103,8 @@ std::vector<std::pair<double, double>> App::playheads(int track, const std::stri
 
 void App::openBrowser(const std::vector<int>& steps) {
     ensureLibrary();
-    browser_ = Browser{steps};
+    browser_ = Browser{};
+    browser_->steps = steps;
     libPicked_.reset();
     libNote_.clear();
     if (!library_.isFolder(libFolder_)) libFolder_ = Library::root;
@@ -123,6 +124,7 @@ void App::openBrowserSave() {
 
 std::string App::libDefaultName() const {
     if (!libSaveMode()) return "";
+    if (!browser_->sample.empty()) return std::filesystem::path(editorName()).stem().string();
     const SynthEngine* e = SynthEngines::engine(SynthKey::engine(track().sample));
     const std::string base = e ? e->name : "PRESET";
     int n = 0;
@@ -139,8 +141,23 @@ const LibNode* App::libSameName(const std::string& name) const { return library_
 std::string App::libFreeName(const std::string& name) const { return library_.uniqueName(saveFolder(libFolder_), name); }
 
 void App::libSave(const std::string& name, const std::string& over) {
-    if (!libSaveMode() || channel_ != Channel::track) return;
+    if (!libSaveMode()) return;
     const std::string into = saveFolder(libFolder_);
+    if (!browser_->sample.empty()) {
+        const std::string key = browser_->sample;
+        libEdit([&](Library& lib) {
+            const auto& marks = browser_->sampleMarks;
+            if (marks.contains("warp") || !marks["slices"].empty()) lib.marks[key] = marks;
+            else lib.marks.erase(key);
+            if (!over.empty()) lib.overwrite(over, FolderItem::ofSample(key));
+            else lib.addSample(into, key, name);
+        });
+        browser_->sample.clear();
+        libNote_ = "Saved sample " + Library::clean(name);
+        bump();
+        return;
+    }
+    if (channel_ != Channel::track) return;
     const auto p = track().preset(Library::clean(name));
     if (!p) return;
     SynthPreset saved = *p;
@@ -212,7 +229,7 @@ void App::libDelete(const std::string& id) {
 // MARK: — загрузка
 
 bool App::libIsCurrent(const LibNode& n) const {
-    if (channel_ != Channel::track || libPicked_ || !browser_ || browser_->savePreset) return false;
+    if (channel_ != Channel::track || libPicked_ || !browser_ || libSaveMode()) return false;
     const Track& t = track();
     if (n.kind == LibKind::sample) return n.key && t.sample == *n.key;
     if (n.kind == LibKind::preset) return n.preset && t.sample == n.preset->sound && t.presetName() == n.name;
@@ -262,7 +279,7 @@ void App::libTap(const std::string& id) {
         libEnter(n.id);
         return;
     }
-    if (channel_ != Channel::track || browser_->savePreset) return;
+    if (channel_ != Channel::track || libSaveMode()) return;
     if (libPicked_) {
         if (libPicked_->count(n.id)) libPicked_->erase(n.id);
         else libPicked_->insert(n.id);
@@ -286,6 +303,7 @@ void App::libTap(const std::string& id) {
                 t.addSamplesQuiet({key});
                 t.setStepSound(steps, key);
             }
+            applyLibraryMarks(t, key);
         });
         libNote_ = (steps.empty() ? trackLabel(i) : stepsLabel(steps)) + ": " + n.name;
     } else if (n.kind == LibKind::preset && n.preset && steps.empty()) {
@@ -301,7 +319,7 @@ void App::libTap(const std::string& id) {
 }
 
 void App::libHold(const std::string& id) {
-    if (libPicked_ || !browser_ || !browser_->steps.empty() || browser_->savePreset) return;
+    if (libPicked_ || !browser_ || !browser_->steps.empty() || libSaveMode()) return;
     const LibNode* n = library_.node(id);
     if (n && (n->kind == LibKind::sample || n->kind == LibKind::preset)) {
         libPicked_ = std::set<std::string>{id};
@@ -346,6 +364,7 @@ void App::libLoadPicked() {
     edit([&](Project& p) {
         p.tracks[size_t(i)].setFolder(items);
         p.tracks[size_t(i)].clearSampleLocks();
+        for (const auto& item : items) if (item.sample) applyLibraryMarks(p.tracks[size_t(i)], *item.sample);
     });
     closeBrowser();
 }

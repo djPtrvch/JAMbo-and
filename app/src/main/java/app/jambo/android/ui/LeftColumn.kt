@@ -166,7 +166,12 @@ private fun SoundWindow(s: ScreenState, modifier: Modifier) {
     val th = LocalTheme.current
     val channel = s.tracks[2]
     val tap = when (channel) {
-        0 -> Modifier.pointerTap { s.act(Act.OPEN_SOUND_MENU) }
+        0 -> Modifier.pointerInput(s) {
+            detectTapGestures(
+                onTap = { s.act(Act.OPEN_SOUND_MENU) },
+                onLongPress = { s.sampleEditor = true },
+            )
+        }
         // MIX: тап по обзору полос — окно микшера (двойной тап по MIX — закрыть).
         1 -> Modifier.pointerTap { AppNative.masterWinAct(app.jambo.android.MasterWinAct.MIXER_OPEN, 0, 0, ""); s.refresh() }
         else -> Modifier

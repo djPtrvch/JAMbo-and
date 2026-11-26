@@ -143,6 +143,18 @@ object AppNative {
     external fun lib(): IntArray
     /** [путь, подпись внизу, по строке: id, вид (f, s, p), имя, справа, звук дорожки, отмечен]. */
     external fun libRows(): Array<String>
+    external fun sampleEditorTexts(): Array<String>
+    external fun sampleEditorWave(columns: Int): FloatArray
+    external fun sampleEditorEdit(operation: Int, a: Double, b: Double)
+    external fun sampleEditorSlice(index: Int, at: Double)
+    external fun sampleEditorPreview(a: Double, b: Double)
+    external fun sampleEditorStatus(): Int
+    external fun sampleEditorSave()
+    external fun sampleRecordStart(source: Int): Boolean
+    external fun sampleRecordPeaks(columns: Int): FloatArray
+    external fun sampleRecordStop()
+    external fun sampleRecordMicDone(pcm: FloatArray?, frames: Int)
+
     external fun libAct(code: Int, id: String, text: String)
     external fun libImportFolder(): String
     /** SAVE: 1 — имя по умолчанию, 2 — id узла с этим именем (пусто — свободно), 3 — свободное имя. */
