@@ -10,7 +10,7 @@ import app.jambo.android.AppNative
  * Данные экрана из C++ (AppNative). Каждый кадр — frame (ход игры, мигание); разделы перечитываются, только когда
  * ревизия изменилась, и меняют своё состояние, только если содержимое другое: перерисовывается изменившееся.
  */
-class ScreenState {
+class ScreenState(val midi: app.jambo.android.MidiHub) {
     var top by mutableStateOf(IntArray(6)); private set
     var topTexts by mutableStateOf(arrayOf("", "")); private set
     var tracks by mutableStateOf(IntArray(3)); private set
@@ -232,6 +232,12 @@ class ScreenState {
     var theme by mutableIntStateOf(0)
     /** Открытая вкладка SETTINGS. */
     var settingsTab by mutableIntStateOf(0)
+
+    fun learnTarget(target: Int): Boolean {
+        if (!midi.controls.learning) return false
+        midi.controls.pick(target)
+        return true
+    }
 
     /** Действие и сразу новые данные. */
     fun act(code: Int, a: Int = 0, b: Int = 0, x: Double = 0.0): Double {

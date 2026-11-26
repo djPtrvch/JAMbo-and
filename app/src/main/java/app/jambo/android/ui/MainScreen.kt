@@ -17,6 +17,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -37,14 +38,17 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import app.jambo.android.AppNative
+import app.jambo.android.MidiHub
+import app.jambo.android.BleMidiPeripheral
 
 /**
  * Главный экран (RootView.swift ветки swift JAMbo, сверху вниз): верхняя панель, центр (левая колонка | сетка ручек |
  * правая колонка | измеритель), строка дорожек, секвенсор, клавиатура. Меню звука — поверх левой колонки.
  */
 @Composable
-fun MainScreen(onMenu: () -> Unit) {
-    val s = remember { ScreenState() }
+fun MainScreen(midi: MidiHub, ble: BleMidiPeripheral, scan: () -> Unit, advertise: (Boolean) -> Unit, link: (Boolean) -> Unit) {
+    val s = remember(midi) { ScreenState(midi) }
+    val controllerActions = remember(ble, scan, advertise, link) { ControllerActions(ble, scan, advertise, link) }
     val dark = when (s.theme) { 1 -> false; 2 -> true; else -> isSystemInDarkTheme() }
     val th = if (dark) Theme.dark else Theme.light
     // Телефон (узкая сторона меньше 600 dp) — подписи крупнее.
@@ -95,21 +99,21 @@ fun MainScreen(onMenu: () -> Unit) {
         val px = with(LocalDensity.current) { Pair(maxWidth.toPx(), maxHeight.toPx()) }
         val scale = minOf(px.first / Layout.designWidth, px.second / Layout.designHeight)
         CompositionLocalProvider(LocalTheme provides th, LocalDensity provides Density(scale, 1f), LocalTextScale provides textScale, LocalIconScale provides iconScale) {
-            Screen(s, th, onMenu)
+            Screen(s, th, controllerActions)
         }
     }
 }
 
 @Composable
-private fun Screen(s: ScreenState, th: Theme, onMenu: () -> Unit) {
+private fun Screen(s: ScreenState, th: Theme, controllerActions: ControllerActions) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val width = maxWidth.value - 2 * Layout.side
-        CompositionLocalProvider(LocalDims provides Dims.of(width, maxOf(1, s.piano.getOrElse(10) { 8 }))) { Body(s, th, onMenu, width) }
+        CompositionLocalProvider(LocalDims provides Dims.of(width, maxOf(1, s.piano.getOrElse(10) { 8 }))) { Body(s, th, controllerActions, width) }
     }
 }
 
 @Composable
-private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
+private fun Body(s: ScreenState, th: Theme, controllerActions: ControllerActions, width: Float) {
     // Место левой колонки (для меню звука поверх неё), в координатах Body.
     var body by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var left by remember { mutableStateOf(Rect.Zero) }
@@ -172,7 +176,9 @@ private fun Body(s: ScreenState, th: Theme, onMenu: () -> Unit, width: Float) {
             renaming = -1
             s.refresh()
         }
-        if (s.mainMenu) MainMenuOverlay(s, onMenu)
+        if (s.midi.controls.learning) MidiLearnStrip(s, Modifier.align(Alignment.BottomCenter))
+        if (s.mainMenu) MainMenuOverlay(s, controllerActions)
+        if (s.midi.controls.editor != null) MidiMapEditor(s.midi)
     }
 }
 

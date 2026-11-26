@@ -182,6 +182,10 @@ fun KnobGrid(s: ScreenState, modifier: Modifier) {
                         when {
                             c.changedToDown() -> {
                                 val slot = row * 4 + col
+                                if (s.learnTarget(slot + if (s.midi.controls.learnPress) 16 else 0)) {
+                                    c.consume()
+                                    continue
+                                }
                                 val cw = (size.width - 3 * SPACING * density) / 4 / density
                                 val ch = (size.height - 3 * SPACING * density) / 4 / density
                                 val local = androidx.compose.ui.geometry.Offset(

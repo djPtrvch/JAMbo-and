@@ -142,7 +142,7 @@ fun SequencerRow(s: ScreenState) {
                         val col = look.column(c.position.x / density, w)
                         val now = c.uptimeMillis
                         when {
-                            c.changedToDown() -> touches.down(c.id, col, first, now)
+                            c.changedToDown() -> if (!s.learnTarget(48 + col % 16)) touches.down(c.id, col, first, now)
                             c.changedToUp() -> touches.finish(c.id, now)
                             c.pressed && c.positionChanged() -> touches.move(c.id, col)
                         }

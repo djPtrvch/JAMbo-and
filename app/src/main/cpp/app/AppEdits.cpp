@@ -404,12 +404,16 @@ std::set<int> App::litNotesPressed() const {
 }
 
 void App::midiNote(int note, int velocity) {
+    midiNoteFrom(note, velocity, 1'000'000 + note);
+}
+
+void App::midiNoteFrom(int note, int velocity, int id) {
     if (note < 0 || note > 127) return;
-    // id живой ноты MIDI — вне id касаний экрана.
-    const int id = 1'000'000 + note;
     if (velocity > 0) {
+        if (const auto it = keyHolds_.find(id); it != keyHolds_.end())
+            audio_->push(CoreEvent::noteOff(it->second.track, id));
         liveNoteOn(selected_, {note}, id, double(velocity) / 127.0);
-        keyHolds_[id] = {selected_, {note}};
+        keyHolds_[id] = {selected_, {note}, std::nullopt};
     } else {
         const auto it = keyHolds_.find(id);
         if (it == keyHolds_.end()) return;

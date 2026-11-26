@@ -51,7 +51,8 @@ fun RightColumn(s: ScreenState, modifier: Modifier, onPages: (LayoutCoordinates)
                 MasterScope(s, Modifier.weight(1f).fillMaxWidth())
                 ButtonPair { ScopeButton(s, 1, Modifier.weight(1f)); ScopeButton(s, 2, Modifier.weight(1f)) }
                 ButtonPair {
-                    HoldButton("SHIFT", s.side[4] != 0, Modifier.weight(1f)) { on -> s.act(Act.SET_SHIFT, if (on) 1 else 0) }
+                    HoldButton("SHIFT", s.side[4] != 0, Modifier.weight(1f)) { on -> if (s.midi.controls.learning) { if (on) s.learnTarget(37) }
+                    else s.act(Act.SET_SHIFT, if (on) 1 else 0) }
                     ScopeButton(s, 3, Modifier.weight(1f))
                 }
             }
@@ -66,7 +67,8 @@ fun RightColumn(s: ScreenState, modifier: Modifier, onPages: (LayoutCoordinates)
             // FX слева, MOD справа.
             ButtonPair { PageButton(s, "FX", 0, Modifier.weight(1f)); PageButton(s, "MOD", 1, Modifier.weight(1f)) }
             ButtonPair {
-                HoldButton("SHIFT", s.side[4] != 0, Modifier.weight(1f)) { on -> s.act(Act.SET_SHIFT, if (on) 1 else 0) }
+                HoldButton("SHIFT", s.side[4] != 0, Modifier.weight(1f)) { on -> if (s.midi.controls.learning) { if (on) s.learnTarget(37) }
+                    else s.act(Act.SET_SHIFT, if (on) 1 else 0) }
                 MorphButton(s, Modifier.weight(1f))
             }
         }
@@ -85,7 +87,10 @@ private fun PageButton(s: ScreenState, title: String, page: Int, modifier: Modif
             androidx.compose.ui.geometry.Size(size.width - 2 * i, size.height - 2 * i),
             androidx.compose.ui.geometry.CornerRadius((Layout.radius - 3).dp.toPx()),
             style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
-    }) { on -> s.act(if (on) Act.PAGE_PRESS else Act.PAGE_RELEASE, page) }
+    }) { on ->
+        if (s.midi.controls.learning) { if (on) s.learnTarget(38 + page) }
+        else s.act(if (on) Act.PAGE_PRESS else Act.PAGE_RELEASE, page)
+    }
 }
 
 /**

@@ -9,25 +9,6 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.displayCutout
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.Text
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -60,24 +41,7 @@ class MainActivity : ComponentActivity() {
         // Проекты — во внутренней памяти приложения (формат файла — как у iPad).
         AppNative.openStorage(java.io.File(filesDir, "Projects").path)
         setContent {
-            // MIDI и SYNC в меню бутерброда — пока экран спайка (MIDI-устройства, Bluetooth, Link, звук).
-            var spike by remember { mutableStateOf(false) }
-            Box(Modifier.fillMaxSize().background(Color.Black)) {
-                if (spike) {
-                    Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.displayCutout)) { SpikeScreen(
-                        midi = midi,
-                        ble = blePeripheral,
-                        onScanBle = ::requestBleScan,
-                        onAdvertise = ::setAdvertise,
-                        onLink = ::setLink,
-                    ) }
-                    Text("BACK", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).clickable { spike = false }
-                            .padding(12.dp))
-                } else {
-                    MainScreen(onMenu = { spike = true })
-                }
-            }
+            MainScreen(midi, blePeripheral, ::requestBleScan, ::setAdvertise, ::setLink)
         }
     }
 
@@ -97,6 +61,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         blePeripheral.stop()
+        setLink(false)
         super.onDestroy()
     }
 

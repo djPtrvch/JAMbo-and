@@ -3,6 +3,7 @@
 // зовёт действия и читает данные для отрисовки; всё — в основном потоке (JNI — под мьютексом jni_bridge).
 #pragma once
 #include "engine/Capture.h"
+#include "sequencer/MidiClock.h"
 #include "engine/CoreEvent.h"
 #include "EqDisplay.h"
 #include "MeterState.h"
@@ -62,6 +63,7 @@ struct AppAudio {
     virtual PlayClock::State clock() const { return {}; }
     /// Время хоста (с, часы колбэка), чей звук слышен сейчас: сейчас минус задержка выхода.
     virtual double heardNow() const { return 0; }
+    virtual double outputLatency() const { return 0; }
     /// Выход источника модуляции для интерфейса: дорожка·4 + (LFO1–3, ENV).
     virtual double modOut(int) const { return 0; }
     /// Уровни колбэка (измеритель); nullptr — звука ещё нет.
@@ -130,6 +132,13 @@ public:
     void togglePlay();
     void toggleMetronome();
     void setBpm(double v);
+    double runningBpm() const;
+    void midiRealtime(int status, double at, bool startStop, double offset);
+    void resetMidiClock();
+    ClockPlan::Batch tickMidiSync(double now, bool send, bool receive, bool startStop, double offset);
+    void midiMappedKnob(int slot, int value, int encoder, double low, double high);
+    void midiMappedButton(int target, bool down, bool touch, bool setState);
+    void midiNoteFrom(int note, int velocity, int identity);
     bool canUndo() const { return history_.canUndo(); }
     bool canRedo() const { return history_.canRedo(); }
     void undo();
@@ -762,6 +771,15 @@ private:
     std::string captureProject_;
     std::string captureProjectName_;
     double captureDeadline_ = 0;
+    ClockFollower midiClockFollower_;
+    ClockPlan midiClockPlan_;
+    long midiPhaseStep_ = -1;
+    std::optional<double> midiBpm_;
+    bool midiContinue_ = false;
+    double midiOffset_ = 0;
+    bool midiOutput_ = false;
+    void startMidiPlay(double host);
+    double midiFrameAt(double host) const;
     RecPeaks capturePeaks_;
     std::map<int, VoiceOut> heads_;
     MasterMeters masterMeters_;

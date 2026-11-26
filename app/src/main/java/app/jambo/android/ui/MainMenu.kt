@@ -23,11 +23,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 
-/** Меню бутерброда (MainMenu в RootView.swift): разделы PROJECT (PROJECTS), APP (SETTINGS), CONTROLLERS (MIDI, SYNC —
- *  пока экран спайка: устройства, Bluetooth, Link). Меню и подменю одного размера: от левого края бутерброда до
+/** Меню бутерброда (MainMenu в RootView.swift): разделы PROJECT (PROJECTS), APP (SETTINGS), CONTROLLERS (MIDI, SYNC). Меню и подменю одного размера: от левого края бутерброда до
  *  правого края SCALE, от верхней панели до строки дорожек; что не помещается — прокрутка. Тап мимо — закрыть. */
 @Composable
-fun MainMenuOverlay(s: ScreenState, onSpike: () -> Unit) {
+fun MainMenuOverlay(s: ScreenState, actions: ControllerActions) {
     val d = LocalDensity.current.density
     var page by remember { mutableStateOf(0) }
     val close = { s.mainMenu = false }
@@ -40,6 +39,8 @@ fun MainMenuOverlay(s: ScreenState, onSpike: () -> Unit) {
         when (page) {
             1 -> ProjectsPage(s, back = { page = 0 }, close = close)
             2 -> SettingsPage(s, back = { page = 0 })
+            3 -> MidiMenuPage(s.midi, actions, back = { page = 0 }, close = close)
+            4 -> SyncMenuPage(s.midi, actions, back = { page = 0 })
             else -> Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(top = 4.dp, end = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 MenuHead("PROJECT")
@@ -52,8 +53,8 @@ fun MainMenuOverlay(s: ScreenState, onSpike: () -> Unit) {
                 MenuItem("SETTINGS") { page = 2 }
                 Divider()
                 MenuHead("CONTROLLERS")
-                MenuItem("MIDI") { close(); onSpike() }
-                MenuItem("SYNC") { close(); onSpike() }
+                MenuItem("MIDI") { page = 3 }
+                MenuItem("SYNC") { page = 4 }
             }
         }
     }

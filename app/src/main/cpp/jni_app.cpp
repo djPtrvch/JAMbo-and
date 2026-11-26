@@ -465,7 +465,7 @@ FN(jintArray, frame)(JNIEnv* env, jobject) {
 FN(jintArray, top)(JNIEnv* env, jobject) {
     std::lock_guard<std::mutex> g(gLock);
     auto& m = app();
-    return ints(env, {jint(std::lround(m.project().bpm * 10)), m.canUndo(), m.canRedo(), m.playing(), m.metronome(), m.recOn()});
+    return ints(env, {jint(std::lround(m.runningBpm() * 10)), m.canUndo(), m.canRedo(), m.playing(), m.metronome(), m.recOn()});
 }
 
 /// Подписи верхней панели: [гамма, корневая нота].

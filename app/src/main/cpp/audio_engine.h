@@ -29,6 +29,7 @@ public:
     double modOut(int i) const override;
     jambo::PlayClock::State clock() const override;
     double heardNow() const override;
+    double outputLatency() const override { return double(outLatencyUs_.load()) / 1e6; }
     /// Задержка выхода (для heardNow) — из основного потока, раз в секунду.
     void updateLatency();
     jambo::Levels* levels() override { return core_ ? &core_->levels : nullptr; }

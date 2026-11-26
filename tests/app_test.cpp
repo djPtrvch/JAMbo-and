@@ -590,7 +590,49 @@ void sampleEditor() {
     std::filesystem::remove_all(dir);
 }
 
+void midi() {
+    constexpr double interval = 60.0 / (123 * 24);
+    ClockFollower follower;
+    for (int i = 0; i < 60; ++i) follower.tick(10 + i * interval);
+    check(std::abs(follower.tempo().value_or(0) - 123) < 1e-6, "midi: tempo from incoming 24 PPQN");
+    follower.arm();
+    check(follower.tick(10 + 60 * interval), "midi: Start waits for the first clock tick");
+    check(std::abs(follower.stepTime(1).value_or(0) - (10 + 66 * interval)) < 1e-6,
+        "midi: one step is six ticks");
+    follower.tick(10 + 64 * interval);
+    follower.tick(10 + 64 * interval + 0.0001);
+    check(std::abs(follower.tempo().value_or(0) - 123) < 1e-5, "midi: burst does not move the estimated tempo");
+
+    ClockPlan plan;
+    auto free = plan.update(10, 120, std::nullopt, true, 0.1);
+    check(free.events.size() == 5 && !free.flush && free.events.front().status == 0xF8,
+        "midi: free-running output clocks while stopped");
+    auto start = plan.update(10.02, 120, ClockPlan::Grid{0, 10.06, 0.125}, true, 0.1);
+    check(start.flush && std::count_if(start.events.begin(), start.events.end(),
+        [](const auto& e) { return e.status == 0xFA && std::abs(e.time - 10.06) < 1e-8; }) == 1,
+        "midi: Start and realignment at the audible first step");
+    const auto stop = plan.update(10.19, 120, std::nullopt, true, 0.1);
+    check(!stop.events.empty() && stop.events.front().status == 0xFC, "midi: Stop is sent when playback stops");
+
+    CoreAudio audio;
+    App app(&audio);
+    app.selectTrack(1);
+    app.midiMappedKnob(4, 127, 0, 0.25, 0.75);
+    check(std::abs(app.knobStart(4) - 0.75) < 1e-6, "midi: absolute CC uses the chosen knob range");
+    app.midiMappedKnob(4, 127, 2, 0.25, 0.75);
+    check(app.knobStart(4) < 0.75, "midi: 2's complement encoder supports negative steps");
+    app.midiRealtime(0xFA, 20, true, 0);
+    check(!app.playing(), "midi: application is armed before first tick");
+    for (int i = 0; i < 8; ++i) app.midiRealtime(0xF8, 20 + i * interval, true, 0);
+    check(app.playing() && std::abs(app.runningBpm() - 123) < 1e-6, "midi: application follows input tempo and transport");
+    app.tickMidiSync(21, false, true, true, 0);
+    check(app.runningBpm() == app.project().bpm, "midi: input timeout restores project tempo");
+    app.midiRealtime(0xFC, 21, true, 0);
+    check(!app.playing(), "midi: input Stop stops the application");
+}
+
 int runAppTests() {
+    midi();
     sampleEditor();
     moveTrackKeepsSound();
     eq();

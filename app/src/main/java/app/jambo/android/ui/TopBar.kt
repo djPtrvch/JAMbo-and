@@ -68,15 +68,15 @@ fun TopBar(s: ScreenState, onMenu: () -> Unit) {
         DragField(s, "ROOT", s.topTexts[1], { pi[6] }, { s.act(Act.SET_ROOT, it) }, Modifier.weight(1f)) { r ->
             s.choice = Choice(s.rootNames, 4, pi[6], r, 3 * r.width / dens + 4 * Layout.gap + playRec) { s.act(Act.SET_ROOT, it) }
         }
-        Glyph("↶", top[1] != 0, Modifier.weight(1f).report(s, "undo")) { s.act(Act.UNDO) }
+        Glyph("↶", top[1] != 0 || s.midi.controls.learning, Modifier.weight(1f).report(s, "undo")) { if (!s.learnTarget(34)) s.act(Act.UNDO) }
         PlayButton(s, top[3] != 0, Modifier.width(mid(half)))
         RecButton(s, top.getOrElse(5) { 0 } != 0, Modifier.width(mid(half)))
-        Glyph("↷", top[2] != 0, Modifier.weight(1f)) { s.act(Act.REDO) }
+        Glyph("↷", top[2] != 0 || s.midi.controls.learning, Modifier.weight(1f)) { if (!s.learnTarget(35)) s.act(Act.REDO) }
         RollIcon(Modifier.weight(1f))
-        Toggle("EQ", s.eq[0] != 0, Modifier.weight(1f).report(s, "eq")) { s.act(Act.TOGGLE_EQ_VIEW) }
+        Toggle("EQ", s.eq[0] != 0, Modifier.weight(1f).report(s, "eq")) { if (!s.learnTarget(40)) s.act(Act.TOGGLE_EQ_VIEW) }
         // PATTERNS и ARRANGE — ровно над правой колонкой, затем место измерителя.
         Row(Modifier.width(rightColumn()).fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-            Toggle("PATTERNS", s.grid[0] != 0, Modifier.weight(1f).report(s, "patterns")) { s.act(Act.TOGGLE_PATTERNS) }
+            Toggle("PATTERNS", s.grid[0] != 0, Modifier.weight(1f).report(s, "patterns")) { if (!s.learnTarget(41)) s.act(Act.TOGGLE_PATTERNS) }
             Later("ARRANGE", Modifier.weight(1f).report(s, "arrange"))
         }
         Spacer(Modifier.width(Layout.meterWidth.dp))
@@ -178,7 +178,7 @@ private fun PlayButton(s: ScreenState, on: Boolean, modifier: Modifier) {
     val th = LocalTheme.current
     Box(
         modifier.fillMaxHeight().framed(if (on) th.accent else th.panel2, th.accent)
-            .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(); s.act(Act.TOGGLE_PLAY) } },
+            .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(); if (!s.learnTarget(32)) s.act(Act.TOGGLE_PLAY) } },
         contentAlignment = Alignment.Center,
     ) { Text("▶", color = if (on) th.onAccent else th.accent, fontSize = 21.tsp(), fontWeight = FontWeight.Bold) }
 }
@@ -188,7 +188,7 @@ private fun PlayButton(s: ScreenState, on: Boolean, modifier: Modifier) {
 private fun RecButton(s: ScreenState, on: Boolean, modifier: Modifier) {
     val th = LocalTheme.current
     Box(
-        modifier.fillMaxHeight().framed(if (on) th.rec else th.panel2, th.rec).pointerTap { s.act(Act.TOGGLE_REC) },
+        modifier.fillMaxHeight().framed(if (on) th.rec else th.panel2, th.rec).pointerTap { if (!s.learnTarget(33)) s.act(Act.TOGGLE_REC) },
         contentAlignment = Alignment.Center,
     ) { Text("●", color = if (on) Color.White else th.rec, fontSize = 24.tsp()) }
 }
@@ -237,7 +237,7 @@ private fun Metronome(s: ScreenState, on: Boolean, modifier: Modifier) {
     val fg = if (on) th.text else th.dim
     Box(
         modifier.fillMaxHeight().tile(bg).border(1.dp, if (on) th.text else Color.Transparent, RoundedCornerShape(Layout.radius.dp))
-            .pointerInput(Unit) { detectTapGestures(onTap = { s.act(Act.TOGGLE_METRONOME) }) },
+            .pointerInput(Unit) { detectTapGestures(onTap = { if (!s.learnTarget(36)) s.act(Act.TOGGLE_METRONOME) }) },
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.size(20.dp)) {

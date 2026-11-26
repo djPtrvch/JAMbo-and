@@ -10,7 +10,9 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.media.midi.MidiDevice
 import android.media.midi.MidiDeviceInfo
+import android.media.midi.MidiInputPort
 import android.media.midi.MidiManager
+import android.media.midi.MidiOutputPort
 import android.media.midi.MidiReceiver
 import android.os.Handler
 import android.os.Looper
@@ -19,14 +21,31 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import java.util.UUID
 
-data class MidiRow(val id: Int, val name: String, val type: String, val inPorts: Int, val outPorts: Int, val open: Boolean)
+data class MidiRow(val id: Int, val key: String, val name: String, val type: String, val inPorts: Int, val outPorts: Int, val open: Boolean)
 data class BleRow(val address: String, val name: String)
 
-/** android.media.midi: устройства USB / Bluetooth / виртуальные; входящие ноты играют тон. */
+/** Android MIDI: открытие устройств, разбор входов и отправка клока с метками времени. */
 class MidiHub(private val ctx: Context) {
     private val main = Handler(Looper.getMainLooper())
     private val mm: MidiManager? = ctx.getSystemService(MidiManager::class.java)
-    private val opened = HashMap<Int, MidiDevice>()
+    private data class Connection(
+        val device: MidiDevice, val key: String,
+        val inputs: List<Pair<MidiEndpoint, MidiOutputPort>>,
+        val outputs: List<Pair<MidiEndpoint, MidiInputPort>>,
+    ) {
+        fun close() {
+            inputs.forEach { runCatching { it.second.close() } }
+            outputs.forEach { runCatching { it.second.close() } }
+            runCatching { device.close() }
+        }
+    }
+    private val opened = HashMap<Int, Connection>()
+    private var started = false
+    private var generation = 0
+    val controls = MidiControls(ctx)
+    val sync = MidiSync(ctx, this)
+    val inputs = mutableStateListOf<MidiEndpoint>()
+    val outputs = mutableStateListOf<MidiEndpoint>()
     private val opening = HashSet<Int>()   // уже открываются — не открывать второй раз
 
     val devices = mutableStateListOf<MidiRow>()
@@ -39,7 +58,13 @@ class MidiHub(private val ctx: Context) {
 
     /** Байты MIDI не из MidiManager (ADVERTISE): тот же разбор, лог и звук. */
     fun feed(label: String, bytes: ByteArray) {
-        parsers.getOrPut(label) { Parser(label) }.send(bytes, 0, bytes.size)
+        main.post {
+            if (!started) return@post
+            val endpoint = MidiEndpoint(label, 0, label)
+            controls.rememberDevice(endpoint.device)
+            if (inputs.none { it.key == endpoint.key }) inputs.add(endpoint)
+            parsers.getOrPut(label) { Parser(endpoint) }.send(bytes, 0, bytes.size)
+        }
     }
 
     fun log(line: String) = addLog(line)
@@ -49,11 +74,21 @@ class MidiHub(private val ctx: Context) {
     private val cb = object : MidiManager.DeviceCallback() {
         override fun onDeviceAdded(info: MidiDeviceInfo) { open(info); refresh() }
         override fun onDeviceRemoved(info: MidiDeviceInfo) {
-            opened.remove(info.id)?.close(); refresh(); addLog("removed: ${name(info)}")
+            val removed = opened.remove(info.id)
+            removed?.close()
+            if (removed != null) {
+                controls.releaseDevice(removed.key)
+                sync.disconnected(removed.key)
+            }
+            refresh()
+            addLog("removed: ${name(info)}")
         }
     }
 
     fun start() {
+        if (started) return
+        started = true
+        sync.start()
         val m = mm ?: return
         m.registerDeviceCallback(cb, main)
         @Suppress("DEPRECATION")
@@ -62,17 +97,53 @@ class MidiHub(private val ctx: Context) {
     }
 
     fun stop() {
+        if (!started) return
+        started = false
+        generation++
+        sync.stop()
+        controls.releaseDevice()
         mm?.unregisterDeviceCallback(cb)
         opened.values.forEach { it.close() }
         opened.clear()
+        opening.clear()
+        parsers.clear()
+        refresh()
     }
 
     private fun refresh() {
-        val m = mm ?: return
-        devices.clear()
         @Suppress("DEPRECATION")
-        m.devices.forEach {
-            devices += MidiRow(it.id, name(it), typeName(it.type), it.inputPortCount, it.outputPortCount, opened.containsKey(it.id))
+        val listed = mm?.devices?.toList().orEmpty()
+        val all = (listed + opened.values.map { it.device.info }).distinctBy { it.id }
+        devices.clear()
+        all.forEach {
+            devices += MidiRow(it.id, deviceKey(it), name(it), typeName(it.type), it.inputPortCount, it.outputPortCount, opened.containsKey(it.id))
+        }
+        inputs.clear()
+        outputs.clear()
+        for (c in opened.values.sortedBy { it.key }) {
+            inputs.addAll(c.inputs.map { it.first })
+            outputs.addAll(c.outputs.map { it.first })
+        }
+        inputs.addAll(parsers.keys.map { MidiEndpoint(it, 0, it) })
+    }
+
+    private fun deviceKey(i: MidiDeviceInfo) = "${typeName(i.type)} · ${name(i)}"
+
+    internal fun sendClock(batch: LongArray, selected: Set<String>, skipDevice: String?) {
+        val flush = batch[0] != 0L
+        for (c in opened.values) for ((endpoint, port) in c.outputs) {
+            if (!flush && (c.key == skipDevice || selected.isNotEmpty() && endpoint.key !in selected)) continue
+            runCatching {
+                if (flush) port.flush()
+                if (c.key != skipDevice && (selected.isEmpty() || endpoint.key in selected)) {
+                    // Один байт на сообщение, метка времени — CLOCK_MONOTONIC в наносекундах.
+                    val msg = ByteArray(1)
+                    for (i in 1 until batch.lastIndex step 2) {
+                        msg[0] = batch[i].toByte()
+                        port.send(msg, 0, 1, batch[i + 1])
+                    }
+                }
+            }
         }
     }
 
@@ -89,23 +160,38 @@ class MidiHub(private val ctx: Context) {
 
     private fun open(info: MidiDeviceInfo) {
         val m = mm ?: return
-        if (opened.containsKey(info.id) || info.id in opening || info.outputPortCount == 0) return
-        opening += info.id
+        if (!started || info.id in opened || !opening.add(info.id)) return
+        val ticket = generation
         m.openDevice(info, { dev ->
-            if (dev != null) attach(dev, name(info)) else { opening -= info.id; addLog("open failed: ${name(info)}") }
+            if (!started || ticket != generation) dev?.close()
+            else {
+                opening -= info.id
+                if (dev != null) attach(dev) else addLog("open failed: ${name(info)}")
+            }
         }, main)
     }
 
-    /** Порты «выхода» устройства — то, что оно шлёт нам. */
-    private fun attach(dev: MidiDevice, label: String) {
-        opening -= dev.info.id
-        if (opened.containsKey(dev.info.id)) { dev.close(); return }
-        opened[dev.info.id] = dev
-        for (p in 0 until dev.info.outputPortCount) {
-            dev.openOutputPort(p)?.connect(Parser(label))
+    private fun attach(dev: MidiDevice) {
+        val info = dev.info
+        if (info.id in opened) { if (opened[info.id]?.device !== dev) dev.close(); return }
+        val key = deviceKey(info)
+        controls.rememberDevice(key)
+        val inputs = (0 until info.outputPortCount).mapNotNull { index ->
+            val endpoint = endpoint(info, key, MidiDeviceInfo.PortInfo.TYPE_OUTPUT, index)
+            dev.openOutputPort(index)?.also { it.connect(Parser(endpoint)) }?.let { endpoint to it }
         }
-        addLog("opened: $label")
+        val outputs = (0 until info.inputPortCount).mapNotNull { index ->
+            val endpoint = endpoint(info, key, MidiDeviceInfo.PortInfo.TYPE_INPUT, index)
+            dev.openInputPort(index)?.let { endpoint to it }
+        }
+        opened[info.id] = Connection(dev, key, inputs, outputs)
+        addLog("opened: ${name(info)}")
         refresh()
+    }
+
+    private fun endpoint(info: MidiDeviceInfo, key: String, type: Int, index: Int): MidiEndpoint {
+        val portName = info.ports.firstOrNull { it.type == type && it.portNumber == index }?.name.orEmpty()
+        return MidiEndpoint(key, index, if (portName.isEmpty()) "${name(info)} · ${index + 1}" else "${name(info)} · $portName")
     }
 
     private fun addLog(line: String) {
@@ -116,7 +202,9 @@ class MidiHub(private val ctx: Context) {
     }
 
     /** Разбор потока байт: running status, SysEx, реальное время. */
-    private inner class Parser(val label: String) : MidiReceiver() {
+    private inner class Parser(val endpoint: MidiEndpoint) : MidiReceiver() {
+        private val label = endpoint.label
+        private var at = 0L
         private var status = 0
         private val data = IntArray(2)
         private var n = 0
@@ -124,7 +212,9 @@ class MidiHub(private val ctx: Context) {
         private val sx = IntArray(12)
         private var sxLen = 0
 
+        @Synchronized
         override fun onSend(msg: ByteArray, offset: Int, count: Int, timestamp: Long) {
+            at = if (timestamp > 0L) timestamp else System.nanoTime()
             for (k in offset until offset + count) byteIn(msg[k].toInt() and 0xFF)
         }
 
@@ -165,8 +255,17 @@ class MidiHub(private val ctx: Context) {
         }
 
         private fun realtime(b: Int) {
+            if (b == 0xF8 || b in 0xFA..0xFC) {
+                val time = at
+                main.post {
+                    if (started) {
+                        sync.realtime(endpoint, b, time)
+                        if (b == 0xF8) clockTicks.value++
+                    }
+                }
+            }
             when (b) {
-                0xF8 -> main.post { clockTicks.value++ }
+                0xF8 -> Unit
                 0xFE -> {}
                 0xFA -> addLog("$label  Start")
                 0xFB -> addLog("$label  Continue")
@@ -178,10 +277,12 @@ class MidiHub(private val ctx: Context) {
         private fun message(s: Int, d1: Int, d2: Int) {
             val ch = (s and 0x0F) + 1
             val hex = "%02X %02X %02X".format(s, d1, d2)
+            if (s and 0xF0 in listOf(0x80, 0x90, 0xB0)) main.post {
+                if (started) controls.message(endpoint, s, d1, d2)
+            }
             val text = when (s and 0xF0) {
-                0x90 -> if (d2 > 0) { AppNative.act(AppNative.Act.MIDI_NOTE, d1, d2); "NoteOn ch$ch ${noteName(d1)} v$d2" }
-                        else { AppNative.act(AppNative.Act.MIDI_NOTE, d1, 0); "NoteOff ch$ch ${noteName(d1)}" }
-                0x80 -> { AppNative.act(AppNative.Act.MIDI_NOTE, d1, 0); "NoteOff ch$ch ${noteName(d1)}" }
+                0x90 -> if (d2 > 0) "NoteOn ch$ch ${noteName(d1)} v$d2" else "NoteOff ch$ch ${noteName(d1)}"
+                0x80 -> "NoteOff ch$ch ${noteName(d1)}"
                 0xB0 -> "CC ch$ch #$d1 = $d2"
                 0xC0 -> "Program ch$ch $d1"
                 0xE0 -> "PitchBend ch$ch ${(d2 shl 7 or d1) - 8192}"
@@ -222,9 +323,11 @@ class MidiHub(private val ctx: Context) {
         val d = bleDevices[address] ?: return
         val m = mm ?: return
         addLog("connecting: ${d.address}")
+        val ticket = generation
         m.openBluetoothDevice(d, { dev ->
-            if (dev == null) addLog("BLE connect failed")
-            else if (!opened.containsKey(dev.info.id)) attach(dev, dev.info.properties.getString(MidiDeviceInfo.PROPERTY_NAME) ?: d.address)
+            if (!started || ticket != generation) dev?.close()
+            else if (dev == null) addLog("BLE connect failed")
+            else attach(dev)
         }, main)
     }
 }

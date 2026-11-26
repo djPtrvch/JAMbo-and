@@ -29,7 +29,7 @@ void App::loadProject(const Project& p) {
     held_.clear();
     used_.clear();
     project_ = p;
-    audio_->push(CoreEvent::tempo(p.bpm));
+    audio_->push(CoreEvent::tempo(runningBpm()));
     publishAudio();
     bump();
 }
@@ -45,7 +45,12 @@ void App::togglePlay() {
     } else {
         beatFlash_ = false;
     }
-    audio_->push(CoreEvent::play(playing_));
+    if (playing_ && midiBpm_) {
+        const double nextAudible = audio_->heardNow() + 2 * audio_->outputLatency();
+        const auto tick = midiClockFollower_.nextTick(nextAudible - midiOffset_);
+        midiClockFollower_.anchor(tick);
+        startMidiPlay(tick + midiOffset_ - audio_->outputLatency());
+    } else audio_->push(CoreEvent::play(playing_));
     bump();
 }
 
@@ -59,7 +64,7 @@ void App::setBpm(double value) {
     const double bpm = std::min(Params::bpmMax, std::max(Params::bpmMin, std::round(value * 10) / 10));
     if (bpm == project_.bpm) return;
     edit([&](Project& p) { p.bpm = bpm; });
-    audio_->push(CoreEvent::tempo(bpm));
+    audio_->push(CoreEvent::tempo(runningBpm()));
 }
 
 // MARK: — правки и UNDO
@@ -139,7 +144,7 @@ void App::restore(const Project& snap) {
     held_.clear();
     selected_ = std::min(selected_, int(project_.tracks.size()) - 1);
     viewPage_ = std::min(viewPage_, int(seq().pages().size()) - 1);
-    if (bpmChanged) audio_->push(CoreEvent::tempo(project_.bpm));
+    if (bpmChanged) audio_->push(CoreEvent::tempo(runningBpm()));
     changed();
 }
 
