@@ -159,7 +159,8 @@ fun SequencerRow(s: ScreenState) {
                     val k = (page - first) * 16 + col
                     StepCell(
                         bits = data.getOrElse(2 + k) { 0 }, label = s.stepLabels.getOrElse(k) { "" }, col = col,
-                        playing = pos == page * 16 + col, look = look, modifier = Modifier.weight(1f),
+                        playing = pos == page * 16 + col, look = look,
+                        modifier = Modifier.weight(1f).midiLearnMark(s, 48 + col, radius = if (look.pages > 2) 3f else 6f),
                     )
                 }
             }

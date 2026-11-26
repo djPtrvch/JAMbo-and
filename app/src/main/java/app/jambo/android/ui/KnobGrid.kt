@@ -182,7 +182,7 @@ fun KnobGrid(s: ScreenState, modifier: Modifier) {
                         when {
                             c.changedToDown() -> {
                                 val slot = row * 4 + col
-                                if (s.learnTarget(slot + if (s.midi.controls.learnPress) 16 else 0)) {
+                                if (s.learnTarget(s.midi.controls.knobTarget(slot))) {
                                     c.consume()
                                     continue
                                 }
@@ -256,7 +256,8 @@ fun KnobGrid(s: ScreenState, modifier: Modifier) {
                         mod = ModRing(lfo, v[o + 7], v[o + 8], v[o + 9], v[o + 10] > 0, mod),
                         label = s.knobTexts.getOrElse(k * 2) { "" },
                         value = modText.ifEmpty { s.knobTexts.getOrElse(k * 2 + 1) { "" } },
-                        modifier = Modifier.weight(1f).fillMaxHeight().then(cellMod),
+                        modifier = Modifier.weight(1f).fillMaxHeight().then(cellMod)
+                            .midiLearnMark(s, s.midi.controls.knobTarget(k)),
                         overlay = { if (mixCell && k < s.tracks[0]) MixCellParts(s, k) },
                     )
                 }

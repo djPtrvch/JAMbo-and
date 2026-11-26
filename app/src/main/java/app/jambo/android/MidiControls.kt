@@ -1,6 +1,7 @@
 package app.jambo.android
 
 import android.content.Context
+import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -49,6 +50,7 @@ class MidiControls(ctx: Context) {
         private set
     var learnPress by mutableStateOf(false)
     var editor by mutableStateOf<MidiBinding?>(null)
+    private var lastLearnTapAt: Long? = null
     private data class Source(val endpoint: MidiEndpoint, val status: Int, val number: Int)
     private data class Held(val id: Int, val binding: MidiBinding?, val touched: Boolean = false)
     private val held = mutableMapOf<Source, Held>()
@@ -91,13 +93,27 @@ class MidiControls(ctx: Context) {
         releaseDevice()
         learning = on
         closeEditor()
+        learnTarget = -1
         learnPress = false
     }
 
+    fun knobTarget(slot: Int): Int = slot + if (learnPress) 16 else 0
+
+    fun bindingForTarget(target: Int): MidiBinding? =
+        bindings.lastOrNull { it.target == target && it.source.device !in disabled }
+
     fun pick(target: Int) {
         if (!learning) return
-        if (target == learnTarget) bindings.lastOrNull { it.target == target }?.let { edit(it) }
-        learnTarget = target
+        val now = SystemClock.uptimeMillis()
+        val previous = lastLearnTapAt
+        val existing = bindingForTarget(target)
+        if (target == learnTarget && previous != null && now - previous < 350 && existing != null) {
+            lastLearnTapAt = null
+            edit(existing)
+        } else {
+            lastLearnTapAt = now
+            learnTarget = target
+        }
     }
 
     var editorOriginal by mutableStateOf<MidiBinding?>(null)
@@ -112,7 +128,8 @@ class MidiControls(ctx: Context) {
     fun closeEditor() {
         editor = null
         editorOriginal = null
-        learnTarget = -1
+        if (!learning) learnTarget = -1
+        lastLearnTapAt = null
     }
 
     fun save(binding: MidiBinding, previous: MidiBinding = binding) {
@@ -165,16 +182,16 @@ class MidiControls(ctx: Context) {
         val normalized = (status and 15) or if (note) 0x90 else 0xB0
         val source = Source(endpoint, normalized, number)
         if (note && !down && !held.containsKey(source)) return
-        if ((learning || editor != null) && learnTarget >= 0 && (down || !note)) {
+        if ((learning || editor != null) && (down || !note)) {
+            if (learnTarget < 0) return
             val current = editor?.takeIf { it.target == learnTarget }
                 ?: bindings.lastOrNull { it.target == learnTarget && it.source.device == endpoint.device }
             val next = MidiBinding(endpoint, normalized, number, learnTarget, current?.encoder ?: 0,
                 current?.min ?: 0, current?.max ?: 100, current?.mode ?: 0, current?.action ?: -1)
+            // Поток CC от той же ручки не переписывает настройки и сохраняет выделение цели.
+            if (next == current) return
             if (editor != null) editor = next
-            else {
-                save(next, current ?: next)
-                learnTarget = -1
-            }
+            else save(next, current ?: next)
             return
         }
         if (note && !down) {

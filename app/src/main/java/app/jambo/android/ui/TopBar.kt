@@ -53,7 +53,7 @@ fun TopBar(s: ScreenState, onMenu: () -> Unit) {
             Box(Modifier.width(52.dp).fillMaxHeight().pointerInput(Unit) { detectTapGestures(onTap = { onMenu() }) },
                 contentAlignment = Alignment.Center) { Burger(th.text) }
             BpmField(s, top[0] / 10.0, Modifier.weight(1f))
-            Metronome(s, top[4] != 0, Modifier.width(52.dp))
+            Metronome(s, top[4] != 0, Modifier.width(52.dp).midiLearnMark(s, 36))
         }
         val pi = s.piano
         val dens = density()
@@ -68,15 +68,15 @@ fun TopBar(s: ScreenState, onMenu: () -> Unit) {
         DragField(s, "ROOT", s.topTexts[1], { pi[6] }, { s.act(Act.SET_ROOT, it) }, Modifier.weight(1f)) { r ->
             s.choice = Choice(s.rootNames, 4, pi[6], r, 3 * r.width / dens + 4 * Layout.gap + playRec) { s.act(Act.SET_ROOT, it) }
         }
-        Glyph("↶", top[1] != 0 || s.midi.controls.learning, Modifier.weight(1f).report(s, "undo")) { if (!s.learnTarget(34)) s.act(Act.UNDO) }
-        PlayButton(s, top[3] != 0, Modifier.width(mid(half)))
-        RecButton(s, top.getOrElse(5) { 0 } != 0, Modifier.width(mid(half)))
-        Glyph("↷", top[2] != 0 || s.midi.controls.learning, Modifier.weight(1f)) { if (!s.learnTarget(35)) s.act(Act.REDO) }
+        Glyph("↶", top[1] != 0 || s.midi.controls.learning, Modifier.weight(1f).report(s, "undo").midiLearnMark(s, 34)) { if (!s.learnTarget(34)) s.act(Act.UNDO) }
+        PlayButton(s, top[3] != 0, Modifier.width(mid(half)).midiLearnMark(s, 32))
+        RecButton(s, top.getOrElse(5) { 0 } != 0, Modifier.width(mid(half)).midiLearnMark(s, 33))
+        Glyph("↷", top[2] != 0 || s.midi.controls.learning, Modifier.weight(1f).midiLearnMark(s, 35)) { if (!s.learnTarget(35)) s.act(Act.REDO) }
         RollIcon(Modifier.weight(1f))
-        Toggle("EQ", s.eq[0] != 0, Modifier.weight(1f).report(s, "eq")) { if (!s.learnTarget(40)) s.act(Act.TOGGLE_EQ_VIEW) }
+        Toggle("EQ", s.eq[0] != 0, Modifier.weight(1f).report(s, "eq").midiLearnMark(s, 40)) { if (!s.learnTarget(40)) s.act(Act.TOGGLE_EQ_VIEW) }
         // PATTERNS и ARRANGE — ровно над правой колонкой, затем место измерителя.
         Row(Modifier.width(rightColumn()).fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-            Toggle("PATTERNS", s.grid[0] != 0, Modifier.weight(1f).report(s, "patterns")) { if (!s.learnTarget(41)) s.act(Act.TOGGLE_PATTERNS) }
+            Toggle("PATTERNS", s.grid[0] != 0, Modifier.weight(1f).report(s, "patterns").midiLearnMark(s, 41)) { if (!s.learnTarget(41)) s.act(Act.TOGGLE_PATTERNS) }
             Later("ARRANGE", Modifier.weight(1f).report(s, "arrange"))
         }
         Spacer(Modifier.width(Layout.meterWidth.dp))

@@ -51,7 +51,7 @@ fun RightColumn(s: ScreenState, modifier: Modifier, onPages: (LayoutCoordinates)
                 MasterScope(s, Modifier.weight(1f).fillMaxWidth())
                 ButtonPair { ScopeButton(s, 1, Modifier.weight(1f)); ScopeButton(s, 2, Modifier.weight(1f)) }
                 ButtonPair {
-                    HoldButton("SHIFT", s.side[4] != 0, Modifier.weight(1f)) { on -> if (s.midi.controls.learning) { if (on) s.learnTarget(37) }
+                    HoldButton("SHIFT", s.side[4] != 0, Modifier.weight(1f).midiLearnMark(s, 37)) { on -> if (s.midi.controls.learning) { if (on) s.learnTarget(37) }
                     else s.act(Act.SET_SHIFT, if (on) 1 else 0) }
                     ScopeButton(s, 3, Modifier.weight(1f))
                 }
@@ -67,7 +67,7 @@ fun RightColumn(s: ScreenState, modifier: Modifier, onPages: (LayoutCoordinates)
             // FX слева, MOD справа.
             ButtonPair { PageButton(s, "FX", 0, Modifier.weight(1f)); PageButton(s, "MOD", 1, Modifier.weight(1f)) }
             ButtonPair {
-                HoldButton("SHIFT", s.side[4] != 0, Modifier.weight(1f)) { on -> if (s.midi.controls.learning) { if (on) s.learnTarget(37) }
+                HoldButton("SHIFT", s.side[4] != 0, Modifier.weight(1f).midiLearnMark(s, 37)) { on -> if (s.midi.controls.learning) { if (on) s.learnTarget(37) }
                     else s.act(Act.SET_SHIFT, if (on) 1 else 0) }
                 MorphButton(s, Modifier.weight(1f))
             }
@@ -80,7 +80,7 @@ fun RightColumn(s: ScreenState, modifier: Modifier, onPages: (LayoutCoordinates)
 private fun PageButton(s: ScreenState, title: String, page: Int, modifier: Modifier) {
     val latch = s.side[2 + page] != 0
     val line = if (latch) androidx.compose.ui.graphics.Color.Black else androidx.compose.ui.graphics.Color.Transparent
-    HoldButton(title, s.side[page] != 0, modifier.drawWithContent {
+    HoldButton(title, s.side[page] != 0, modifier.midiLearnMark(s, 38 + page).drawWithContent {
         drawContent()
         val i = 3.dp.toPx()
         drawRoundRect(line, androidx.compose.ui.geometry.Offset(i, i),

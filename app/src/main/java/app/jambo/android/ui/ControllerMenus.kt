@@ -197,11 +197,16 @@ fun MidiLearnStrip(s: ScreenState, modifier: Modifier) {
     val midi = s.midi
     val c = midi.controls
     val target = c.learnTarget
-    val known = c.bindings.lastOrNull { it.target == target }
-    Row(modifier.fillMaxWidth(0.72f).menuBox().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        Text(if (target < 0) "MIDI LEARN · Tap a knob or button" else "${midiTargetLabel(target)} · Move a MIDI control",
-            Modifier.weight(1f), color = LocalTheme.current.text, fontSize = 12.tsp())
+    val known = c.bindingForTarget(target)
+    val th = LocalTheme.current
+    val label = when {
+        target < 0 -> "MIDI LEARN · Tap a knob or button"
+        known == null -> "${midiTargetLabel(target)} · Move a MIDI control"
+        else -> "${midiTargetLabel(target)} ← ${known.inputLabel}"
+    }
+    Row(modifier.fillMaxWidth(0.72f).framed(th.panel, th.accent).padding(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f), color = th.accentText, fontSize = 12.tsp())
         MenuItem("PRESS", Modifier.width(84.dp), current = c.learnPress) { c.learnPress = !c.learnPress }
         MenuItem("MIDI MAP", Modifier.width(110.dp), enabled = target >= 0 && (known != null || midi.inputs.isNotEmpty())) {
             (known ?: midi.inputs.firstOrNull()?.let { MidiBinding(it, 0xB0, 0, target) })?.let(c::edit)
