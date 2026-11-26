@@ -137,7 +137,7 @@ public:
     void resetMidiClock();
     ClockPlan::Batch tickMidiSync(double now, bool send, bool receive, bool startStop, double offset);
     void midiMappedKnob(int slot, int value, int encoder, double low, double high);
-    void midiMappedButton(int target, bool down, bool touch, bool setState);
+    void midiMappedButton(int target, bool down, bool touch, bool setState, bool global = false);
     void midiNoteFrom(int note, int velocity, int identity);
     bool canUndo() const { return history_.canUndo(); }
     bool canRedo() const { return history_.canRedo(); }
@@ -771,6 +771,9 @@ private:
     std::string captureProject_;
     std::string captureProjectName_;
     double captureDeadline_ = 0;
+    std::map<int, std::pair<int, double>> midiStepsDown_;
+    std::set<int> midiPagesDown_;
+    std::map<int, double> midiKnobTaps_;
     ClockFollower midiClockFollower_;
     ClockPlan midiClockPlan_;
     long midiPhaseStep_ = -1;

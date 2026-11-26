@@ -24,16 +24,9 @@ data class MidiBinding(
     val max: Int = 100,
     val mode: Int = 0,
     val action: Int = -1,
+    val global: Boolean = false,
 ) {
     val inputLabel get() = "${if (status and 0xF0 == 0xB0) "CC" else "NOTE"} $number · CH ${(status and 15) + 1}"
-}
-
-fun midiTargetLabel(target: Int): String = when (target) {
-    in 0..15 -> "KNOB ${target / 4 + 1}.${target % 4 + 1}"
-    in 16..31 -> midiTargetLabel(target - 16) + " PRESS"
-    in 32..41 -> listOf("PLAY", "REC", "UNDO", "REDO", "METRONOME", "SHIFT", "FX", "MOD", "EQ", "PATTERNS")[target - 32]
-    in 48..63 -> "STEP ${target - 47}"
-    else -> ""
 }
 
 class MidiControls(ctx: Context) {
@@ -65,7 +58,7 @@ class MidiControls(ctx: Context) {
                 val o = data.getJSONObject(i)
                 val src = MidiEndpoint(o.getString("device"), o.getInt("port"), o.getString("label"))
                 bindings += MidiBinding(src, o.getInt("status"), o.getInt("number"), o.getInt("target"),
-                    o.optInt("encoder"), o.optInt("min"), o.optInt("max", 100), o.optInt("mode"), o.optInt("action", -1))
+                    o.optInt("encoder"), o.optInt("min"), o.optInt("max", 100), o.optInt("mode"), o.optInt("action", -1), o.optBoolean("global"))
                 rememberDevice(src.device)
             }
         }
@@ -97,7 +90,7 @@ class MidiControls(ctx: Context) {
         learnPress = false
     }
 
-    fun knobTarget(slot: Int): Int = slot + if (learnPress) 16 else 0
+    fun knobTarget(slot: Int): Int = slot + if (learnPress) MidiTarget.PRESS else 0
 
     fun bindingForTarget(target: Int): MidiBinding? =
         bindings.lastOrNull { it.target == target && it.source.device !in disabled }
@@ -169,8 +162,14 @@ class MidiControls(ctx: Context) {
     }
 
     private fun invoke(binding: MidiBinding, down: Boolean) {
-        val target = if (!pressTouch && binding.target in 16..31 && binding.action >= 32) binding.action else binding.target
-        AppNative.midiButton(target, down, pressTouch, binding.mode != 0)
+        val pressAction = !pressTouch && binding.target in MidiTarget.PRESS until MidiTarget.PLAY
+        if (pressAction && binding.action == MidiTarget.PRESS_PARAMETER) {
+            val slot = binding.target - MidiTarget.PRESS
+            AppNative.midiControl(slot, if (down) 127 else 0, 0, binding.min / 100.0, binding.max / 100.0)
+            return
+        }
+        val target = if (pressAction && binding.action >= MidiTarget.PLAY) binding.action else binding.target
+        AppNative.midiButton(target, down, pressTouch, binding.mode != 0, binding.global)
     }
 
     fun message(endpoint: MidiEndpoint, status: Int, number: Int, value: Int) {
@@ -181,13 +180,14 @@ class MidiControls(ctx: Context) {
         val down = type != 0x80 && value > 0
         val normalized = (status and 15) or if (note) 0x90 else 0xB0
         val source = Source(endpoint, normalized, number)
+        val buttonDown = if (note) down else value >= 64
         if (note && !down && !held.containsKey(source)) return
         if ((learning || editor != null) && (down || !note)) {
             if (learnTarget < 0) return
             val current = editor?.takeIf { it.target == learnTarget }
                 ?: bindings.lastOrNull { it.target == learnTarget && it.source.device == endpoint.device }
             val next = MidiBinding(endpoint, normalized, number, learnTarget, current?.encoder ?: 0,
-                current?.min ?: 0, current?.max ?: 100, current?.mode ?: 0, current?.action ?: -1)
+                current?.min ?: 0, current?.max ?: 100, current?.mode ?: 0, current?.action ?: -1, current?.global ?: false)
             // Поток CC от той же ручки не переписывает настройки и сохраняет выделение цели.
             if (next == current) return
             if (editor != null) editor = next
@@ -206,9 +206,9 @@ class MidiControls(ctx: Context) {
                 val active = held.getOrPut(source) { Held(nextId++, null) }
                 AppNative.midiNoteFrom(number, value, active.id)
             }
-        } else if (mapping.target < 16) {
+        } else if (MidiTarget.continuous(mapping.target)) {
             AppNative.midiControl(mapping.target, value, mapping.encoder, mapping.min / 100.0, mapping.max / 100.0)
-        } else if ((if (mapping.mode == 2 && !note) value >= 64 else down) && source !in held) {
+        } else if (buttonDown && source !in held) {
             if (mapping.mode == 1) {
                 val on = toggled.remove(source) == null
                 if (on) toggled[source] = mapping
@@ -218,7 +218,7 @@ class MidiControls(ctx: Context) {
                 held[source] = Held(0, mapping, true)
                 invoke(mapping, true)
             }
-        } else if (if (mapping.mode == 2 && !note) value < 64 else !down) {
+        } else if (!buttonDown) {
             held.remove(source)?.let { release(source, it) }
         }
     }
@@ -227,7 +227,7 @@ class MidiControls(ctx: Context) {
         val data = JSONArray()
         for (m in bindings) data.put(JSONObject().put("device", m.source.device).put("port", m.source.port)
             .put("label", m.source.label).put("status", m.status).put("number", m.number).put("target", m.target)
-            .put("encoder", m.encoder).put("min", m.min).put("max", m.max).put("mode", m.mode).put("action", m.action))
+            .put("encoder", m.encoder).put("min", m.min).put("max", m.max).put("mode", m.mode).put("action", m.action).put("global", m.global))
         prefs.edit().putString("mappings", data.toString()).apply()
     }
 }

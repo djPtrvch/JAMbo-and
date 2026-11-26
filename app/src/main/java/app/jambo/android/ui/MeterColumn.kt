@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.jambo.android.AppNative
 import app.jambo.android.AppNative.Act
+import app.jambo.android.MidiTarget
 import java.util.Locale
 import kotlin.math.log10
 import kotlin.math.max
@@ -71,9 +72,13 @@ fun MeterColumn(s: ScreenState, modifier: Modifier) {
         Box(Modifier.fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) {
             Box(Modifier.width(21.dp).height(4.dp).background(if (clip) th.rec else th.off, RoundedCornerShape(2.dp)))
         }
-        Canvas(Modifier.weight(1f).fillMaxWidth().pointerInput(Unit) {
+        Canvas(Modifier.weight(1f).fillMaxWidth().midiLearnMark(s, MidiTarget.LEVEL).pointerInput(Unit) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
+                if (s.learnTarget(MidiTarget.LEVEL)) {
+                    down.consume()
+                    return@awaitEachGesture
+                }
                 val start = cur
                 val y0 = down.position.y
                 s.act(Act.VOL_DRAG, 1)

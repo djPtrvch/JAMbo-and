@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.jambo.android.AppNative.Act
 import app.jambo.android.StepBits
+import app.jambo.android.MidiTarget
 
 /** Размеры ряда шагов по числу показанных страниц (SeqLook в SequencerRow.swift). */
 class SeqLook(n: Int) {
@@ -142,7 +143,7 @@ fun SequencerRow(s: ScreenState) {
                         val col = look.column(c.position.x / density, w)
                         val now = c.uptimeMillis
                         when {
-                            c.changedToDown() -> if (!s.learnTarget(48 + col % 16)) touches.down(c.id, col, first, now)
+                            c.changedToDown() -> if (!s.learnTarget(MidiTarget.STEP + col % 16)) touches.down(c.id, col, first, now)
                             c.changedToUp() -> touches.finish(c.id, now)
                             c.pressed && c.positionChanged() -> touches.move(c.id, col)
                         }
@@ -160,7 +161,10 @@ fun SequencerRow(s: ScreenState) {
                     StepCell(
                         bits = data.getOrElse(2 + k) { 0 }, label = s.stepLabels.getOrElse(k) { "" }, col = col,
                         playing = pos == page * 16 + col, look = look,
-                        modifier = Modifier.weight(1f).midiLearnMark(s, 48 + col, radius = if (look.pages > 2) 3f else 6f),
+                        modifier = Modifier.weight(1f).then(
+                            if (page == first) Modifier.midiLearnMark(s, MidiTarget.STEP + col, if (look.pages > 2) 3f else 6f)
+                            else Modifier,
+                        ),
                     )
                 }
             }

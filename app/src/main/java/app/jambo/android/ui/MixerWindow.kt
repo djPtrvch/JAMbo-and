@@ -3,6 +3,11 @@ package app.jambo.android.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -22,6 +27,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -47,7 +54,6 @@ private const val VOL_MIN = -60.0
  */
 @Composable
 fun MixerWindow(s: ScreenState, modifier: Modifier) {
-    val th = LocalTheme.current
     val text = rememberTextMeasurer()
     var data by remember { mutableStateOf(FloatArray(1)) }
     var frame by remember { mutableStateOf(Rect.Zero) }
@@ -61,14 +67,41 @@ fun MixerWindow(s: ScreenState, modifier: Modifier) {
         val w = (row.width - 2 * side - (n + 1) * g) / n
         return (0 until n).map { row.left + side + g + it * (w + g) + w / 2 - frame.left }
     }
-    Canvas(modifier.onGloballyPositioned { c -> s.body?.let { b -> if (b.isAttached) frame = b.localBoundingBoxOf(c) } }
+    Box(modifier) {
+        MixerFaders(s, Modifier.fillMaxSize(), data, text, ::centers) { frame = it }
+        if (s.midi.controls.learning) {
+            val density = LocalDensity.current.density
+            val n = data.getOrElse(0) { 0f }.toInt()
+            for ((i, x) in centers(n, density).withIndex()) {
+                Box(Modifier.offset(x = (x / density - 22).dp).width(44.dp).fillMaxHeight()
+                    .midiLearnMark(s, s.midi.controls.knobTarget(i)))
+            }
+        }
+    }
+}
+
+@Composable
+private fun MixerFaders(
+    s: ScreenState, modifier: Modifier, data: FloatArray, text: TextMeasurer,
+    centers: (Int, Float) -> List<Float>, positioned: (Rect) -> Unit,
+) {
+    val th = LocalTheme.current
+    val currentData by androidx.compose.runtime.rememberUpdatedState(data)
+    val currentCenters by androidx.compose.runtime.rememberUpdatedState(centers)
+    Canvas(modifier.onGloballyPositioned { c ->
+        s.body?.let { b -> if (b.isAttached) positioned(b.localBoundingBoxOf(c)) }
+    }
         .pointerInput(Unit) {
             awaitEachGesture {
                 val down = awaitFirstDown()
-                val n = data.getOrElse(0) { 0f }.toInt()
-                val xs = centers(n, density)
+                val n = currentData.getOrElse(0) { 0f }.toInt()
+                val xs = currentCenters(n, density)
                 val i = xs.indices.minByOrNull { abs(xs[it] - down.position.x) } ?: return@awaitEachGesture
                 if (abs(xs[i] - down.position.x) > 22 * density) return@awaitEachGesture
+                if (s.learnTarget(s.midi.controls.knobTarget(i))) {
+                    down.consume()
+                    return@awaitEachGesture
+                }
                 val top = (LABEL_H + GAP + CLIP_H + GAP) * density
                 val barsH = size.height - top - (GAP + LABEL_H) * density
                 AppNative.act(Act.BEGIN_GESTURE, 0, 0, 0.0)

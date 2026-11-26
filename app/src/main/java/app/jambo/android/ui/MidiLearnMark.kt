@@ -12,6 +12,7 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import app.jambo.android.MidiTarget
 
 /** Метки LEARN поверх цели: рамка выделения, заливка и источник назначения. */
 @Composable
@@ -31,7 +32,7 @@ fun Modifier.midiLearnMark(s: ScreenState, target: Int, radius: Float = Layout.r
         val stroke = 2.dp.toPx()
         val badge = binding?.let {
             val prefix = when {
-                target in 16..31 -> "P"
+                target in MidiTarget.PRESS until MidiTarget.PLAY -> "P"
                 it.status and 0xF0 == 0xB0 -> "CC"
                 else -> "N"
             }

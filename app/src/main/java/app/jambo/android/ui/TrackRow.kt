@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -26,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.jambo.android.AppNative.Act
+import app.jambo.android.MidiTarget
 import kotlin.math.abs
 
 /** Строка дорожек: MIX | 1…N | MST. Тап — выбор; свайп вниз — mute, вверх — solo (срабатывает на ~24 dp). */
@@ -52,9 +52,10 @@ fun TrackRow(s: ScreenState, step: Float) {
 @Composable
 private fun ChannelCell(s: ScreenState, title: String, channel: Int, selected: Boolean, modifier: Modifier) {
     val th = LocalTheme.current
+    val target = if (channel == 1) MidiTarget.MIX else MidiTarget.MASTER
     Box(
-        modifier.fillMaxHeight().framed(th.trackBg, if (selected) th.accent else Color.Transparent)
-            .pointerInput(channel) { detectTapGestures(onTap = { s.act(Act.SELECT_CHANNEL, channel) }) },
+        modifier.midiLearnMark(s, target).fillMaxHeight().framed(th.trackBg, if (selected) th.accent else Color.Transparent)
+            .pointerTap { if (!s.learnTarget(target)) s.act(Act.SELECT_CHANNEL, channel) },
         contentAlignment = Alignment.Center,
     ) {
         Text(title, color = th.text, fontSize = 12.tsp(), fontWeight = if (selected) FontWeight.Black else FontWeight.SemiBold,
@@ -89,9 +90,13 @@ private fun TrackCell(
     }
     val border = if (mute) th.rec else if (selected) th.accent else Color.Transparent
     Box(
-        modifier.fillMaxHeight().framed(bg, border).pointerInput(index) {
+        modifier.midiLearnMark(s, MidiTarget.TRACK + index).fillMaxHeight().framed(bg, border).pointerInput(index) {
             awaitEachGesture {
                 val down = awaitFirstDown()
+                if (s.learnTarget(MidiTarget.TRACK + index)) {
+                    down.consume()
+                    return@awaitEachGesture
+                }
                 var swiped = false
                 while (true) {
                     val ev = awaitPointerEvent()

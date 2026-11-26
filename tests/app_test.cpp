@@ -1,6 +1,7 @@
 // Состояние приложения (app/App): правки шагов и ручек, UNDO, клавиатура, ход игры — через настоящее ядро.
 #include <filesystem>
 #include "app/App.h"
+#include "midi/MidiTarget.h"
 #include "model/SynthEngines.h"
 #include "engine/AudioCore.h"
 #include <cmath>
@@ -631,7 +632,63 @@ void midi() {
     check(!app.playing(), "midi: input Stop stops the application");
 }
 
+void midiTargets() {
+    namespace mt = MidiTarget;
+    CoreAudio audio;
+    App app(&audio);
+    auto down = [&](int target) { app.midiMappedButton(target, true, true, false); };
+    auto up = [&](int target) { app.midiMappedButton(target, false, true, false); };
+    app.midiMappedKnob(mt::bpm, 127, 0, 0, 0.5);
+    check(app.project().bpm == 140, "midi targets: BPM uses the mapped range");
+    app.midiMappedKnob(mt::level, 0, 0, 0.5, 1);
+    check(app.meterVol(app.meterChannel()) == -30, "midi targets: LEVEL applies to the selected meter");
+    down(mt::track + 1);
+    check(app.selectedTrack() == 1, "midi targets: track selection");
+    down(mt::mute + 1);
+    check(app.project().tracks[1].mute, "midi targets: MUTE works outside MIX");
+    down(mt::solo);
+    check(app.project().tracks[0].solo, "midi targets: SOLO works outside MIX");
+    down(mt::arm);
+    check(app.stemLit(0), "midi targets: ARM toggles a track stem");
+    down(mt::armMaster);
+    check(app.stemLit(StemRing::master), "midi targets: ARM MST toggles the master stem");
+    down(mt::chord);
+    down(mt::chordType + 1);
+    check(app.chordOn() && app.chordKind() == 1, "midi targets: CHORD toggle and type");
+    const auto octave = app.octave();
+    down(mt::octaveUp);
+    check(app.octave() == octave + 1, "midi targets: octave arrows");
+    down(mt::key);
+    check(!app.litNotes().empty(), "midi targets: keyboard note down");
+    up(mt::key);
+    check(app.litNotes().empty(), "midi targets: keyboard note releases");
+    down(mt::lfo);
+    app.midiMappedKnob(4, 127, 0, 0, 1);
+    const auto assign = app.assign(4);
+    check(assign && assign->lfo == 1 && assign->amount == 1, "midi targets: held LFO sets modulation depth with a knob");
+    up(mt::lfo);
+    check(app.heldSources().empty(), "midi targets: source releases");
+    down(mt::step);
+    check(app.heldSteps().count(0) == 1, "midi targets: step is held for p-lock");
+    up(mt::step);
+    check(app.heldSteps().empty() && app.stepInfo(0, 0).on, "midi targets: a short step tap toggles on release");
+    app.addPage();
+    down(mt::page);
+    down(mt::page + 1);
+    check(app.shownSeq().playFrom() == 0 && app.shownSeq().playTo() == 1, "midi targets: two held pages select their range");
+    up(mt::page);
+    up(mt::page + 1);
+    app.addRow();
+    const auto playingClip = app.project().tracks[1].slot;
+    const int clip = mt::clip + mt::windowRows + 1;
+    down(clip);
+    check(app.project().tracks[1].slot == playingClip, "midi targets: clip launcher respects its condition");
+    app.midiMappedButton(clip, true, true, false, true);
+    check(app.project().tracks[1].slot == 1, "midi targets: GLOBAL clip launches even with grid closed");
+}
+
 int runAppTests() {
+    midiTargets();
     midi();
     sampleEditor();
     moveTrackKeepsSound();

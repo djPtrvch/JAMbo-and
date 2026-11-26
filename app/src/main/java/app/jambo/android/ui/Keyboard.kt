@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.jambo.android.AppNative.Act
+import app.jambo.android.MidiTarget
 
 /** Зазор между клавишами. */
 object Keyboard { const val GAP = 3f }
@@ -64,8 +65,8 @@ private fun ChordButton(s: ScreenState, modifier: Modifier) {
     val th = LocalTheme.current
     val on = s.piano[0] != 0
     Column(
-        modifier.tile(if (on) th.text else th.panel2).pointerInput(Unit) {
-            detectTapGestures(onTap = { s.act(Act.TOGGLE_CHORD) }, onLongPress = { s.chordMenu = true })
+        modifier.midiLearnMark(s, MidiTarget.CHORD).tile(if (on) th.text else th.panel2).pointerInput(Unit) {
+            detectTapGestures(onTap = { if (!s.learnTarget(MidiTarget.CHORD)) s.act(Act.TOGGLE_CHORD) }, onLongPress = { s.chordMenu = true })
         },
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
     ) {
@@ -91,6 +92,10 @@ private fun KeyRow(s: ScreenState, modifier: Modifier) {
                         if (c.changedToDown()) {
                             val cell = (size.width + KEY_GAP * density) / maxOf(1, count)
                             val k = (c.position.x / cell).toInt().coerceIn(0, count - 1)
+                            if (s.learnTarget(MidiTarget.KEY + k)) {
+                                c.consume()
+                                continue
+                            }
                             val id = ++serial
                             touches[c.id] = id
                             // Сила (KEY VELOCITY) — по месту на клавише: верх — тихо, низ — громко.
@@ -114,7 +119,7 @@ private fun KeyRow(s: ScreenState, modifier: Modifier) {
             val bg = if (on) th.text else if (root) th.root else th.panel
             val fg = if (on) th.bg else if (shown || root) th.text else th.dim
             Box(
-                Modifier.weight(1f).fillMaxHeight().tile(bg, 6f)
+                Modifier.weight(1f).fillMaxHeight().midiLearnMark(s, MidiTarget.KEY + k, 6f).tile(bg, 6f)
                     .border(1.dp, if (shown && !on) th.text else Color.Transparent, RoundedCornerShape(6.dp)),
                 contentAlignment = Alignment.BottomCenter,
             ) {
@@ -133,14 +138,18 @@ private fun OctavePair(s: ScreenState, modifier: Modifier) {
             while (true) {
                 val ev = awaitPointerEvent()
                 for (c in ev.changes) {
-                    if (c.changedToUp()) s.act(Act.OCTAVE_STEP, if (c.position.y < size.height / 2) 1 else -1)
+                    if (c.changedToUp()) {
+                        val up = c.position.y < size.height / 2
+                        val target = if (up) MidiTarget.OCTAVE_UP else MidiTarget.OCTAVE_DOWN
+                        if (!s.learnTarget(target)) s.act(Act.OCTAVE_STEP, if (up) 1 else -1)
+                    }
                     c.consume()
                 }
             }
         }
     }, verticalArrangement = Arrangement.spacedBy(Layout.stepGap.dp)) {
-        for (t in listOf("▲", "▼")) {
-            Box(Modifier.weight(1f).fillMaxWidth().tile(th.panel2), contentAlignment = Alignment.Center) {
+        for ((i, t) in listOf("▲", "▼").withIndex()) {
+            Box(Modifier.weight(1f).fillMaxWidth().midiLearnMark(s, MidiTarget.OCTAVE_UP + i).tile(th.panel2), contentAlignment = Alignment.Center) {
                 Text(t, color = th.text, fontSize = 14.isp())
             }
         }

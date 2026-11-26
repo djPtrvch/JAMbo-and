@@ -182,16 +182,17 @@ fun KnobGrid(s: ScreenState, modifier: Modifier) {
                         when {
                             c.changedToDown() -> {
                                 val slot = row * 4 + col
-                                if (s.learnTarget(s.midi.controls.knobTarget(slot))) {
-                                    c.consume()
-                                    continue
-                                }
                                 val cw = (size.width - 3 * SPACING * density) / 4 / density
                                 val ch = (size.height - 3 * SPACING * density) / 4 / density
                                 val local = androidx.compose.ui.geometry.Offset(
                                     c.position.x / density - col * (cw + SPACING), c.position.y / density - row * (ch + SPACING))
                                 val b = if (s.tracks[2] == 1 && slot < s.tracks[0])
                                     touches.mixButton(local, androidx.compose.ui.geometry.Size(cw, ch)) else -1
+                                val target = if (b >= 0) mixButtonMidiTarget(b, slot) else s.midi.controls.knobTarget(slot)
+                                if (s.learnTarget(target)) {
+                                    c.consume()
+                                    continue
+                                }
                                 if (b >= 0) {
                                     AppNative.mixAct(b + 1, slot, 0, "")
                                     s.refresh()

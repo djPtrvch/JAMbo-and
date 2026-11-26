@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.jambo.android.AppNative.Act
+import app.jambo.android.MidiTarget
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -53,7 +54,7 @@ fun TopBar(s: ScreenState, onMenu: () -> Unit) {
             Box(Modifier.width(52.dp).fillMaxHeight().pointerInput(Unit) { detectTapGestures(onTap = { onMenu() }) },
                 contentAlignment = Alignment.Center) { Burger(th.text) }
             BpmField(s, top[0] / 10.0, Modifier.weight(1f))
-            Metronome(s, top[4] != 0, Modifier.width(52.dp).midiLearnMark(s, 36))
+            Metronome(s, top[4] != 0, Modifier.width(52.dp).midiLearnMark(s, MidiTarget.METRONOME))
         }
         val pi = s.piano
         val dens = density()
@@ -68,15 +69,18 @@ fun TopBar(s: ScreenState, onMenu: () -> Unit) {
         DragField(s, "ROOT", s.topTexts[1], { pi[6] }, { s.act(Act.SET_ROOT, it) }, Modifier.weight(1f)) { r ->
             s.choice = Choice(s.rootNames, 4, pi[6], r, 3 * r.width / dens + 4 * Layout.gap + playRec) { s.act(Act.SET_ROOT, it) }
         }
-        Glyph("↶", top[1] != 0 || s.midi.controls.learning, Modifier.weight(1f).report(s, "undo").midiLearnMark(s, 34)) { if (!s.learnTarget(34)) s.act(Act.UNDO) }
-        PlayButton(s, top[3] != 0, Modifier.width(mid(half)).midiLearnMark(s, 32))
-        RecButton(s, top.getOrElse(5) { 0 } != 0, Modifier.width(mid(half)).midiLearnMark(s, 33))
-        Glyph("↷", top[2] != 0 || s.midi.controls.learning, Modifier.weight(1f).midiLearnMark(s, 35)) { if (!s.learnTarget(35)) s.act(Act.REDO) }
+        Glyph("↶", top[1] != 0 || s.midi.controls.learning, Modifier.weight(1f).report(s, "undo").midiLearnMark(s, MidiTarget.UNDO)) { if (!s.learnTarget(MidiTarget.UNDO)) s.act(Act.UNDO) }
+        PlayButton(s, top[3] != 0, Modifier.width(mid(half)).midiLearnMark(s, MidiTarget.PLAY))
+        RecButton(s, top.getOrElse(5) { 0 } != 0, Modifier.width(mid(half)).midiLearnMark(s, MidiTarget.REC))
+        Glyph("↷", top[2] != 0 || s.midi.controls.learning, Modifier.weight(1f).midiLearnMark(s, MidiTarget.REDO)) { if (!s.learnTarget(MidiTarget.REDO)) s.act(Act.REDO) }
         RollIcon(Modifier.weight(1f))
-        Toggle("EQ", s.eq[0] != 0, Modifier.weight(1f).report(s, "eq").midiLearnMark(s, 40)) { if (!s.learnTarget(40)) s.act(Act.TOGGLE_EQ_VIEW) }
+        Toggle("EQ", s.eq[0] != 0, Modifier.weight(1f).report(s, "eq").midiLearnMark(s, MidiTarget.EQ)) { if (!s.learnTarget(MidiTarget.EQ)) s.act(Act.TOGGLE_EQ_VIEW) }
         // PATTERNS и ARRANGE — ровно над правой колонкой, затем место измерителя.
         Row(Modifier.width(rightColumn()).fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-            Toggle("PATTERNS", s.grid[0] != 0, Modifier.weight(1f).report(s, "patterns").midiLearnMark(s, 41)) { if (!s.learnTarget(41)) s.act(Act.TOGGLE_PATTERNS) }
+            Toggle("PATTERNS", s.grid[0] != 0, Modifier.weight(1f).report(s, "patterns").midiLearnMark(s, MidiTarget.PATTERNS)) {
+                s.learnTarget(MidiTarget.PATTERNS)
+                s.act(Act.TOGGLE_PATTERNS)
+            }
             Later("ARRANGE", Modifier.weight(1f).report(s, "arrange"))
         }
         Spacer(Modifier.width(Layout.meterWidth.dp))
@@ -178,7 +182,7 @@ private fun PlayButton(s: ScreenState, on: Boolean, modifier: Modifier) {
     val th = LocalTheme.current
     Box(
         modifier.fillMaxHeight().framed(if (on) th.accent else th.panel2, th.accent)
-            .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(); if (!s.learnTarget(32)) s.act(Act.TOGGLE_PLAY) } },
+            .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(); if (!s.learnTarget(MidiTarget.PLAY)) s.act(Act.TOGGLE_PLAY) } },
         contentAlignment = Alignment.Center,
     ) { Text("▶", color = if (on) th.onAccent else th.accent, fontSize = 21.tsp(), fontWeight = FontWeight.Bold) }
 }
@@ -188,7 +192,7 @@ private fun PlayButton(s: ScreenState, on: Boolean, modifier: Modifier) {
 private fun RecButton(s: ScreenState, on: Boolean, modifier: Modifier) {
     val th = LocalTheme.current
     Box(
-        modifier.fillMaxHeight().framed(if (on) th.rec else th.panel2, th.rec).pointerTap { if (!s.learnTarget(33)) s.act(Act.TOGGLE_REC) },
+        modifier.fillMaxHeight().framed(if (on) th.rec else th.panel2, th.rec).pointerTap { if (!s.learnTarget(MidiTarget.REC)) s.act(Act.TOGGLE_REC) },
         contentAlignment = Alignment.Center,
     ) { Text("●", color = if (on) Color.White else th.rec, fontSize = 24.tsp()) }
 }
@@ -200,10 +204,14 @@ private fun BpmField(s: ScreenState, bpm: Double, modifier: Modifier) {
     var active by remember { mutableStateOf(false) }
     val text = if (bpm == Math.rint(bpm)) "${bpm.toInt()}" else String.format(java.util.Locale.US, "%.1f", bpm)
     Row(
-        modifier.fillMaxHeight().tile(if (active) th.panel2 else th.panel).padding(horizontal = 12.dp)
+        modifier.midiLearnMark(s, MidiTarget.BPM).fillMaxHeight().tile(if (active) th.panel2 else th.panel).padding(horizontal = 12.dp)
             .pointerInput(Unit) {
                 awaitEachGesture {
                     val down = awaitFirstDown()
+                    if (s.learnTarget(MidiTarget.BPM)) {
+                        down.consume()
+                        return@awaitEachGesture
+                    }
                     active = true
                     s.act(Act.BEGIN_GESTURE)
                     val start = s.top[0] / 10.0
@@ -237,7 +245,7 @@ private fun Metronome(s: ScreenState, on: Boolean, modifier: Modifier) {
     val fg = if (on) th.text else th.dim
     Box(
         modifier.fillMaxHeight().tile(bg).border(1.dp, if (on) th.text else Color.Transparent, RoundedCornerShape(Layout.radius.dp))
-            .pointerInput(Unit) { detectTapGestures(onTap = { if (!s.learnTarget(36)) s.act(Act.TOGGLE_METRONOME) }) },
+            .pointerInput(Unit) { detectTapGestures(onTap = { if (!s.learnTarget(MidiTarget.METRONOME)) s.act(Act.TOGGLE_METRONOME) }) },
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.size(20.dp)) {

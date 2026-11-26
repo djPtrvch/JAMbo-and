@@ -20,9 +20,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import app.jambo.android.AppNative
 import app.jambo.android.BleMidiPeripheral
 import app.jambo.android.MidiBinding
 import app.jambo.android.MidiHub
+import app.jambo.android.MidiTarget
 import app.jambo.android.Native
 import app.jambo.android.midiTargetLabel
 import kotlinx.coroutines.delay
@@ -221,6 +223,7 @@ fun MidiMapEditor(midi: MidiHub) {
     val m = c.editor ?: return
     fun update(next: MidiBinding) { c.editor = next }
     var selectAction by remember { mutableStateOf(false) }
+    val actions = remember { MidiTarget.actions(AppNative.chordKindNames().size) }
     val encoderNames = listOf("ABSOLUTE", "OFFSET 64", "2’S COMPLEMENT", "SIGNED BIT")
     Dialog(onDismissRequest = c::closeEditor) {
         Column(Modifier.width(410.dp).menuBox().padding(12.dp).verticalScroll(rememberScrollState()),
@@ -243,26 +246,46 @@ fun MidiMapEditor(midi: MidiHub) {
             }
             MapNumber("CHANNEL", (m.status and 15) + 1, 1..16) { update(m.copy(status = (m.status and 0xF0) or (it - 1))) }
             MapNumber("NUMBER", m.number, 0..127) { update(m.copy(number = it)) }
-            if (m.target < 16) {
+            if (MidiTarget.continuous(m.target)) {
                 MenuItem(encoderNames[m.encoder.coerceIn(0, 3)]) { update(m.copy(encoder = (m.encoder + 1) % 4)) }
                 MapNumber("MIN %", m.min, 0..100) { update(m.copy(min = it)) }
                 MapNumber("MAX %", m.max, 0..100) { update(m.copy(max = it)) }
             } else {
-                if (m.target in 16..31 && !c.pressTouch) {
+                if (m.target in MidiTarget.PRESS until MidiTarget.PLAY && !c.pressTouch) {
                     FieldLabel("ACTION")
-                    MenuItem(if (m.action < 0) "RESET KNOB" else midiTargetLabel(m.action)) { selectAction = !selectAction }
+                    val action = when (m.action) {
+                        MidiTarget.PRESS_PARAMETER -> "PARAMETER"
+                        -1 -> "RESET KNOB"
+                        else -> midiTargetLabel(m.action)
+                    }
+                    MenuItem(action) { selectAction = !selectAction }
                     if (selectAction) {
-                        MenuItem("RESET KNOB", current = m.action < 0) { update(m.copy(action = -1)); selectAction = false }
-                        for (target in 32..41) MenuItem(midiTargetLabel(target), current = m.action == target) {
+                        MenuItem("RESET KNOB", current = m.action == -1) { update(m.copy(action = -1)); selectAction = false }
+                        MenuItem("PARAMETER", current = m.action == MidiTarget.PRESS_PARAMETER) {
+                            update(m.copy(action = MidiTarget.PRESS_PARAMETER))
+                            selectAction = false
+                        }
+                        for (target in actions) MenuItem(midiTargetLabel(target), current = m.action == target) {
                             update(m.copy(action = target))
                             selectAction = false
                         }
                     }
                 }
+                if (!c.pressTouch && m.action == MidiTarget.PRESS_PARAMETER) {
+                    MapNumber("MIN %", m.min, 0..100) { update(m.copy(min = it)) }
+                    MapNumber("MAX %", m.max, 0..100) { update(m.copy(max = it)) }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     MenuItem("MOMENTARY", Modifier.weight(1f), current = m.mode == 0) { update(m.copy(mode = 0)) }
                     MenuItem("TOGGLE", Modifier.weight(1f), current = m.mode == 1) { update(m.copy(mode = 1)) }
                     MenuItem("LATCH", Modifier.weight(1f), current = m.mode == 2) { update(m.copy(mode = 2)) }
+                }
+            }
+            if (MidiTarget.launcher(m.target) || MidiTarget.launcher(m.action)) {
+                FieldLabel("CONDITION")
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    MenuItem("CLIP LAUNCHER", Modifier.weight(1f), current = !m.global) { update(m.copy(global = false)) }
+                    MenuItem("GLOBAL", Modifier.weight(1f), current = m.global) { update(m.copy(global = true)) }
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

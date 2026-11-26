@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.jambo.android.AppNative.Act
+import app.jambo.android.MidiTarget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -101,11 +102,13 @@ fun PatternGrid(s: ScreenState, modifier: Modifier, width: Float) {
             for (r in 0 until d.windowRows) {
                 val k = d.rows[r]
                 if (k >= 0) {
-                    SceneCell(s, d, r, k, ui, Modifier.offset(0.dp, g.y(r).dp).size(g.step.dp, g.rowH.dp))
+                    SceneCell(s, d, r, k, ui, Modifier.offset(0.dp, g.y(r).dp).size(g.step.dp, g.rowH.dp)
+                        .midiLearnMark(s, MidiTarget.ROW + r, 6f))
                     for (i in 0 until d.tracks) {
                         val lifted = ui.ghost != null && ((ui.dragCell == GridHit.Cell(i, k)) || ui.dragRow == k)
                         ClipCell(s, d, d.cells[r][i], i, ui.target == GridHit.Cell(i, k), lifted,
-                            Modifier.offset(g.x(i).dp, g.y(r).dp).size(g.trackW.dp, g.rowH.dp))
+                            Modifier.offset(g.x(i).dp, g.y(r).dp).size(g.trackW.dp, g.rowH.dp)
+                                .midiLearnMark(s, MidiTarget.clip(i, r), 6f))
                     }
                 } else if (d.plusRow == r) {
                     PlusCell(Modifier.offset(0.dp, g.y(r).dp).size(g.step.dp, g.rowH.dp))
@@ -147,7 +150,19 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.gridTouc
                 val y = c.position.y / dens
                 val d = GridData(s.grid)
                 if (c.pressed && !c.previousPressed) {
-                    val p = GridPress(hit(g, d, x, y), Offset(x, y), System.currentTimeMillis(), d.top)
+                    val hit = hit(g, d, x, y)
+                    if (s.midi.controls.learning) {
+                        when (hit) {
+                            is GridHit.Cell -> d.rows.indexOf(hit.row).takeIf { it >= 0 }
+                                ?.let { s.learnTarget(MidiTarget.clip(hit.track, it)) }
+                            is GridHit.Scene -> d.rows.indexOf(hit.row).takeIf { it >= 0 }
+                                ?.let { s.learnTarget(MidiTarget.ROW + it) }
+                            else -> Unit
+                        }
+                        c.consume()
+                        continue
+                    }
+                    val p = GridPress(hit, Offset(x, y), System.currentTimeMillis(), d.top)
                     presses[c.id] = p
                     val id = c.id
                     p.job = scope.launch {

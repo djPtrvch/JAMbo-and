@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.jambo.android.AppNative
+import app.jambo.android.MidiTarget
 import kotlin.math.log10
 
 /** Раскладка ячейки MIX (MixLayout ветки swift JAMbo): слева метр, ручка, справа столбик M, S, ●. */
@@ -47,6 +48,12 @@ fun mixButtons(cell: Size): List<Rect> {
     return (0 until 3).map { Rect(Offset(x, y0 + it * (bh + 4)), Size(MIX_BUTTON, bh)) }
 }
 
+fun mixButtonMidiTarget(button: Int, track: Int): Int = when (button) {
+    0 -> MidiTarget.MUTE + track
+    1 -> MidiTarget.SOLO + track
+    else -> MidiTarget.ARM + track
+}
+
 /** Ячейка MIX поверх ручки: метр дорожки (после громкости, стерео — две полосы, Sidechain — оранжевым сверху) и
  *  кнопки M (красная), S (жёлтая), ● (запись стема) — как REC: окантовка цветом, включена — горит. */
 @Composable
@@ -62,9 +69,10 @@ fun MixCellParts(s: ScreenState, slot: Int) {
         val h = (cell.height - MIX_LABEL) * 0.8f
         Canvas(Modifier.offset(2.dp, ((cell.height - MIX_LABEL - h) / 2).dp).size(MIX_METER.dp, h.dp)) { meter(s.mixer, slot, th) }
         val r = mixButtons(cell)
-        small("M", mute, th.rec, r[0])
-        small("S", solo, th.accent, r[1])
+        small(s, "M", mute, th.rec, r[0], mixButtonMidiTarget(0, slot))
+        small(s, "S", solo, th.accent, r[1], mixButtonMidiTarget(1, slot))
         Box(Modifier.offset(r[2].left.dp, r[2].top.dp).size(r[2].width.dp, r[2].height.dp)
+            .midiLearnMark(s, mixButtonMidiTarget(2, slot), 5f)
             .background(if (armed) th.rec else Color.Transparent, RoundedCornerShape(5.dp))
             .border(1.dp, th.rec, RoundedCornerShape(5.dp)), contentAlignment = Alignment.Center) {
             Box(Modifier.size(8.dp).background(if (armed) Color.White else th.rec, CircleShape))
@@ -73,9 +81,10 @@ fun MixCellParts(s: ScreenState, slot: Int) {
 }
 
 @Composable
-private fun small(title: String, on: Boolean, color: Color, r: Rect) {
+private fun small(s: ScreenState, title: String, on: Boolean, color: Color, r: Rect, target: Int) {
     val th = LocalTheme.current
     Box(Modifier.offset(r.left.dp, r.top.dp).size(r.width.dp, r.height.dp)
+        .midiLearnMark(s, target, 5f)
         .background(if (on) color else Color.Transparent, RoundedCornerShape(5.dp)).border(1.dp, color, RoundedCornerShape(5.dp)),
         contentAlignment = Alignment.Center) {
         Text(title, color = if (on) th.onAccent else color, fontSize = 11.tsp(), fontWeight = FontWeight.Bold)

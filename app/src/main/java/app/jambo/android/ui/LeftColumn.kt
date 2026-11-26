@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.jambo.android.AppNative
 import app.jambo.android.AppNative.Act
+import app.jambo.android.MidiTarget
 
 /** Размеры левой и правой колонок (Layout.swift, PagesColumn.swift). */
 object Side {
@@ -96,8 +97,11 @@ private fun SourceButton(s: ScreenState, title: String, source: Int, modifier: M
     val held = s.mod[0] and (1 shl source) != 0
     val outlined = s.mod[1] and (1 shl source) != 0
     val line = if (outlined) th.text else Color.Transparent
-    HoldButton(title, held, modifier.border(1.dp, line, RoundedCornerShape(Layout.radius.dp))) { on ->
-        s.act(Act.SET_SOURCE, source, if (on) 1 else 0, System.nanoTime() / 1e9)
+    val target = MidiTarget.LFO + source - 1
+    HoldButton(title, held, modifier.midiLearnMark(s, target).border(1.dp, line, RoundedCornerShape(Layout.radius.dp))) { on ->
+        if (s.midi.controls.learning) {
+            if (on) s.learnTarget(target)
+        } else s.act(Act.SET_SOURCE, source, if (on) 1 else 0, System.nanoTime() / 1e9)
     }
 }
 
@@ -149,10 +153,16 @@ private fun FolderArrows(s: ScreenState, modifier: Modifier) {
     val th = LocalTheme.current
     val total = s.sound[1]
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp), verticalAlignment = Alignment.CenterVertically) {
-        SideButton("◀", Modifier.width(56.dp), enabled = total > 0, icon = true) { s.act(Act.FOLDER_ARROW, -1) }
+        SideButton("◀", Modifier.width(56.dp).midiLearnMark(s, MidiTarget.SOUND_LEFT),
+            enabled = total > 0 || s.midi.controls.learning, icon = true) {
+            if (!s.learnTarget(MidiTarget.SOUND_LEFT)) s.act(Act.FOLDER_ARROW, -1)
+        }
         Text(s.soundTexts[3], color = th.dim, fontSize = 11.tsp(), modifier = Modifier.weight(1f),
             textAlign = TextAlign.Center)
-        SideButton("▶", Modifier.width(56.dp), enabled = total > 0, icon = true) { s.act(Act.FOLDER_ARROW, 1) }
+        SideButton("▶", Modifier.width(56.dp).midiLearnMark(s, MidiTarget.SOUND_RIGHT),
+            enabled = total > 0 || s.midi.controls.learning, icon = true) {
+            if (!s.learnTarget(MidiTarget.SOUND_RIGHT)) s.act(Act.FOLDER_ARROW, 1)
+        }
     }
 }
 
@@ -284,9 +294,14 @@ private fun MasterRecButton(s: ScreenState, modifier: Modifier) {
     val th = LocalTheme.current
     val info = s.mixInfo
     val lit = info.getOrElse(info.size - 2) { 0 } != 0
-    Box(modifier.fillMaxHeight().background(if (lit) th.rec else th.panel2, RoundedCornerShape(Layout.radius.dp))
+    Box(modifier.midiLearnMark(s, MidiTarget.ARM_MASTER).fillMaxHeight().background(if (lit) th.rec else th.panel2, RoundedCornerShape(Layout.radius.dp))
         .border(1.dp, th.rec, RoundedCornerShape(Layout.radius.dp))
-        .pointerTap { AppNative.mixAct(3, -1, 0, ""); s.refresh() }, contentAlignment = Alignment.Center) {
+        .pointerTap {
+            if (!s.learnTarget(MidiTarget.ARM_MASTER)) {
+                AppNative.mixAct(3, -1, 0, "")
+                s.refresh()
+            }
+        }, contentAlignment = Alignment.Center) {
         Text("● MASTER", color = if (lit) androidx.compose.ui.graphics.Color.White else th.rec, fontSize = 13.tsp(),
             fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp, maxLines = 1)
     }

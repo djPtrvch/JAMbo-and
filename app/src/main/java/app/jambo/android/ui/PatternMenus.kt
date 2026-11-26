@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import app.jambo.android.AppNative
 import app.jambo.android.AppNative.Act
 import app.jambo.android.GridOpt
+import app.jambo.android.MidiTarget
 
 /** Колонка справа (над MST): бутерброд сетки, LOOP ROW, стрелки окна строк (если строк больше, чем в окне). */
 @Composable
@@ -49,18 +50,22 @@ fun GridSide(s: ScreenState, d: GridData, g: GridGeom, modifier: Modifier, ui: G
             .pointerTap { s.act(Act.SET_GRID_OPTION, GridOpt.ROW_LOOP) }, contentAlignment = Alignment.Center) {
             LoopIcon(if (loop) th.onAccent else th.text)
         }
-        if (d.maxTop > 0) {
+        if (d.maxTop > 0 || s.midi.controls.learning) {
             val sw = d.arrowSwitch && d.playing
-            Arrow("▲", d.top > 0 || sw, g) { s.act(Act.GRID_ARROW, -1) }
-            Arrow("▼", d.top < d.maxTop || sw, g) { s.act(Act.GRID_ARROW, 1) }
+            Arrow(s, "▲", d.top > 0 || sw, g, MidiTarget.GRID_UP) {
+                if (!s.learnTarget(MidiTarget.GRID_UP)) s.act(Act.GRID_ARROW, -1)
+            }
+            Arrow(s, "▼", d.top < d.maxTop || sw, g, MidiTarget.GRID_DOWN) {
+                if (!s.learnTarget(MidiTarget.GRID_DOWN)) s.act(Act.GRID_ARROW, 1)
+            }
         }
     }
 }
 
 @Composable
-private fun Arrow(t: String, on: Boolean, g: GridGeom, action: () -> Unit) {
+private fun Arrow(s: ScreenState, t: String, on: Boolean, g: GridGeom, target: Int, action: () -> Unit) {
     val th = LocalTheme.current
-    Box(Modifier.fillMaxWidth().height(g.rowH.dp).tile(th.panel2, 6f).pointerTap(action), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxWidth().height(g.rowH.dp).midiLearnMark(s, target, 6f).tile(th.panel2, 6f).pointerTap(action), contentAlignment = Alignment.Center) {
         Text(t, color = if (on) th.text else th.text.copy(alpha = 0.35f), fontSize = 16.isp())
     }
 }

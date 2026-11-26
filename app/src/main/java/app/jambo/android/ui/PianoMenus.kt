@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.jambo.android.AppNative.Act
+import app.jambo.android.MidiTarget
 
 /** Рамка всплывающего меню (menuBox в Swift-версии). */
 @Composable
@@ -106,9 +107,12 @@ fun ChordMenuOverlay(s: ScreenState) {
                 for (col in 0 until 2) {
                     val k = r * 2 + col
                     if (k < names.size) {
-                        InkButton(names[k], k == s.piano[1], Modifier.width(rowH.dp), rowH) {
-                            s.act(Act.SET_CHORD_KIND, k)
-                            s.chordMenu = false
+                        val target = MidiTarget.CHORD_TYPE + k
+                        InkButton(names[k], k == s.piano[1], Modifier.width(rowH.dp).midiLearnMark(s, target), rowH) {
+                            if (!s.learnTarget(target)) {
+                                s.act(Act.SET_CHORD_KIND, k)
+                                s.chordMenu = false
+                            }
                         }
                     }
                 }

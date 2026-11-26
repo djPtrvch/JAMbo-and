@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.jambo.android.AppNative.Act
 import app.jambo.android.PageAct
+import app.jambo.android.MidiTarget
 
 /**
  * Правая колонка (SideColumns.swift ветки swift JAMbo): у дорожки — стрелки страниц ◀ ▶ ▲ ▼, миниатюры страниц, FX и
@@ -51,7 +52,7 @@ fun RightColumn(s: ScreenState, modifier: Modifier, onPages: (LayoutCoordinates)
                 MasterScope(s, Modifier.weight(1f).fillMaxWidth())
                 ButtonPair { ScopeButton(s, 1, Modifier.weight(1f)); ScopeButton(s, 2, Modifier.weight(1f)) }
                 ButtonPair {
-                    HoldButton("SHIFT", s.side[4] != 0, Modifier.weight(1f).midiLearnMark(s, 37)) { on -> if (s.midi.controls.learning) { if (on) s.learnTarget(37) }
+                    HoldButton("SHIFT", s.side[4] != 0, Modifier.weight(1f).midiLearnMark(s, MidiTarget.SHIFT)) { on -> if (s.midi.controls.learning) { if (on) s.learnTarget(MidiTarget.SHIFT) }
                     else s.act(Act.SET_SHIFT, if (on) 1 else 0) }
                     ScopeButton(s, 3, Modifier.weight(1f))
                 }
@@ -67,7 +68,7 @@ fun RightColumn(s: ScreenState, modifier: Modifier, onPages: (LayoutCoordinates)
             // FX слева, MOD справа.
             ButtonPair { PageButton(s, "FX", 0, Modifier.weight(1f)); PageButton(s, "MOD", 1, Modifier.weight(1f)) }
             ButtonPair {
-                HoldButton("SHIFT", s.side[4] != 0, Modifier.weight(1f).midiLearnMark(s, 37)) { on -> if (s.midi.controls.learning) { if (on) s.learnTarget(37) }
+                HoldButton("SHIFT", s.side[4] != 0, Modifier.weight(1f).midiLearnMark(s, MidiTarget.SHIFT)) { on -> if (s.midi.controls.learning) { if (on) s.learnTarget(MidiTarget.SHIFT) }
                     else s.act(Act.SET_SHIFT, if (on) 1 else 0) }
                 MorphButton(s, Modifier.weight(1f))
             }
@@ -80,7 +81,7 @@ fun RightColumn(s: ScreenState, modifier: Modifier, onPages: (LayoutCoordinates)
 private fun PageButton(s: ScreenState, title: String, page: Int, modifier: Modifier) {
     val latch = s.side[2 + page] != 0
     val line = if (latch) androidx.compose.ui.graphics.Color.Black else androidx.compose.ui.graphics.Color.Transparent
-    HoldButton(title, s.side[page] != 0, modifier.midiLearnMark(s, 38 + page).drawWithContent {
+    HoldButton(title, s.side[page] != 0, modifier.midiLearnMark(s, MidiTarget.FX + page).drawWithContent {
         drawContent()
         val i = 3.dp.toPx()
         drawRoundRect(line, androidx.compose.ui.geometry.Offset(i, i),
@@ -88,7 +89,7 @@ private fun PageButton(s: ScreenState, title: String, page: Int, modifier: Modif
             androidx.compose.ui.geometry.CornerRadius((Layout.radius - 3).dp.toPx()),
             style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
     }) { on ->
-        if (s.midi.controls.learning) { if (on) s.learnTarget(38 + page) }
+        if (s.midi.controls.learning) { if (on) s.learnTarget(MidiTarget.FX + page) }
         else s.act(if (on) Act.PAGE_PRESS else Act.PAGE_RELEASE, page)
     }
 }
@@ -103,7 +104,7 @@ private fun MorphButton(s: ScreenState, modifier: Modifier) {
     val cb by androidx.compose.runtime.rememberUpdatedState<(Boolean) -> Unit>({ on ->
         s.act(if (on) Act.MORPH_PRESS else Act.MORPH_RELEASE)
     })
-    SideButton("MORPH", modifier.drawWithContent {
+    SideButton("MORPH", modifier.midiLearnMark(s, MidiTarget.MORPH).drawWithContent {
         drawContent()
         val i = 3.dp.toPx()
         drawRoundRect(line, androidx.compose.ui.geometry.Offset(i, i),
@@ -113,6 +114,7 @@ private fun MorphButton(s: ScreenState, modifier: Modifier) {
     }.pointerInput(Unit) {
         awaitEachGesture {
             awaitFirstDown(requireUnconsumed = false).consume()
+            if (s.learnTarget(MidiTarget.MORPH)) return@awaitEachGesture
             cb(true)
             waitForUpOrCancellation()
             cb(false)
@@ -125,10 +127,14 @@ private fun MorphButton(s: ScreenState, modifier: Modifier) {
 @Composable
 private fun PageArrows(s: ScreenState, modifier: Modifier) {
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-        SideButton("◀", Modifier.weight(1f), icon = true) { s.act(Act.PAGE_ARROW, PageAct.LEFT) }
-        SideButton("▶", Modifier.weight(1f), icon = true) { s.act(Act.PAGE_ARROW, PageAct.RIGHT) }
-        SideButton("▲", Modifier.weight(1f), icon = true) { s.act(Act.PAGE_ARROW, PageAct.UP) }
-        SideButton("▼", Modifier.weight(1f), icon = true) { s.act(Act.PAGE_ARROW, PageAct.DOWN) }
+        val actions = listOf("◀" to PageAct.LEFT, "▶" to PageAct.RIGHT, "▲" to PageAct.UP, "▼" to PageAct.DOWN)
+        for ((index, action) in actions.withIndex()) {
+            val (label, code) = action
+            val target = MidiTarget.PAGE_ARROW + index
+            SideButton(label, Modifier.weight(1f).midiLearnMark(s, target), icon = true) {
+                if (!s.learnTarget(target)) s.act(Act.PAGE_ARROW, code)
+            }
+        }
     }
 }
 

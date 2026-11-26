@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import app.jambo.android.AppNative.Act
+import app.jambo.android.MidiTarget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -79,6 +80,12 @@ fun PagesColumn(s: ScreenState, modifier: Modifier) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 val y0 = down.position.y / density
+                if (s.midi.controls.learning) {
+                    val row = (y0 / step).toInt()
+                    if (row in 0 until s.pages[0]) s.learnTarget(MidiTarget.PAGE + row)
+                    down.consume()
+                    return@awaitEachGesture
+                }
                 val p = g.begin(s, y0, step, scope) { cur ->
                     press = cur
                     liftTo = cur.liftTo
@@ -109,7 +116,7 @@ fun PagesColumn(s: ScreenState, modifier: Modifier) {
                     .zIndex(if (lifted) 1f else 0f)
                     .then(if (lifted) Modifier.scale(1.06f).shadow(8.dp, RoundedCornerShape(6.dp)) else Modifier)
                 when {
-                    r < n -> PageThumb(s, r, mod)
+                    r < n -> PageThumb(s, r, mod.midiLearnMark(s, MidiTarget.PAGE + r, 6f))
                     r == n && n < MAX_PAGES -> PlusThumb(mod)
                 }
             }

@@ -33,9 +33,9 @@ FN(void, midiControl)(JNIEnv*, jobject, jint target, jint value, jint encoder, j
     jniApp().midiMappedKnob(target, value, encoder, low, high);
 }
 
-FN(void, midiButton)(JNIEnv*, jobject, jint target, jboolean down, jboolean touch, jboolean setState) {
+FN(void, midiButton)(JNIEnv*, jobject, jint target, jboolean down, jboolean touch, jboolean setState, jboolean global) {
     std::lock_guard<std::mutex> guard(jniLock());
-    jniApp().midiMappedButton(target, down, touch, setState);
+    jniApp().midiMappedButton(target, down, touch, setState, global);
 }
 
 FN(void, midiNoteFrom)(JNIEnv*, jobject, jint note, jint velocity, jint identity) {

@@ -147,7 +147,7 @@ object AppNative {
     external fun midiResetClock()
     external fun midiClockBatch(now: Double, send: Boolean, receive: Boolean, startStop: Boolean, offset: Int): LongArray?
     external fun midiControl(target: Int, value: Int, encoder: Int, low: Double, high: Double)
-    external fun midiButton(target: Int, down: Boolean, touch: Boolean, setState: Boolean)
+    external fun midiButton(target: Int, down: Boolean, touch: Boolean, setState: Boolean, global: Boolean)
     external fun midiNoteFrom(note: Int, velocity: Int, identity: Int)
 
     external fun sampleEditorTexts(): Array<String>
