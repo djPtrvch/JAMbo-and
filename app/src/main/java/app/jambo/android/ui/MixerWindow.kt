@@ -68,7 +68,7 @@ fun MixerWindow(s: ScreenState, modifier: Modifier) {
         return (0 until n).map { row.left + side + g + it * (w + g) + w / 2 - frame.left }
     }
     Box(modifier) {
-        MixerFaders(s, Modifier.fillMaxSize(), data, text, ::centers) { frame = it }
+        MixerFaders(s, Modifier.fillMaxSize(), data, text, frame.left, ::centers) { frame = it }
         if (s.midi.controls.learning) {
             val density = LocalDensity.current.density
             val n = data.getOrElse(0) { 0f }.toInt()
@@ -82,7 +82,7 @@ fun MixerWindow(s: ScreenState, modifier: Modifier) {
 
 @Composable
 private fun MixerFaders(
-    s: ScreenState, modifier: Modifier, data: FloatArray, text: TextMeasurer,
+    s: ScreenState, modifier: Modifier, data: FloatArray, text: TextMeasurer, left: Float,
     centers: (Int, Float) -> List<Float>, positioned: (Rect) -> Unit,
 ) {
     val th = LocalTheme.current
@@ -126,7 +126,7 @@ private fun MixerFaders(
         if (xs.isEmpty()) return@Canvas
         val top = (LABEL_H + GAP + CLIP_H + GAP) * density
         val h = maxOf(1f, size.height - top - (GAP + LABEL_H) * density)
-        val sx = s.tracksRect.left + Layout.step(s.tracksRect.width / density) * density / 2 - frame.left
+        val sx = s.tracksRect.left + Layout.step(s.tracksRect.width / density) * density / 2 - left
         scaleMarks(sx, top, h, th, text)
         val dim = TextStyle(color = th.dim, fontSize = (9 * canvasTextScale).sp2())
         val vol = TextStyle(color = th.text.copy(alpha = 0.75f), fontSize = (9 * canvasTextScale).sp2(), fontWeight = FontWeight.Medium)
