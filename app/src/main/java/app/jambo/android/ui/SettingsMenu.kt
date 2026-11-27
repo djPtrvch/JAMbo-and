@@ -99,9 +99,13 @@ private fun ArrangeTab(s: ScreenState) {
     val p = s.arrangePreferences
     FieldLabel("TRACKS")
     MenuChoices(listOf("FIX" to !p.scaleTracks, "SCALE" to p.scaleTracks)) {
-        s.arrangePreferences = p.copy(scaleTracks = it == 1)
+        val scale = it == 1
+        if (p.scaleTracks != scale) {
+            s.arrangePreferences = p.copy(scaleTracks = scale)
+            s.arrangeViewport = s.arrangeViewport.copy(rowHeight = 0f)
+        }
     }
-    MenuNote("FIX uses the Expanded / Compact button under the meter. SCALE resizes track rows with a vertical two-finger pinch.")
+    MenuNote("FIX uses the button below the meter when STEPS is off: EXPANDED fits eight tracks in the full window; COMPACT fits all tracks in view. SCALE: spread or pinch two fingers vertically on the timeline to resize tracks. A horizontal pinch zooms time.")
     ToggleRow("FOLLOW PLAYHEAD", p.follow) { s.arrangePreferences = p.copy(follow = it) }
     MenuNote("Scrolls the arrangement to keep the playhead in view while playing.")
     ToggleRow("ROW REPEATS", p.rowRepeats) { s.arrangePreferences = p.copy(rowRepeats = it) }

@@ -145,11 +145,24 @@ private fun Body(s: ScreenState, th: Theme, controllerActions: ControllerActions
             SequencerRow(s)
             KeyboardPanel(s, width)
         }
+        val knobsPanel: @Composable (Modifier) -> Unit = { panelModifier ->
+            Row(panelModifier, horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
+                LeftColumn(s, Modifier.width(column()).fillMaxHeight().onGloballyPositioned { c ->
+                    body?.let { b -> if (b.isAttached) left = b.localBoundingBoxOf(c) }
+                })
+                KnobGrid(s, Modifier.weight(1f).fillMaxHeight().onGloballyPositioned { c ->
+                    body?.let { b -> if (b.isAttached) gridRect = b.localBoundingBoxOf(c) }
+                })
+                RightColumn(s, Modifier.width(rightColumn()).fillMaxHeight()) { c ->
+                    body?.let { b -> if (b.isAttached) pagesRect = b.localBoundingBoxOf(c) }
+                }
+            }
+        }
         val showArrange = s.arrange[0] != 0 && s.lib[0] == 0 && s.eq[0] == 0 && !s.sampleEditor &&
             s.masterWin[0] < 0 && s.masterWin.getOrElse(7) { 0 } == 0
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
             TopBar(s) { s.mainMenu = !s.mainMenu }
-            if (showArrange) ArrangeWindow(s, width, Modifier.weight(1f).fillMaxWidth(), lowerPanel)
+            if (showArrange) ArrangeWindow(s, Modifier.weight(1f).fillMaxWidth(), lowerPanel, knobsPanel)
             else if (s.grid[0] != 0) PatternGrid(s, Modifier.weight(1f).fillMaxWidth(), width)
             else if (s.masterWin[0] >= 0) Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
                 MasterWindow(s, Modifier.weight(1f).fillMaxHeight())
@@ -172,15 +185,7 @@ private fun Body(s: ScreenState, th: Theme, controllerActions: ControllerActions
                 MeterColumn(s, Modifier.fillMaxHeight())
             }
             else Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-                LeftColumn(s, Modifier.width(column()).fillMaxHeight().onGloballyPositioned { c ->
-                    body?.let { b -> if (b.isAttached) left = b.localBoundingBoxOf(c) }
-                })
-                KnobGrid(s, Modifier.weight(1f).fillMaxHeight().onGloballyPositioned { c ->
-                    body?.let { b -> if (b.isAttached) gridRect = b.localBoundingBoxOf(c) }
-                })
-                RightColumn(s, Modifier.width(rightColumn()).fillMaxHeight()) { c ->
-                    body?.let { b -> if (b.isAttached) pagesRect = b.localBoundingBoxOf(c) }
-                }
+                knobsPanel(Modifier.weight(1f).fillMaxHeight())
                 MeterColumn(s, Modifier.fillMaxHeight())
             }
             if (!showArrange) lowerPanel()

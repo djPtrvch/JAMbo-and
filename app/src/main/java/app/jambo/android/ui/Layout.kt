@@ -71,6 +71,9 @@ object Layout {
     /** Высота клавиатуры: квадратная клавиша + 50 (место нижнего бутерброда). */
     fun pianoHeight(width: Float, count: Int) = keySide(width, count) + 50
 
+    /** Нижняя панель STEPS: дорожки, секвенсор, клавиатура и два зазора. */
+    fun lowerPanelHeight(keys: Int) = trackHeight + seqHeight + pianoHeight(Dims.ipadWidth, keys) + 2 * gap
+
     /** Высота CHORD (квадратная, шириной в шаг). */
     fun keyHeight(width: Float, count: Int) = maxOf(20f, minOf(step(width), pianoHeight(width, count) - 50))
 }

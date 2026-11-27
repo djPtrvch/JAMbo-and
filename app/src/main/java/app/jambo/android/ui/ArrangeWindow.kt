@@ -7,14 +7,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -52,20 +51,10 @@ internal sealed interface ArrangeMenu {
     data class Ruler(val step: Int, val section: Int?) : ArrangeMenu
 }
 
-internal data class TimelineGeometry(
-    val header: Float, val ruler: Float, val sectionBand: Float, val row: Float, val gap: Float,
-    val stepWidth: Float, val port: ArrangeViewport, val refRow: Boolean,
-) {
-    val rulerBottom get() = ruler + sectionBand
-    val bodyTop get() = rulerBottom + if (refRow) row else 0f
-    fun x(step: Float) = header + step * stepWidth - port.x
-    fun step(x: Float) = (x - header + port.x) / stepWidth
-    fun track(y: Float) = floor((y - bodyTop + port.y) / row).toInt()
-    fun rowTop(track: Int) = bodyTop + track * row - port.y
-}
-
 @Composable
-internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, steps: @Composable () -> Unit) {
+internal fun ArrangeWindow(
+    s: ScreenState, modifier: Modifier, steps: @Composable () -> Unit, knobsPanel: @Composable (Modifier) -> Unit,
+) {
     val d = remember(s.arrange) { ArrangeData(s.arrange) }
     val sectionNames = remember(s.revision) { AppNative.arrangeSections() }
     val reference = arrangeReference(s, d.ref)
@@ -74,18 +63,16 @@ internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, ste
     var refDrag by remember { mutableStateOf<Double?>(null) }
     var timelineFrame by remember { mutableStateOf(Rect.Zero) }
     val theme = LocalTheme.current
-    var port by remember { mutableStateOf(ArrangeViewport()) }
     var menu by remember { mutableStateOf<ArrangeMenu?>(null) }
     var group by remember { mutableStateOf<List<Pair<Int, Int>>>(emptyList()) }
     var marquee by remember { mutableStateOf<Rect?>(null) }
     var outline by remember { mutableStateOf<Rect?>(null) }
-    var knobs by remember { mutableStateOf(false) }
     val measure = rememberTextMeasurer()
     val density = LocalDensity.current
     val header = column() + Layout.gap.dp
     val preferences = s.arrangePreferences
     val scaleTracks = preferences.scaleTracks
-    LaunchedEffect(scaleTracks, preferences.compact) { port = port.copy(y = 0f, rowHeight = 0f) }
+    val knobs = s.arrangeKnobs
     val text = 13.tsp()
     fun groupAction(command: Int, delta: Int = 0) {
         val ids = group.flatMap { listOf(it.first, it.second) }.toIntArray()
@@ -94,114 +81,110 @@ internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, ste
         s.refresh()
     }
 
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-        ArrangeToolbar(s, d, menu == ArrangeMenu.Grid, knobs,
-            grid = { menu = if (menu == ArrangeMenu.Grid) null else ArrangeMenu.Grid },
-            split = { if (group.size >= 2) groupAction(3) else s.arrangeAct(ArrangeAct.SPLIT) },
-            toggleKnobs = { knobs = !knobs })
-        val lower = (Layout.trackHeight + Layout.seqHeight + Layout.keySide(width, s.keys[1].coerceAtLeast(7)) +
-            3 * Layout.gap).dp
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            val timelineWidth = maxWidth - (Layout.meterWidth + Layout.gap).dp
-            val geometry = with(density) {
-                val headerPx = header.toPx()
-                val ruler = 20.dp.toPx()
-                val section = 18.dp.toPx()
-                val gap = Layout.gap.dp.toPx()
-                val st = port.stepWidth.takeIf { it > 0 } ?: ((timelineWidth.toPx() - headerPx) / 256).coerceAtLeast(0.1f)
-                val hidden = if (d.auto || !d.hideSteps) lower.toPx() else 0f
-                val seen = (maxHeight.toPx() - ruler - section).coerceAtLeast(0f)
-                val lanes = (d.tracks.size + if (reference != null) 1 else 0).coerceAtLeast(1)
-                val expanded = scaleTracks || !preferences.compact
-                val row = when {
-                    scaleTracks && port.rowHeight > 0 -> port.rowHeight
-                    expanded -> ((seen + hidden - 7 * gap) / 8).coerceAtLeast(20.dp.toPx())
-                    else -> ((seen - (lanes - 1) * gap) / lanes).coerceAtLeast(16.dp.toPx())
-                } + gap
-                val maxY = (lanes * row - gap - seen).coerceAtLeast(0f)
-                TimelineGeometry(headerPx, ruler, section, row, gap, st, port.copy(y = port.y.coerceIn(0f, maxY)), reference != null)
+    BoxWithConstraints(modifier) {
+        val gap = Layout.gap.dp
+        val toolbar = Layout.topHeight.dp
+        val lower = Layout.lowerPanelHeight(s.keys.getOrElse(1) { 15 }).dp
+        val lowerVisible = d.auto || !d.hideSteps
+        val timelineWidth = maxWidth - (Layout.meterWidth + Layout.gap).dp
+        val centerHeight = (maxHeight - lower - gap).coerceAtLeast(0.dp)
+        val fullTimelineHeight = (maxHeight - toolbar - gap).coerceAtLeast(0.dp)
+        val visibleHeight = (if (lowerVisible) fullTimelineHeight - lower - gap else fullTimelineHeight).coerceAtLeast(0.dp)
+        val playing = s.top[3] != 0
+        val playEnd = if (playing) (s.arrangePosition.toInt() / 256 + 1) * 256 else 0
+        val geometry = with(density) {
+            val headerPx = header.toPx()
+            TimelineGeometry(
+                headerPx, 20.dp.toPx(), 18.dp.toPx(), gap.toPx(),
+                (timelineWidth.toPx() - headerPx).coerceAtLeast(1f), fullTimelineHeight.toPx(), visibleHeight.toPx(),
+                d.tracks.size, maxOf(d.end, playEnd), reference != null, scaleTracks || !preferences.compact,
+                this.density, s.arrangeViewport,
+            )
+        }
+        val follow = preferences.follow && playing && s.arrangeCarry == null
+        LaunchedEffect(follow, s.arrangePosition, geometry.width, geometry.stepWidth) {
+            if (!follow) return@LaunchedEffect
+            val at = s.arrangePosition.toFloat() * geometry.stepWidth
+            val x = geometry.port.x
+            val next = when {
+                at - x > geometry.width * 0.75f -> at - geometry.width * 0.75f
+                at < x -> at - geometry.width * 0.10f
+                else -> return@LaunchedEffect
             }
-            val visibleWidth = with(density) { (timelineWidth.toPx() - geometry.header).coerceAtLeast(1f) }
-            val follow = preferences.follow && s.top[3] != 0 && s.arrangeCarry == null
-            LaunchedEffect(follow, s.arrangePosition, visibleWidth, geometry.stepWidth) {
-                if (!follow) return@LaunchedEffect
-                val at = s.arrangePosition.toFloat() * geometry.stepWidth
-                when {
-                    at - port.x > visibleWidth * 0.75f -> port = port.copy(x = at - visibleWidth * 0.75f)
-                    at < port.x -> port = port.copy(x = (at - visibleWidth * 0.10f).coerceAtLeast(0f))
-                }
+            s.arrangeViewport = geometry.port.copy(x = geometry.clampX(next))
+        }
+        val geo by rememberUpdatedState(geometry)
+        val resizingTracks by rememberUpdatedState(scaleTracks)
+        val data by rememberUpdatedState(d)
+        val ref by rememberUpdatedState(reference)
+        val stepDuration by rememberUpdatedState(stepSeconds)
+        val names = s.trackNames
+        val take = remember(s.arrangePosition.toInt(), s.revision) { AppNative.arrangeTake() }
+        val carry = s.arrangeCarry
+        val target = carry?.let { move ->
+            val local = move.point - timelineFrame.topLeft
+            val lane = d.tracks.getOrNull(move.track)
+            if (move.selection != null || lane == null || local.y < geometry.rulerBottom ||
+                local.y > timelineFrame.height || local.x < geometry.header || local.x > timelineFrame.width) null
+            else with(density) {
+                val near = lane.blocks.firstOrNull { abs(geometry.x(it.start.toFloat()) - local.x) < 16.dp.toPx() }
+                val step = floor(geometry.step(local.x)).toInt().coerceAtLeast(0)
+                val at = near?.start ?: if (d.snap) (step + d.gridSteps / 2) / d.gridSteps * d.gridSteps else step
+                val y = geometry.rowTop(move.track)
+                CarryTarget(at, near != null, Rect(geometry.x(at.toFloat()), y,
+                    geometry.x((at + move.length).toFloat()), y + geometry.row - geometry.gap))
             }
-            val geo by rememberUpdatedState(geometry)
-            val resizingTracks by rememberUpdatedState(scaleTracks)
-            val data by rememberUpdatedState(d)
-            val ref by rememberUpdatedState(reference)
-            val stepDuration by rememberUpdatedState(stepSeconds)
-            val names = s.trackNames
-            val take = remember(s.arrangePosition.toInt(), s.revision) { AppNative.arrangeTake() }
-            val carry = s.arrangeCarry
-            val target = carry?.let { move ->
-                val local = move.point - timelineFrame.topLeft
-                val lane = d.tracks.getOrNull(move.track)
-                if (move.selection != null || lane == null || local.y < geometry.rulerBottom ||
-                    local.y > timelineFrame.height || local.x < geometry.header || local.x > timelineFrame.width) null
-                else with(density) {
-                    val near = lane.blocks.firstOrNull { abs(geometry.x(it.start.toFloat()) - local.x) < 16.dp.toPx() }
-                    val step = floor(geometry.step(local.x)).toInt().coerceAtLeast(0)
-                    val at = near?.start ?: if (d.snap) (step + d.gridSteps / 2) / d.gridSteps * d.gridSteps else step
-                    val y = geometry.rowTop(move.track)
-                    CarryTarget(at, near != null, Rect(geometry.x(at.toFloat()), y,
-                        geometry.x((at + move.length).toFloat()), y + geometry.row - geometry.gap))
-                }
-            }
-            val selection = carry?.selection
-            val selectionStep = if (selection != null && carry != null) {
-                val local = carry.point - timelineFrame.topLeft
-                if (local.y in geometry.rulerBottom..timelineFrame.height &&
-                    local.x in geometry.header..timelineFrame.width) {
-                    val step = floor(geometry.step(local.x)).toInt().coerceAtLeast(0)
-                    if (d.snap) (step + d.gridSteps / 2) / d.gridSteps * d.gridSteps else step
-                } else null
+        }
+        val selection = carry?.selection
+        val selectionStep = if (selection != null && carry != null) {
+            val local = carry.point - timelineFrame.topLeft
+            if (local.y in geometry.rulerBottom..timelineFrame.height &&
+                local.x in geometry.header..timelineFrame.width) {
+                val step = floor(geometry.step(local.x)).toInt().coerceAtLeast(0)
+                if (d.snap) (step + d.gridSteps / 2) / d.gridSteps * d.gridSteps else step
             } else null
-            val preview = remember(selection, selectionStep, s.revision) {
-                if (selection != null && selectionStep != null) AppNative.arrangeSelectionPreview(selection, selectionStep)
-                else intArrayOf(0)
+        } else null
+        val preview = remember(selection, selectionStep, s.revision) {
+            if (selection != null && selectionStep != null) AppNative.arrangeSelectionPreview(selection, selectionStep)
+            else intArrayOf(0)
+        }
+        val carryOutlines = (1 until preview.size step 3).map { i ->
+            val track = preview[i]
+            val start = preview[i + 1]
+            val y = geometry.rowTop(track)
+            Rect(geometry.x(start.toFloat()), y, geometry.x((start + preview[i + 2]).toFloat()),
+                y + geometry.row - geometry.gap)
+        }
+        LaunchedEffect(carry?.released, timelineFrame) {
+            if (carry?.released == true && timelineFrame != Rect.Zero) {
+                if (selection != null && selectionStep != null) {
+                    group = emptyList()
+                    if (preview[0] == 1) menu = ArrangeMenu.Drop(selection, selectionStep)
+                    else s.sendGridSelection(selection, selectionStep)
+                } else if (target != null) s.arrangeAct(ArrangeAct.CARRY, carry.track, carry.clip, target.step,
+                    if (target.insert) 1 else 0)
+                s.arrangeCarry = null
             }
-            val carryOutlines = (1 until preview.size step 3).map { i ->
-                val track = preview[i]
-                val start = preview[i + 1]
-                val y = geometry.rowTop(track)
-                Rect(geometry.x(start.toFloat()), y, geometry.x((start + preview[i + 2]).toFloat()),
-                    y + geometry.row - geometry.gap)
-            }
-            LaunchedEffect(carry?.released, timelineFrame) {
-                if (carry?.released == true && timelineFrame != Rect.Zero) {
-                    if (selection != null && selectionStep != null) {
-                        group = emptyList()
-                        if (preview[0] == 1) menu = ArrangeMenu.Drop(selection, selectionStep)
-                        else s.sendGridSelection(selection, selectionStep)
-                    } else if (target != null) s.arrangeAct(ArrangeAct.CARRY, carry.track, carry.clip, target.step,
-                        if (target.insert) 1 else 0)
-                    s.arrangeCarry = null
+        }
+        LaunchedEffect(carry?.pointer) {
+            if (carry == null) return@LaunchedEffect
+            val reach = with(density) { 40.dp.toPx() }
+            val shift = with(density) { 14.dp.toPx() }
+            while (true) {
+                delay(33)
+                val finger = s.arrangeCarry ?: break
+                if (finger.released) break
+                val local = finger.point - timelineFrame.topLeft
+                if (local.y !in geo.rulerBottom..timelineFrame.height) continue
+                val delta = when {
+                    local.x < geo.header + reach && local.x >= 0 -> -shift
+                    local.x > timelineFrame.width - reach && local.x <= timelineFrame.width -> shift
+                    else -> 0f
                 }
+                if (delta != 0f) s.arrangeViewport = geo.port.copy(x = geo.clampX(geo.port.x + delta))
             }
-            LaunchedEffect(carry?.pointer) {
-                if (carry == null) return@LaunchedEffect
-                val reach = with(density) { 40.dp.toPx() }
-                val shift = with(density) { 14.dp.toPx() }
-                while (true) {
-                    delay(33)
-                    val finger = s.arrangeCarry ?: break
-                    if (finger.released) break
-                    val local = finger.point - timelineFrame.topLeft
-                    if (local.y !in geo.rulerBottom..timelineFrame.height) continue
-                    val delta = when {
-                        local.x < geo.header + reach && local.x >= 0 -> -shift
-                        local.x > timelineFrame.width - reach && local.x <= timelineFrame.width -> shift
-                        else -> 0f
-                    }
-                    if (delta != 0f) port = port.copy(x = (port.x + delta).coerceAtLeast(0f))
-                }
-            }
+        }
+        Box(Modifier.fillMaxWidth().padding(top = toolbar + gap).height(visibleHeight)) {
             Canvas(Modifier.width(timelineWidth).fillMaxHeight().clipToBounds()
                 .onGloballyPositioned { coordinates ->
                     s.body?.takeIf { it.isAttached }?.let { timelineFrame = it.localBoundingBoxOf(coordinates) }
@@ -255,13 +238,14 @@ internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, ste
                         val c = event.changes.firstOrNull { it.id == down.id } ?: break
                         if (c.isConsumed) break
                         val fingers = event.changes.filter { it.pressed }
-                        if (fingers.size > 1 && !headerHit) {
+                        val canPinch = !headerHit && !referenceHit && !lifting && (!moved || edge == 0)
+                        if (fingers.size > 1 && (pinch != null || canPinch)) {
                             val a = fingers[0].position
                             val b = fingers[1].position
-                            val current = pinch ?: ArrangePinch(a, b, geo,
-                                (size.width - g.header).coerceAtLeast(1f), size.height.toFloat(), this.density,
-                                resizingTracks, initial.tracks.size).also { pinch = it }
-                            port = current.update(a, b)
+                            val current = pinch ?: ArrangePinch(a, b, geo, this.density, resizingTracks).also { pinch = it }
+                            s.arrangeViewport = current.update(a, b)
+                            marquee = null
+                            outline = null
                             event.changes.forEach { it.consume() }
                             moved = true
                             zoomed = true
@@ -377,9 +361,8 @@ internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, ste
                             }
                             t < 0 || headerHit -> Unit
                             else -> {
-                                val maxY = (initial.tracks.size * g.row - size.height + g.bodyTop).coerceAtLeast(0f)
-                                port = if (horizontalScroll) g.port.copy(x = (g.port.x - delta.x).coerceAtLeast(0f))
-                                    else g.port.copy(y = (g.port.y - delta.y).coerceIn(0f, maxY))
+                                s.arrangeViewport = if (horizontalScroll) g.port.copy(x = g.clampX(g.port.x - delta.x))
+                                    else g.port.copy(y = g.clampY(g.port.y - delta.y))
                             }
                         }
                     }
@@ -395,21 +378,22 @@ internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, ste
                 InkButton(if (d.refB) "B" else "A", d.refB, Modifier.align(Alignment.TopStart).width(44.dp)
                     .offset(x = header - 48.dp, y = 4.dp), 30f) { s.arrangeAct(ArrangeAct.REF_B) }
             }
-            ArrangeMeter(s, Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(Layout.meterWidth.dp))
-            if (knobs) {
-                Row(Modifier.width(timelineWidth).fillMaxHeight().tile(theme.bg),
-                    horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-                    LeftColumn(s, Modifier.width(column()).fillMaxHeight())
-                    KnobGrid(s, Modifier.weight(1f).fillMaxHeight())
-                    RightColumn(s, Modifier.width(rightColumn()).fillMaxHeight()) {}
-                }
-            }
-            if (menu == ArrangeMenu.Grid) ArrangeGridOverlay(s, d) { menu = null }
         }
-        if (d.auto) ArrangeAutoPanel(s, d, port, header, lower, Modifier.fillMaxWidth()) {
-            port = it
+        if (lowerVisible) Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(gap)) {
+            if (d.auto) ArrangeAutoPanel(s, d, geometry.port, header, lower, Modifier.fillMaxWidth()) {
+                s.arrangeViewport = geometry.boundTime(it)
+            } else steps()
         }
-        else if (!d.hideSteps) steps()
+        if (knobs) knobsPanel(Modifier.width(timelineWidth).height(centerHeight).tile(theme.bg))
+        ArrangeMeter(s, Modifier.align(Alignment.TopEnd).width(Layout.meterWidth.dp), centerHeight, lower, d.hideSteps)
+        ArrangeToolbar(s, d, menu == ArrangeMenu.Grid, knobs,
+            grid = { menu = if (menu == ArrangeMenu.Grid) null else ArrangeMenu.Grid },
+            split = { if (group.size >= 2) groupAction(3) else s.arrangeAct(ArrangeAct.SPLIT) },
+            toggleKnobs = { s.arrangeKnobs = !knobs })
+        if (menu == ArrangeMenu.Grid) Box(Modifier.fillMaxSize().padding(top = toolbar + gap)) {
+            ArrangeGridOverlay(s, d) { menu = null }
+        }
     }
     menu?.takeUnless { it == ArrangeMenu.Grid }?.let { ArrangeMenus(s, d, it, sectionNames, { command -> groupAction(command) }) { menu = null } }
 }

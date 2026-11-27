@@ -1,6 +1,7 @@
 package app.jambo.android.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,6 +34,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.jambo.android.MidiTarget
 import kotlin.math.sin
@@ -43,8 +45,9 @@ internal fun ArrangeToolbar(
     grid: () -> Unit, split: () -> Unit, toggleKnobs: () -> Unit,
 ) {
     val spacing = Arrangement.spacedBy(Layout.gap.dp)
+    val background = LocalTheme.current.bg
     Row(Modifier.fillMaxWidth().height(Layout.topHeight.dp), horizontalArrangement = spacing) {
-        Row(Modifier.width(column()).fillMaxHeight(), horizontalArrangement = spacing) {
+        Row(Modifier.width(column()).fillMaxHeight().background(background), horizontalArrangement = spacing) {
             ArrangeButton("Grid", Modifier.weight(1f), gridOpen, action = grid) { ArrangeIcon(0, it) }
             ArrangeButton("Trim", Modifier.weight(1f), action = split) { ArrangeIcon(1, it) }
             ArrangeButton("Return to start", Modifier.weight(1f), action = { s.arrangeAct(ArrangeAct.SEEK, 0) }) { ArrangeIcon(2, it) }
@@ -52,7 +55,7 @@ internal fun ArrangeToolbar(
                 action = { s.arrangeAct(ArrangeAct.LOOP) }) { LoopIcon(it) }
         }
         Spacer(Modifier.weight(1f))
-        Row(Modifier.width(column()).fillMaxHeight(), horizontalArrangement = spacing) {
+        Row(Modifier.width(column()).fillMaxHeight().background(background), horizontalArrangement = spacing) {
             ArrangeButton("Automation", Modifier.weight(1f).midiLearnMark(s, MidiTarget.AUTO), d.auto,
                 recording = d.auto && d.playingTimeline && s.top[5] != 0,
                 action = { if (!s.learnTarget(MidiTarget.AUTO)) s.arrangeAct(ArrangeAct.AUTO) }) { ArrangeIcon(3, it) }
@@ -141,15 +144,19 @@ private fun ArrangeIcon(kind: Int, ink: Color) {
 }
 
 @Composable
-internal fun ArrangeMeter(s: ScreenState, modifier: Modifier) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-        MeterColumn(s, Modifier.weight(1f).fillMaxWidth())
+internal fun ArrangeMeter(s: ScreenState, modifier: Modifier, centerHeight: Dp, lower: Dp, hideSteps: Boolean) {
+    val gap = Layout.gap.dp
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(gap)) {
+        MeterColumn(s, Modifier.height(centerHeight))
         val prefs = s.arrangePreferences
-        if (!prefs.scaleTracks) {
+        if (hideSteps && !prefs.scaleTracks) {
             ArrangeButton(
                 if (prefs.compact) "Compact tracks" else "Expanded tracks",
-                Modifier.fillMaxWidth().height(30.dp),
-                action = { s.arrangePreferences = prefs.copy(compact = !prefs.compact) },
+                Modifier.fillMaxWidth().height(((lower - gap * 2) / 3).coerceAtLeast(30.dp)),
+                action = {
+                    s.arrangePreferences = prefs.copy(compact = !prefs.compact)
+                    s.arrangeViewport = s.arrangeViewport.copy(y = 0f, rowHeight = 0f)
+                },
             ) { ink -> ArrangeTrackSizeIcon(prefs.compact, ink) }
         }
     }
