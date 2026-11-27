@@ -6,7 +6,8 @@
 namespace {
 enum class Command {
     toggle, seek, select, add, insert, move, resize, duplicate, remove, split, grid, snap,
-    loop, loopRange, steps, autoPanel, row, color, section, sectionStart, sectionEnd, deleteSection
+    loop, loopRange, steps, autoPanel, row, color, section, sectionStart, sectionEnd, deleteSection, record,
+    copyBlock, pasteBlock, trackClipboard
 };
 }
 
@@ -36,32 +37,72 @@ FN(void, arrangeAct)(JNIEnv*, jobject, jint command, jint a, jint b, jint c, jin
     case Command::sectionStart: app.resizeArrangeSection(a, b, true); break;
     case Command::sectionEnd: app.resizeArrangeSection(a, b, false); break;
     case Command::deleteSection: app.deleteArrangeSection(a); break;
+    case Command::record: app.toggleArrangeRecord(); break;
+    case Command::copyBlock: app.copyArrangeBlock(a, b); break;
+    case Command::pasteBlock: app.pasteArrangeBlock(a, b, c); break;
+    case Command::trackClipboard: app.arrangeTrackClipboard(a, b); break;
     }
 }
 
 FN(jintArray, arrangeData)(JNIEnv* env, jobject) {
     std::lock_guard<std::mutex> lock(jniLock());
     const auto& app = jniApp();
-    if (!app.arrangeView()) return jniInts(env, {0});
+    if (!app.arrangeView()) return jniInts(env, {0, int(app.arrangeRecordArmed()), int(app.arrangeRecording())});
     const auto& p = app.project();
     const auto& a = p.arrange;
     const auto selected = app.arrangeSelection();
     std::vector<jint> values{1, a.grid, int(a.snap), int(a.hideSteps), int(app.arrangeAuto()),
         int(a.loop), a.loopFrom, a.loopTo, p.arrangeEnd(), selected ? selected->first : -1,
-        selected ? selected->second : -1, jint(p.tracks.size()), jint(a.markers.size())};
+        selected ? selected->second : -1, jint(p.tracks.size()), jint(a.markers.size()),
+        int(app.hasArrangeBlockCopy()), int(app.hasArrangeTrackCopy()), int(app.arrangeRecording())};
     for (const auto& marker : a.markers)
         values.insert(values.end(), {marker.at, marker.end.value_or(-1), marker.color});
     for (const auto& track : p.tracks) {
         values.insert(values.end(), {track.color, int(track.mute), int(track.solo), jint(track.blocks.size())});
-        for (const auto& block : track.blocks)
-            values.insert(values.end(), {block.start, block.length, block.clip, block.offset});
+        for (const auto& block : track.blocks) {
+            const auto clip = track.blockClip(block);
+            const int length = clip ? clip->playLen() : 0;
+            values.insert(values.end(), {block.start, block.length, block.clip, block.offset,
+                clip ? clip->passTicks() : 1, clip ? clip->speed() : 0, length});
+            for (int i = 0; i < length; ++i) {
+                const int at = clip->playIndex(i);
+                const auto* step = clip->step(at);
+                values.push_back(step && step->on && !clip->outside(at) ? step->len : 0);
+            }
+        }
     }
     return jniInts(env, values);
 }
 
-FN(jint, arrangePosition)(JNIEnv*, jobject) {
+FN(jdouble, arrangePosition)(JNIEnv*, jobject) {
     std::lock_guard<std::mutex> lock(jniLock());
-    return jniApp().arrangePosition();
+    return jniApp().arrangePositionX();
+}
+
+FN(jintArray, arrangeTake)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> lock(jniLock());
+    std::vector<jint> values;
+    for (const auto& seg : jniApp().arrangeRecordedSegments()) {
+        if (seg.slot >= 0 && !seg.silent)
+            values.insert(values.end(), {seg.track, seg.start, seg.end});
+    }
+    return jniInts(env, values);
+}
+
+FN(jintArray, arrangeGroup)(JNIEnv* env, jobject, jint command, jint delta, jintArray data) {
+    if (!data) return jniInts(env, {});
+    const auto count = env->GetArrayLength(data);
+    if (count % 2 != 0 || count > 16384) return jniInts(env, {});
+    std::vector<jint> values(size_t(count), 0);
+    if (count) env->GetIntArrayRegion(data, 0, count, values.data());
+    if (env->ExceptionCheck()) return nullptr;
+    std::vector<jambo::Project::BlockRef> group;
+    for (int i = 0; i < count; i += 2) group.emplace_back(values[size_t(i)], values[size_t(i + 1)]);
+    std::lock_guard<std::mutex> lock(jniLock());
+    const auto next = jniApp().arrangeGroup(group, command, delta);
+    values.clear();
+    for (const auto& [track, block] : next) values.insert(values.end(), {track, block});
+    return jniInts(env, values);
 }
 
 FN(jobjectArray, arrangeSections)(JNIEnv* env, jobject) {
@@ -113,8 +154,10 @@ FN(jdoubleArray, arrangeAutoPoints)(JNIEnv* env, jobject, jint track, jstring la
     const auto& p = jniApp().project();
     std::vector<jdouble> values;
     if (track >= 0 && track < int(p.tracks.size())) {
-        for (const auto& pt : p.tracks[size_t(track)].autoPoints(id))
-            values.insert(values.end(), {pt.x, pt.y});
+        for (const auto& group : p.tracks[size_t(track)].autoGroups(id)) {
+            if (!values.empty()) values.insert(values.end(), {std::numeric_limits<double>::quiet_NaN(), 0.0});
+            for (const auto& pt : group) values.insert(values.end(), {pt.x, pt.y});
+        }
     }
     const auto array = env->NewDoubleArray(jsize(values.size()));
     if (array && !values.empty()) env->SetDoubleArrayRegion(array, 0, jsize(values.size()), values.data());

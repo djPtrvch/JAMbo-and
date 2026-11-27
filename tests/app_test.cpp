@@ -968,6 +968,25 @@ void arrangerApp() {
     check(!app.arrangePlaying(), "arrange app: PLAY in PATTERNS starts the grid");
 }
 
+void arrangerRecording() {
+    CoreAudio audio;
+    App app(&audio);
+    app.toggleStep(0);
+    app.togglePatterns();
+    app.toggleArrangeRecord();
+    check(app.arrangeRecordArmed() && !app.arrangeRecording(), "arrange record: arm waits for PLAY");
+    app.togglePlay();
+    audio.run(52'000);
+    app.tick(1.1);
+    check(app.arrangeRecording() && !app.arrangeRecordedSegments().empty(),
+          "arrange record: the transport records segments from the grid");
+    app.togglePlay();
+    check(!app.arrangeRecording() && !app.project().tracks[0].blocks.empty(),
+          "arrange record: STOP commits recorded clips to the timeline");
+    app.undo();
+    check(app.project().tracks[0].blocks.empty(), "arrange record: UNDO removes the take in one edit");
+}
+
 void sampleEditor() {
     const auto dir = std::filesystem::temp_directory_path() / ("jambo-editor-" + Library::newId());
     {
@@ -1149,6 +1168,7 @@ int runAppTests() {
     midi();
     sampleEditor();
     arrangerApp();
+    arrangerRecording();
     sliceAndWarpEditor();
     moveTrackKeepsSound();
     eq();

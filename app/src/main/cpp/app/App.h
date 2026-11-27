@@ -400,7 +400,8 @@ public:
     void togglePatterns();
     bool arrangeView() const { return arrangeView_; }
     bool arrangePlaying() const { return arrangePlaying_; }
-    int arrangePosition() const { return arrangePlaying_ ? arrangeLive_ : arrangeCursor_; }
+    int arrangePosition() const { return playing_ ? arrangeLive_ : arrangeCursor_; }
+    double arrangePositionX() const;
     std::optional<Project::BlockRef> arrangeSelection() const { return arrangeSelection_; }
     void toggleArrange();
     void seekArrange(int step);
@@ -410,7 +411,13 @@ public:
     void resizeArrangeBlock(int track, int block, int begin, int end);
     void duplicateArrangeBlock(int track, int block);
     void deleteArrangeBlock(int track, int block);
-    void splitArrangeBlock();
+    void splitArrangeBlock(const std::vector<Project::BlockRef>& group = {});
+    bool hasArrangeBlockCopy() const { return arrangeBlockClipboard_.has_value(); }
+    bool hasArrangeTrackCopy() const { return arrangeTrackClipboard_.has_value(); }
+    void copyArrangeBlock(int track, int block);
+    void pasteArrangeBlock(int track, int block, int step);
+    void arrangeTrackClipboard(int track, int command);
+    std::vector<Project::BlockRef> arrangeGroup(const std::vector<Project::BlockRef>& refs, int command, int delta);
     void setArrangeGrid(int grid);
     void toggleArrangeSnap();
     void setArrangeLoop(int begin, int end);
@@ -427,6 +434,10 @@ public:
     void setArrangeAuto(int track, const std::string& id, const std::vector<ArrAutoPoint>& points);
     void deleteArrangeAuto(int track, const std::string& id);
     void clearArrangeAuto(int track);
+    bool arrangeRecordArmed() const { return arrangeRecordArmed_; }
+    bool arrangeRecording() const { return arrangeRecorder_.active(); }
+    std::vector<ArrRecorder::Seg> arrangeRecordedSegments() const { return arrangeRecorder_.current(); }
+    void toggleArrangeRecord();
     void tapCell(int i, int k);
     /// Удержание: пустая — только выбор; заполненная — правка без запуска.
     void holdCell(int i, int k);
@@ -697,6 +708,7 @@ private:
         std::optional<int> recIndex;
         double t0 = 0;
         bool screenKey = false;
+        std::optional<int> arrangeNote;
     };
     std::map<int, KeyHold> keyHolds_;
     std::optional<std::pair<int, Step>> lastCopy_;
@@ -807,10 +819,33 @@ private:
 
     bool patternView_ = false;
     bool arrangeView_ = false, arrangePlaying_ = false, arrangeAuto_ = false;
+    bool arrangeRecordArmed_ = false;
+    ArrRecorder arrangeRecorder_;
+    struct ArrangeAutoTake {
+        int slot;
+        std::string id;
+        std::optional<double> original;
+        std::vector<std::vector<ArrAutoPoint>> segments{{}};
+        double lastAt = 0;
+    };
+    std::map<int, ArrangeAutoTake> arrangeAutoTakes_;
+    std::map<int, int> arrangeAutoTouches_;
+    std::set<int> arrangeAutoHeld_;
+    int arrangeTick_ = -1;
     int arrangeCursor_ = 0, arrangeLive_ = 0;
+    double arrangeLiveTime_ = 0;
     std::optional<Project::BlockRef> arrangeSelection_;
+    std::optional<ArrBlock> arrangeBlockClipboard_;
+    std::optional<std::vector<ArrBlock>> arrangeTrackClipboard_;
     void closeArrange();
     void prepareArrangePlay();
+    void syncArrangeRecording();
+    void recordArrangeAudible();
+    bool recordArrangeAutoPoint(int slot, const ParamDef& param, double norm);
+    void touchArrangeAuto(int slot, bool down);
+    void holdArrangeAuto(int key, bool on);
+    void finishArrangeAuto(bool all, std::optional<double> end = std::nullopt);
+    void finishArrangeAutoKey(int key, std::optional<double> end = std::nullopt);
     void syncArrangeEditBlock();
     bool validArrangeBlock(int track, int block) const;
     bool eqView_ = false;

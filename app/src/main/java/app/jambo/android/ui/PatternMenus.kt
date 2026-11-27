@@ -59,6 +59,13 @@ fun GridSide(s: ScreenState, d: GridData, g: GridGeom, modifier: Modifier, ui: G
                 if (!s.learnTarget(MidiTarget.GRID_DOWN)) s.act(Act.GRID_ARROW, 1)
             }
         }
+        val recording = s.arrange.getOrElse(2) { 0 } != 0
+        val armed = s.arrange.getOrElse(1) { 0 } != 0
+        Box(Modifier.fillMaxWidth().height(g.rowH.dp)
+            .tile(if (armed) th.rec.copy(alpha = if (recording) 0.8f else 0.42f) else th.panel2, 6f)
+            .pointerTap { s.arrangeAct(ArrangeAct.RECORD) }, contentAlignment = Alignment.Center) {
+            Text("● ARR", color = th.text, fontSize = 12.tsp())
+        }
     }
 }
 

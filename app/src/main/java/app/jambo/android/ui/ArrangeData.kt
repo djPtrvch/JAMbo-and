@@ -26,6 +26,10 @@ internal object ArrangeAct {
     const val SECTION_START = 19
     const val SECTION_END = 20
     const val DELETE_SECTION = 21
+    const val RECORD = 22
+    const val COPY_BLOCK = 23
+    const val PASTE_BLOCK = 24
+    const val TRACK_CLIPBOARD = 25
 }
 
 internal fun ScreenState.arrangeAct(command: Int, a: Int = 0, b: Int = 0, c: Int = 0, d: Int = 0) {
@@ -33,8 +37,16 @@ internal fun ScreenState.arrangeAct(command: Int, a: Int = 0, b: Int = 0, c: Int
     refresh()
 }
 
-internal data class ArrangeBlock(val start: Int, val length: Int, val clip: Int, val offset: Int) {
+internal data class ArrangeBlock(
+    val start: Int, val length: Int, val clip: Int, val offset: Int, val passTicks: Int, val speed: Int,
+    val triggers: IntArray,
+) {
     val end get() = start + length
+    fun triggerAt(step: Int): Int {
+        val phase = Math.floorMod(step - start + offset, passTicks)
+        val local = if (speed > 0) phase * 2 else phase shr -speed
+        return triggers.getOrElse(local) { 0 }
+    }
 }
 
 internal data class ArrangeTrack(val color: Int, val mute: Boolean, val solo: Boolean, val blocks: List<ArrangeBlock>)
@@ -51,16 +63,19 @@ internal class ArrangeData(raw: IntArray) {
     val end = raw[8]
     val selectedTrack = raw[9]
     val selectedBlock = raw[10]
+    val hasBlockCopy = raw[13] != 0
+    val hasTrackCopy = raw[14] != 0
+    val recording = raw[15] != 0
     val sections: List<ArrangeSection>
     val tracks: List<ArrangeTrack>
 
     init {
-        var i = 13
+        var i = 16
         fun read() = raw[i++]
         sections = List(raw[12]) { ArrangeSection(read(), read(), read()) }
         tracks = List(raw[11]) {
             ArrangeTrack(read(), read() != 0, read() != 0,
-                List(read()) { ArrangeBlock(read(), read(), read(), read()) })
+                List(read()) { ArrangeBlock(read(), read(), read(), read(), read(), read(), IntArray(read()) { read() }) })
         }
     }
 

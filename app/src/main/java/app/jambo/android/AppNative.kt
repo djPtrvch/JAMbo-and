@@ -166,7 +166,9 @@ object AppNative {
     external fun sampleEditorTexts(): Array<String>
     external fun arrangeAct(command: Int, a: Int, b: Int, c: Int, d: Int)
     external fun arrangeData(): IntArray
-    external fun arrangePosition(): Int
+    external fun arrangePosition(): Double
+    external fun arrangeTake(): IntArray
+    external fun arrangeGroup(command: Int, delta: Int, group: IntArray): IntArray
     external fun arrangeSections(): Array<String>
     external fun arrangeRenameSection(index: Int, title: String)
     external fun arrangeClips(track: Int): IntArray

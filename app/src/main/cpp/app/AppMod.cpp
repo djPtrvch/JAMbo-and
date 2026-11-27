@@ -46,6 +46,7 @@ void App::knobFinger(int slot, bool on) {
     if (channel_ == Channel::mix) return;
     if (on) knobFingers_.insert(slot);
     else knobFingers_.erase(slot);
+    touchArrangeAuto(slot, on);
     bump();
 }
 

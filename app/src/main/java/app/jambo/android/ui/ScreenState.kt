@@ -32,7 +32,7 @@ class ScreenState(val midi: app.jambo.android.MidiHub) {
     var settings by mutableStateOf(IntArray(8)); private set
     var grid by mutableStateOf(IntArray(18)); private set
     var arrange by mutableStateOf(intArrayOf(0)); private set
-    var arrangePosition by mutableIntStateOf(0); private set
+    var arrangePosition by mutableStateOf(0.0); private set
     var sceneNames by mutableStateOf(emptyArray<String>()); private set
     /** Ход сетки (каждый кадр, пока открыта) и фаза мигания ожидающих ячеек. */
     var gridLive by mutableStateOf(IntArray(2)); private set

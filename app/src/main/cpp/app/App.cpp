@@ -18,8 +18,10 @@ void App::loadProject(const Project& p) {
         playing_ = false;
         audio_->push(CoreEvent::play(false));
     }
-    history_.reset();
     arrangePlaying_ = false;
+    arrangeRecordArmed_ = false;
+    syncArrangeRecording();
+    history_.reset();
     arrangeCursor_ = 0;
     arrangeLive_ = 0;
     arrangeSelection_.reset();
@@ -53,7 +55,9 @@ void App::togglePlay() {
     endRecTake();
     liveStopped();
     if (!playing_) {
+        arrangeCursor_ = arrangeLive_;
         arrangePlaying_ = false;
+        syncArrangeRecording();
         syncArrangeEditBlock();
         beatFlash_ = false;
     }
@@ -117,6 +121,7 @@ void App::editSeq(const std::function<void(Track&)>& change) {
 
 void App::mutatePlay(const std::function<void(Project&)>& change, bool publish) {
     change(project_);
+    recordArrangeAudible();
     if (publish) publishAudio();
     projectChanged();
     bump();
@@ -222,6 +227,7 @@ void App::publishAudio() {
 
 void App::changed() {
     syncArrangeEditBlock();
+    recordArrangeAudible();
     publishAudio();
     projectChanged();
     bump();
@@ -332,7 +338,9 @@ void App::playEvent(const SeqOut& e) {
         }
     } else if (e.kind == SeqOut::Kind::ended && playing_) {
         playing_ = false;
+        arrangeCursor_ = arrangeLive_;
         arrangePlaying_ = false;
+        syncArrangeRecording();
         endRecTake();
         liveStopped();
         syncArrangeEditBlock();
@@ -354,6 +362,13 @@ void App::tick(double now) {
     while (audio_->popOut(e)) {
         switch (e.kind) {
         case SeqOut::Kind::step:
+            if (e.track == Params::maxTracks && e.a >= 0) ++arrangeTick_;
+            if (arrangeRecorder_.active() && e.track >= 0 && e.track < int(project_.tracks.size()) && e.a >= 0) {
+                const auto slot = arrangeRecorder_.openSlot(e.track);
+                const auto& t = project_.tracks[size_t(e.track)];
+                const Step* step = slot && *slot >= 0 && t.clipFilled(*slot) ? t.clips[size_t(*slot)]->step(e.a) : nullptr;
+                arrangeRecorder_.notePlayed(e.track, e.a, step);
+            }
             if (e.track >= 0 && e.track < int(playPos_.size())) playPos_[size_t(e.track)] = e.a;
             if (e.track >= 0 && e.track < Params::maxTracks && e.a >= 0) recPassStep(e.track, e.a);
             break;
@@ -364,6 +379,7 @@ void App::tick(double now) {
             }
             break;
         case SeqOut::Kind::clip:
+            if (arrangeRecorder_.active()) arrangeRecorder_.clip(e.track, e.on ? -1 : e.a);
             if (e.track < int(cell_.size())) cell_[size_t(e.track)] = e.on ? -1 : e.a;
             if (e.track < Params::maxTracks) {
                 trackStart_[size_t(e.track)] = e.b;
@@ -390,10 +406,13 @@ void App::tick(double now) {
             break;
         case SeqOut::Kind::ended: playEvent(e); break;
         case SeqOut::Kind::arrange:
-            if (arrangePlaying_) {
-                arrangeLive_ = e.a;
-                syncArrangeEditBlock();
-            }
+            arrangeLive_ = e.a;
+            arrangeLiveTime_ = now_;
+            if (arrangeRecorder_.active()) arrangeRecorder_.step(e.a);
+            if (arrangeView_) syncArrangeEditBlock();
+            break;
+        case SeqOut::Kind::fired:
+            if (arrangeRecorder_.active()) arrangeRecorder_.noteFired(e.track);
             break;
         case SeqOut::Kind::beat:
             beatAccent_ = e.on;
@@ -403,6 +422,7 @@ void App::tick(double now) {
         default: break;
         }
     }
+    finishArrangeAuto(false);
     for (int t = 0; t < Params::maxTracks; ++t)
         if ((flashMask_ >> t & 1u) && now >= flashUntil_[size_t(t)]) flashMask_ &= ~(1u << t);
     if (beatFlash_ && now >= beatUntil_) beatFlash_ = false;

@@ -20,6 +20,7 @@ void inPlaying(Track& t, const std::function<void(Track&)>& change) {
 void App::toggleRec() {
     recOn_ = !recOn_;
     endRecTake();
+    syncArrangeRecording();
     bump();
 }
 

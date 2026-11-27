@@ -219,12 +219,19 @@ double App::knobStart(int slot) const {
         return p->toNorm(it == project_.master.end() ? p->def : it->second);
     }
     if (auto v = heldLock(track())) return p->toNorm(*v);
+    if (arrangePlaying_ && !fxMode() && !modMode()) {
+        const int target = ArrAutoTarget::index(p->id);
+        if (target >= 0 && !arrangeAutoHeld_.count(selected_ * ArrAutoTarget::count + target)) {
+            if (auto value = track().autoValue(p->id, arrangePositionX())) return *value;
+        }
+    }
     return p->toNorm(baseValue(*p));
 }
 
 void App::setKnob(int slot, double norm) {
     const ParamDef* p = param(slot);
     if (!p) return;
+    if (recordArrangeAutoPoint(slot, *p, norm)) return;
     const double v = p->fromNorm(norm);
     const std::string id = p->id;
     if (channel_ == Channel::mix) {
@@ -355,7 +362,15 @@ void App::keyDown(int id, int k, double velocity, bool screenKey) {
     } else {
         inputNotes();
     }
-    keyHolds_[id] = {ti, *notes, recIndex, steadyNow(), screenKey};
+    std::optional<int> arrangeNote;
+    if (arrangeRecorder_.active() && held_.empty() && channel_ == Channel::track) {
+        if (const auto tick = heardTick()) {
+            const int step = arrangeLive_ + (*tick - std::max(0, arrangeTick_));
+            arrangeNote = arrangeRecorder_.liveNote(ti, step, *notes,
+                velocity_ ? std::optional<double>(velocity) : std::nullopt);
+        }
+    }
+    keyHolds_[id] = {ti, *notes, recIndex, steadyNow(), screenKey, arrangeNote};
     bump();
 }
 
@@ -367,11 +382,14 @@ void App::keyUp(int id) {
         audio_->push(CoreEvent::noteOff(k.track, id));
         keyHolds_.erase(it);
         // С REC — длина записанной ноты по времени удержания.
-        if (k.recIndex) {
+        if (k.recIndex || k.arrangeNote) {
             const double stepSeconds = 60 / project_.bpm / 4;
             const int len = RecordClock::length(steadyNow() - k.t0, stepSeconds);
-            const int index = *k.recIndex;
-            writeTake(k.track, [&](Track& t) { t.recordLength(index, len); });
+            if (k.arrangeNote) arrangeRecorder_.liveLength(*k.arrangeNote, len);
+            if (k.recIndex) {
+                const int index = *k.recIndex;
+                writeTake(k.track, [&](Track& t) { t.recordLength(index, len); });
+            }
         }
     }
     bump();

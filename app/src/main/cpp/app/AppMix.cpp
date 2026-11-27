@@ -110,6 +110,8 @@ void App::moveTrack(int from, int to) {
     const int n = int(project_.tracks.size());
     if (from == to || from < 0 || to < 0 || from >= n || to >= n) return;
     const int id = track().id;
+    finishArrangeAuto(true);
+    if (arrangeRecorder_.active()) arrangeRecorder_.move(from, to);
     edit([&](Project& p) { p.moveTrack(from, to); });
     mixAn_.reset();
     if (playing_) {

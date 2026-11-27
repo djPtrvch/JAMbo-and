@@ -5,6 +5,11 @@
 
 namespace jambo {
 
+double App::arrangePositionX() const {
+    if (!playing_) return arrangeCursor_;
+    return arrangeLive_ + std::clamp((now_ - arrangeLiveTime_) * runningBpm() / 15, 0.0, 0.95);
+}
+
 void App::toggleArrange() {
     if (arrangeView_) {
         closeArrange();
@@ -30,16 +35,22 @@ void App::closeArrange() {
 void App::prepareArrangePlay() {
     arrangePlaying_ = arrangeView_;
     const auto& arrangement = project_.arrange;
-    const int from = arrangement.loop && arrangement.hasLoop() ? arrangement.loopFrom
-        : arrangeCursor_ < project_.arrangeEnd() ? arrangeCursor_ : 0;
-    if (arrangePlaying_) arrangeLive_ = from;
-    audio_->push(CoreEvent::arrange(arrangePlaying_, arrangePlaying_ ? from : 0));
+    int from = arrangeCursor_;
+    if (arrangePlaying_) {
+        if (arrangement.loop && arrangement.hasLoop()) from = arrangement.loopFrom;
+        else if (project_.arrangeEnd() > 0 && from >= project_.arrangeEnd()) from = arrangeCursor_ = 0;
+    }
+    arrangeLive_ = from;
+    arrangeLiveTime_ = now_;
+    arrangeTick_ = -1;
+    syncArrangeRecording();
+    audio_->push(CoreEvent::arrange(arrangePlaying_, from));
     syncArrangeEditBlock();
 }
 
 void App::seekArrange(int step) {
     arrangeCursor_ = project_.arrange.snapped(std::clamp(step, 0, 1'000'000));
-    if (arrangePlaying_) audio_->push(CoreEvent::seekArrange(arrangeCursor_));
+    if (playing_) audio_->push(CoreEvent::seekArrange(arrangeCursor_));
     syncArrangeEditBlock();
     bump();
 }
@@ -128,15 +139,87 @@ void App::deleteArrangeBlock(int t, int b) {
     edit([&](Project& p) { p.tracks[size_t(t)].deleteBlock(b); });
 }
 
-void App::splitArrangeBlock() {
-    if (!arrangeSelection_ && channel_ != Channel::track) return;
-    const int t = arrangeSelection_ ? arrangeSelection_->first : selected_;
-    if (t < 0 || t >= int(project_.tracks.size())) return;
+void App::splitArrangeBlock(const std::vector<Project::BlockRef>& group) {
     const int at = arrangePosition();
+    std::set<int> tracks;
+    if (group.size() >= 2) {
+        for (const auto& [t, b] : group) {
+            if (!validArrangeBlock(t, b)) continue;
+            const auto& block = project_.tracks[size_t(t)].blocks[size_t(b)];
+            if (block.start < at && at < block.end()) tracks.insert(t);
+        }
+    } else {
+        if (!arrangeSelection_ && channel_ != Channel::track) return;
+        const int t = arrangeSelection_ ? arrangeSelection_->first : selected_;
+        if (t < 0 || t >= int(project_.tracks.size())) return;
+        tracks.insert(t);
+    }
+    if (tracks.empty()) return;
     arrangeSelection_.reset();
-    edit([&](Project& p) { p.tracks[size_t(t)].splitArrange(at); });
+    edit([&](Project& p) {
+        for (int t : tracks) p.tracks[size_t(t)].splitArrange(at);
+    });
     syncArrangeEditBlock();
     bump();
+}
+
+void App::copyArrangeBlock(int t, int b) {
+    if (!validArrangeBlock(t, b)) return;
+    arrangeBlockClipboard_ = project_.tracks[size_t(t)].blocks[size_t(b)];
+    bump();
+}
+
+void App::pasteArrangeBlock(int t, int b, int step) {
+    if (!arrangeBlockClipboard_ || t < 0 || t >= int(project_.tracks.size())) return;
+    int result = -1;
+    edit([&](Project& p) {
+        auto& lane = p.tracks[size_t(t)];
+        if (validArrangeBlock(t, b)) {
+            result = lane.pasteBlock(b, *arrangeBlockClipboard_);
+        } else {
+            auto copy = *arrangeBlockClipboard_;
+            copy.start = p.arrange.snapped(std::clamp(step, 0, 1'000'000));
+            result = lane.placeBlock(copy);
+        }
+    });
+    if (result >= 0) selectArrangeBlock(t, result);
+}
+
+void App::arrangeTrackClipboard(int t, int command) {
+    if (t < 0 || t >= int(project_.tracks.size())) return;
+    switch (command) {
+    case 0:
+        arrangeTrackClipboard_ = project_.tracks[size_t(t)].blocks;
+        bump();
+        break;
+    case 1:
+        if (arrangeTrackClipboard_) {
+            arrangeSelection_.reset();
+            edit([&](Project& p) { p.pasteBlocks(t, *arrangeTrackClipboard_); });
+        }
+        break;
+    case 2: edit([&](Project& p) { p.tracks[size_t(t)].duplicateBlocks(); }); break;
+    }
+}
+
+std::vector<Project::BlockRef> App::arrangeGroup(const std::vector<Project::BlockRef>& refs, int command, int delta) {
+    const std::set<Project::BlockRef> unique(refs.begin(), refs.end());
+    std::vector<Project::BlockRef> group;
+    for (const auto& ref : unique)
+        if (validArrangeBlock(ref.first, ref.second)) group.push_back(ref);
+    if (group.size() < 2) return group;
+    if (command == 3) {
+        splitArrangeBlock(group);
+        return {};
+    }
+    arrangeSelection_.reset();
+    std::vector<Project::BlockRef> result;
+    edit([&](Project& p) {
+        if (command == 0) result = p.moveBlocks(group, std::clamp(delta, -1'000'000, 1'000'000));
+        else if (command == 1) result = p.duplicateBlocks(group);
+        else if (command == 2) p.deleteBlocks(group);
+    });
+    return result;
 }
 
 void App::setArrangeGrid(int grid) {
@@ -162,6 +245,7 @@ void App::toggleArrangeLoop() {
 void App::toggleArrangeSteps() {
     edit([](Project& p) { p.arrange.hideSteps = !p.arrange.hideSteps; });
     if (!project_.arrange.hideSteps) arrangeAuto_ = false;
+    if (!arrangeAuto_) syncArrangeRecording();
 }
 
 void App::sendRowToArrange(int row, std::optional<int> step) {
@@ -196,6 +280,7 @@ void App::toggleArrangeAuto() {
     arrangeAuto_ = !arrangeAuto_;
     if (arrangeAuto_ && !project_.arrange.hideSteps)
         edit([](Project& p) { p.arrange.hideSteps = true; });
+    syncArrangeRecording();
     bump();
 }
 
@@ -219,6 +304,135 @@ void App::deleteArrangeAuto(int t, const std::string& id) {
 void App::clearArrangeAuto(int t) {
     if (t < 0 || t >= int(project_.tracks.size())) return;
     edit([&](Project& p) { p.tracks[size_t(t)].clearAllAutos(); });
+}
+
+void App::toggleArrangeRecord() {
+    arrangeRecordArmed_ = !arrangeRecordArmed_;
+    syncArrangeRecording();
+    bump();
+}
+
+void App::syncArrangeRecording() {
+    const bool want = arrangeRecordArmed_ && playing_ && !arrangePlaying_;
+    if (want && !arrangeRecorder_.active()) {
+        std::vector<ArrRecorder::State> states(Params::maxTracks);
+        std::vector<bool> audible(Params::maxTracks, false);
+        for (int t = 0; t < int(project_.tracks.size()); ++t) {
+            const auto& track = project_.tracks[size_t(t)];
+            const int slot = !track.stopped && track.clipFilled(track.slot) ? track.slot : -1;
+            const int offset = std::max(0, std::max(0, arrangeTick_) - trackStart_[size_t(t)]);
+            states[size_t(t)] = std::pair{slot, offset};
+            audible[size_t(t)] = project_.audible(t);
+        }
+        arrangeRecorder_.begin(arrangeLive_, states, audible);
+    } else if (!want && arrangeRecorder_.active()) {
+        const double end = arrangeRecorder_.pos() + 1;
+        const auto takes = arrangeRecorder_.finish();
+        beginGesture();
+        if (!takes.empty()) {
+            edit([&](Project& p) {
+                p.applyRecording(takes, arrangeRecorder_.played(), arrangeRecorder_.fired(),
+                    arrangeRecorder_.heard(), arrangeRecorder_.live());
+            });
+        }
+        finishArrangeAuto(true, end);
+        endGesture();
+        for (auto& [id, held] : keyHolds_) held.arrangeNote.reset();
+    }
+    if (!want && !(recOn_ && playing_ && arrangePlaying_ && arrangeAuto_)) finishArrangeAuto(true);
+}
+
+void App::recordArrangeAudible() {
+    if (!arrangeRecorder_.active()) return;
+    std::vector<bool> audible(Params::maxTracks, false);
+    for (int t = 0; t < int(project_.tracks.size()); ++t) audible[size_t(t)] = project_.audible(t);
+    arrangeRecorder_.audible(audible, arrangeLive_);
+}
+
+bool App::recordArrangeAutoPoint(int slot, const ParamDef& param, double norm) {
+    if (!(arrangeRecorder_.active() || (recOn_ && playing_ && arrangePlaying_ && arrangeAuto_)) ||
+        channel_ != Channel::track || fxMode() || modMode() || !held_.empty() || morph_) return false;
+    const int target = ArrAutoTarget::index(param.id);
+    if (target < 0) return false;
+    const int key = selected_ * ArrAutoTarget::count + target;
+    auto& params = project_.tracks[size_t(selected_)].params;
+    const auto existing = params.find(param.id);
+    const auto saved = existing != params.end() ? std::optional<double>(existing->second) : std::nullopt;
+    auto& take = arrangeAutoTakes_.try_emplace(key, ArrangeAutoTake{slot, param.id, saved}).first->second;
+    const double x = arrangePositionX();
+    if (!take.segments.back().empty() && x < take.segments.back().back().x - 0.5) take.segments.emplace_back();
+    auto& segment = take.segments.back();
+    const ArrAutoPoint pt{x, std::clamp(norm, 0.0, 1.0)};
+    if (segment.size() < ArrAutoLane::maxPoints) segment.push_back(pt);
+    else segment.back() = pt;
+    take.lastAt = now_;
+    holdArrangeAuto(key, true);
+    params[param.id] = param.fromNorm(norm);
+    publishAudio();
+    bump();
+    return true;
+}
+
+void App::touchArrangeAuto(int slot, bool down) {
+    if (down) {
+        if (channel_ != Channel::track || fxMode() || modMode()) return;
+        const auto* def = param(slot);
+        const int target = def ? ArrAutoTarget::index(def->id) : -1;
+        if (target < 0) return;
+        const int key = selected_ * ArrAutoTarget::count + target;
+        arrangeAutoTouches_[slot] = key;
+        if (arrangePlaying_) holdArrangeAuto(key, true);
+        return;
+    }
+    const auto i = arrangeAutoTouches_.find(slot);
+    if (i == arrangeAutoTouches_.end()) return;
+    const int key = i->second;
+    arrangeAutoTouches_.erase(i);
+    if (!arrangeRecorder_.active()) finishArrangeAutoKey(key);
+    holdArrangeAuto(key, false);
+}
+
+void App::holdArrangeAuto(int key, bool on) {
+    const bool changed = on ? arrangeAutoHeld_.insert(key).second : arrangeAutoHeld_.erase(key) > 0;
+    if (changed) audio_->push(CoreEvent::autoHold(key / ArrAutoTarget::count, key % ArrAutoTarget::count, on));
+}
+
+void App::finishArrangeAutoKey(int key, std::optional<double> end) {
+    const auto i = arrangeAutoTakes_.find(key);
+    if (i == arrangeAutoTakes_.end()) return;
+    auto take = std::move(i->second);
+    arrangeAutoTakes_.erase(i);
+    const int t = key / ArrAutoTarget::count;
+    if (t >= int(project_.tracks.size())) return;
+    auto& last = take.segments.back();
+    if (end && !last.empty() && *end > last.back().x) last.push_back({*end, last.back().y});
+    auto& params = project_.tracks[size_t(t)].params;
+    if (take.original) params[take.id] = *take.original;
+    else params.erase(take.id);
+    edit([&](Project& p) {
+        for (const auto& segment : take.segments)
+            if (!segment.empty()) p.tracks[size_t(t)].recordAuto(take.id, segment);
+    });
+    publishAudio();
+    bump();
+}
+
+void App::finishArrangeAuto(bool all, std::optional<double> end) {
+    if (!all && arrangeRecorder_.active()) return;
+    std::vector<int> keys;
+    for (const auto& [key, take] : arrangeAutoTakes_) {
+        const auto touch = arrangeAutoTouches_.find(take.slot);
+        const bool touching = touch != arrangeAutoTouches_.end() && touch->second == key;
+        if (all || (!touching && now_ - take.lastAt >= 0.30)) keys.push_back(key);
+    }
+    for (int key : keys) {
+        finishArrangeAutoKey(key, end);
+        holdArrangeAuto(key, false);
+    }
+    if (all && !playing_) {
+        while (!arrangeAutoHeld_.empty()) holdArrangeAuto(*arrangeAutoHeld_.begin(), false);
+        arrangeAutoTouches_.clear();
+    }
 }
 
 }  // namespace jambo
