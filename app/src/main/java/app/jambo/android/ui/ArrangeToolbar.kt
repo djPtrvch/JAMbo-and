@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -27,6 +28,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -74,7 +77,11 @@ private fun ArrangeButton(
     val ink = if (!enabled) th.off else if (active) th.bg else th.text
     val ring = if (recording) Modifier.border(3.dp, th.rec, RoundedCornerShape(Layout.radius.dp)) else Modifier
     Box(modifier.fillMaxHeight().tile(if (active) th.text else th.panel2).then(ring)
-        .semantics { role = Role.Button; contentDescription = name }
+        .semantics {
+            role = Role.Button
+            contentDescription = name
+            if (enabled) onClick { action(); true } else disabled()
+        }
         .then(if (enabled) Modifier.pointerTap(action) else Modifier), contentAlignment = Alignment.Center) {
         content(ink)
     }
@@ -135,17 +142,37 @@ private fun ArrangeIcon(kind: Int, ink: Color) {
 
 @Composable
 internal fun ArrangeMeter(s: ScreenState, modifier: Modifier) {
-    androidx.compose.foundation.layout.Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
         MeterColumn(s, Modifier.weight(1f).fillMaxWidth())
         val prefs = s.arrangePreferences
         if (!prefs.scaleTracks) {
-            listOf(false, true).forEach { compact ->
-                ArrangeButton(
-                    if (compact) "Compact tracks" else "Expanded tracks",
-                    Modifier.fillMaxWidth().height(30.dp), prefs.compact == compact,
-                    action = { s.arrangePreferences = prefs.copy(compact = compact) },
-                ) { Text(if (compact) "≋" else "☰", color = it, fontSize = 13.isp(), maxLines = 1) }
-            }
+            ArrangeButton(
+                if (prefs.compact) "Compact tracks" else "Expanded tracks",
+                Modifier.fillMaxWidth().height(30.dp),
+                action = { s.arrangePreferences = prefs.copy(compact = !prefs.compact) },
+            ) { ink -> ArrangeTrackSizeIcon(prefs.compact, ink) }
+        }
+    }
+}
+
+@Composable
+private fun ArrangeTrackSizeIcon(compact: Boolean, ink: Color) {
+    val scale = LocalIconScale.current
+    Canvas(Modifier.size((16 * scale).dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = (1.3f * scale).dp.toPx()
+        val top = if (compact) 0.26f else 0.14f
+        val bottom = 1 - top
+        drawRoundRect(ink, Offset(w * 0.16f, h * top), Size(w * 0.68f, h * (bottom - top)),
+            CornerRadius(stroke), style = Stroke(stroke))
+        val tip = if (compact) 0.45f else 0.27f
+        val tail = if (compact) 0.34f else 0.39f
+        for (reverse in listOf(false, true)) {
+            val point = Offset(w * 0.5f, h * if (reverse) 1 - tip else tip)
+            val y = h * if (reverse) 1 - tail else tail
+            drawLine(ink, Offset(w * 0.37f, y), point, stroke, cap = StrokeCap.Round)
+            drawLine(ink, Offset(w * 0.63f, y), point, stroke, cap = StrokeCap.Round)
         }
     }
 }
@@ -153,7 +180,7 @@ internal fun ArrangeMeter(s: ScreenState, modifier: Modifier) {
 @Composable
 internal fun ArrangeGridOverlay(s: ScreenState, d: ArrangeData, close: () -> Unit) {
     Box(Modifier.fillMaxSize().pointerTap(close))
-    androidx.compose.foundation.layout.Column(
+    Column(
         Modifier.width(column() + 40.dp).menuBox().pointerTap {}.padding(8.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {

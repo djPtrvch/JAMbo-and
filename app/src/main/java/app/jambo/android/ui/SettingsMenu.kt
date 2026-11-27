@@ -75,7 +75,6 @@ private fun RecordTab(s: ScreenState) {
     }, valueRange = 0f..200f, modifier = Modifier.fillMaxWidth(),
         colors = SliderDefaults.colors(thumbColor = th.accent, activeTrackColor = th.accent, inactiveTrackColor = th.line))
     MenuNote("100% is the usual click level. The range is 0–200%.")
-
 }
 
 @Composable
@@ -102,7 +101,7 @@ private fun ArrangeTab(s: ScreenState) {
     MenuChoices(listOf("FIX" to !p.scaleTracks, "SCALE" to p.scaleTracks)) {
         s.arrangePreferences = p.copy(scaleTracks = it == 1)
     }
-    MenuNote("FIX uses the Expanded and Compact buttons under the meter. SCALE resizes track rows with a vertical two-finger pinch.")
+    MenuNote("FIX uses the Expanded / Compact button under the meter. SCALE resizes track rows with a vertical two-finger pinch.")
     ToggleRow("FOLLOW PLAYHEAD", p.follow) { s.arrangePreferences = p.copy(follow = it) }
     MenuNote("Scrolls the arrangement to keep the playhead in view while playing.")
     ToggleRow("ROW REPEATS", p.rowRepeats) { s.arrangePreferences = p.copy(rowRepeats = it) }
