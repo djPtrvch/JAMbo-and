@@ -351,7 +351,7 @@ void App::keyDown(int id, int k, double velocity) {
     liveNoteOn(ti, *notes, id, velocity);
     std::optional<int> recIndex;
     if (recOn_ && playing_ && held_.empty() && channel_ == Channel::track) {
-        recIndex = record(ti, *notes, velocity_ ? std::optional<double>(velocity) : std::nullopt);
+        if (!arp().active()) recIndex = record(ti, *notes, velocity_ ? std::optional<double>(velocity) : std::nullopt);
     } else {
         inputNotes();
     }

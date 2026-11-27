@@ -26,9 +26,10 @@ class ScreenState(val midi: app.jambo.android.MidiHub) {
     var keys by mutableStateOf(IntArray(2)); private set
     var keyLabels by mutableStateOf(emptyArray<String>()); private set
     var piano by mutableStateOf(IntArray(11)); private set
+    var arp by mutableStateOf(IntArray(11).apply { this[7] = -1; this[9] = 50; this[10] = -1 }); private set
     var projects by mutableStateOf(IntArray(3)); private set
     var projectRows by mutableStateOf(arrayOf("")); private set
-    var settings by mutableStateOf(IntArray(5)); private set
+    var settings by mutableStateOf(IntArray(6)); private set
     var grid by mutableStateOf(IntArray(18)); private set
     var sceneNames by mutableStateOf(emptyArray<String>()); private set
     /** Ход сетки (каждый кадр, пока открыта) и фаза мигания ожидающих ячеек. */
@@ -180,6 +181,7 @@ class ScreenState(val midi: app.jambo.android.MidiHub) {
         AppNative.knobTexts().let { if (!it.contentEquals(knobTexts)) knobTexts = it }
         AppNative.keys().let { if (!it.contentEquals(keys)) keys = it }
         AppNative.keyLabels().let { if (!it.contentEquals(keyLabels)) keyLabels = it }
+        AppNative.arp().let { if (!it.contentEquals(arp)) arp = it }
         AppNative.piano().let { if (!it.contentEquals(piano)) piano = it }
         AppNative.projects().let { if (!it.contentEquals(projects)) projects = it }
         AppNative.projectRows().let { if (!it.contentEquals(projectRows)) projectRows = it }

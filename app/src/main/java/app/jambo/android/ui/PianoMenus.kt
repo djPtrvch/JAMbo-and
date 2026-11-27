@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -86,6 +87,10 @@ fun ChoiceOverlay(s: ScreenState, c: Choice) {
  *  нижнего угла первой клавиши до верха строки дорожек; тап — выбор и закрыть; тап мимо — закрыть. */
 @Composable
 fun ChordMenuOverlay(s: ScreenState) {
+    if (s.arp[0] != 0) {
+        ArpMenuOverlay(s)
+        return
+    }
     val d = LocalDensity.current.density
     val keys = s.keysRect
     val pad = 10f
@@ -93,29 +98,23 @@ fun ChordMenuOverlay(s: ScreenState) {
     val head = 14f
     val height = maxOf(160f, (keys.bottom - s.tracksRect.top) / d)
     val rowH = maxOf(28f, (height - 2 * pad - head - 3 * gap) / 3)
-    val width = 2 * rowH + gap + 2 * pad
-    val names = s.chordKindNames
+    val style = s.arp[7]
+    val part = s.arp[10]
+    val names = if (style >= 0) randomStyles else s.chordKindNames
+    val current = if (style >= 0) style else s.piano[1]
     Box(Modifier.fillMaxSize().pointerTap { s.chordMenu = false })
-    Column(
-        Modifier.offset((keys.left / d).dp, (keys.bottom / d - height).dp).width(width.dp).height(height.dp).menuBox()
+    Row(
+        Modifier.offset((keys.left / d).dp, (keys.bottom / d - height).dp).menuBox()
             .pointerInput(Unit) { detectTapGestures { } }.padding(pad.dp),
-        verticalArrangement = Arrangement.spacedBy(gap.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Box(Modifier.height(head.dp), contentAlignment = Alignment.BottomStart) { FieldLabel("CHORD") }
-        for (r in 0 until (names.size + 1) / 2) {
-            Row(horizontalArrangement = Arrangement.spacedBy(gap.dp)) {
-                for (col in 0 until 2) {
-                    val k = r * 2 + col
-                    if (k < names.size) {
-                        val target = MidiTarget.CHORD_TYPE + k
-                        InkButton(names[k], k == s.piano[1], Modifier.width(rowH.dp).midiLearnMark(s, target), rowH) {
-                            if (!s.learnTarget(target)) {
-                                s.act(Act.SET_CHORD_KIND, k)
-                                s.chordMenu = false
-                            }
-                        }
-                    }
-                }
+        ChordMenuGroup(if (style >= 0) "STYLE" else "CHORD", names, 2, rowH, current, s) { k ->
+            s.act(Act.SET_CHORD_KIND, k)
+            s.chordMenu = false
+        }
+        if (part >= 0) {
+            ChordMenuGroup("PART", arrayOf("BASS", "LEAD", "PAD"), 1, rowH, part) { k ->
+                s.act(Act.CHOOSE_RANDOM_PART, k)
             }
         }
     }
@@ -123,7 +122,7 @@ fun ChordMenuOverlay(s: ScreenState) {
 
 /** Меню клавиатуры (бутерброд под CHORD; PianoMenu в Menus.swift): 1 / 2 OCTAVES, SWING, KEY VELOCITY, OVERDUB;
  *  от левого нижнего угла первой клавиши вверх, не выше верха строки дорожек (дальше — прокрутка), шириной 4 шага.
- *  ARPEGGIATOR — с режимом ARP, позже. */
+ */
 @Composable
 fun PianoMenuOverlay(s: ScreenState, step: Float) {
     val d = LocalDensity.current.density
@@ -150,6 +149,15 @@ fun PianoMenuOverlay(s: ScreenState, step: Float) {
             ToggleRow("OVERDUB", p[4] != 0) { s.act(Act.SET_RECORD_SETTINGS, 1, if (it) 1 else 0) }
             Hint(if (p[4] != 0) "REC adds new notes to the pattern."
                 else "REC clears the steps it passes over; only the new notes stay.")
+            if (s.arp[6] != 0) {
+                Box(Modifier.midiLearnMark(s, MidiTarget.ARP)) {
+                    ToggleRow("ARPEGGIATOR", s.arp[0] != 0) {
+                        if (!s.learnTarget(MidiTarget.ARP)) s.act(Act.SET_ARP_MODE, if (it) 1 else 0)
+                    }
+                }
+                MenuHead("ARP")
+                ArpGateSlider(s)
+            }
         }
     }
 }
@@ -223,6 +231,100 @@ private fun SwingSlider(s: ScreenState) {
             Box(Modifier.width(maxOf(6f, x).dp).height(6.dp).background(th.accent, CircleShape))
             Box(Modifier.offset(minOf(maxOf(0f, x - 11), w - 22).dp, 0.dp).size(22.dp).shadow(2.dp, CircleShape)
                 .background(Color.White, CircleShape))
+        }
+    }
+}
+
+internal val arpDirections = arrayOf("Up", "Down", "Up-Down", "Down-Up", "Random", "Order")
+internal val randomStyles = arrayOf("House", "Techno", "Breaks", "Trap", "Pop", "Ambient")
+
+@Composable
+private fun ArpMenuOverlay(s: ScreenState) {
+    val d = LocalDensity.current.density
+    val keys = s.keysRect
+    val height = maxOf(160f, (keys.bottom - s.tracksRect.top) / d)
+    val width = (s.body?.size?.width ?: 0) / d
+    val x = keys.left / d
+    val row = minOf((height - 52) / 3, (width - x - 68) / 5).coerceAtLeast(28f)
+    Box(Modifier.fillMaxSize().pointerTap { s.chordMenu = false })
+    Row(
+        Modifier.offset(x.dp, (keys.bottom / d - height).dp).menuBox()
+            .pointerInput(Unit) { detectTapGestures { } }.padding(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        ChordMenuGroup("DIRECTION", arpDirections, 2, row, s.arp[2], s) { k ->
+            s.act(Act.SET_CHORD_KIND, k)
+        }
+        ChordMenuGroup("OCTAVES", arrayOf("1", "2", "3"), 1, row, s.arp[4] - 1) { k ->
+            s.act(Act.SET_ARP_OCTAVES, k + 1)
+        }
+        ChordMenuGroup("RATE", arrayOf("1/8", "1/8T", "1/16", "1/16T", "1/32", "LATCH"), 2, row, s.arp[3],
+            latch = s.arp[5] != 0) { k ->
+            if (k == 5) s.act(Act.SET_ARP_LATCH, if (s.arp[5] == 0) 1 else 0)
+            else s.act(Act.SET_ARP_RATE, k)
+        }
+    }
+}
+
+@Composable
+private fun ChordMenuGroup(
+    title: String, names: Array<String>, columns: Int, size: Float, selected: Int,
+    learn: ScreenState? = null, latch: Boolean = false, pick: (Int) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(Modifier.height(14.dp), contentAlignment = Alignment.BottomStart) { FieldLabel(title) }
+        for (r in names.indices step columns) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                for (k in r until minOf(r + columns, names.size)) {
+                    val target = MidiTarget.CHORD_TYPE + k
+                    val mod = Modifier.width(size.dp)
+                    if (names[k] == "LATCH") {
+                        val th = LocalTheme.current
+                        Box(mod.height(size.dp).tile(if (latch) th.text else th.panel).pointerTap { pick(k) },
+                            contentAlignment = Alignment.Center) {
+                            Text("LATCH", color = if (latch) th.bg else th.text, fontSize = 13.tsp())
+                        }
+                    } else {
+                        InkButton(names[k], k == selected,
+                            if (learn == null) mod else mod.midiLearnMark(learn, target), size) {
+                            if (learn?.learnTarget(target) != true) pick(k)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ArpGateSlider(s: ScreenState) {
+    val th = LocalTheme.current
+    val gate = s.arp[9]
+    Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row {
+            Text("GATE", color = th.text, fontSize = 13.tsp(), fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text("$gate%", color = th.text, fontSize = 13.tsp(), fontWeight = FontWeight.Bold)
+        }
+        BoxWithConstraints(
+            Modifier.fillMaxWidth().height(24.dp).pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { s.act(Act.SET_ARP_GATE, x = 0.1 + 0.9 * it.x / size.width.coerceAtLeast(1)) },
+                    onDoubleTap = { s.act(Act.SET_ARP_GATE, x = 0.5) },
+                )
+            }.pointerInput(Unit) {
+                detectHorizontalDragGestures { change, _ ->
+                    change.consume()
+                    val pos = (change.position.x / size.width.coerceAtLeast(1)).coerceIn(0f, 1f)
+                    s.act(Act.SET_ARP_GATE, x = Math.rint(10.0 + 90 * pos) / 100)
+                }
+            },
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            val x = maxWidth.value * (gate - 10) / 90
+            Box(Modifier.fillMaxWidth().height(6.dp).background(th.meterTrack, CircleShape))
+            Box(Modifier.width(maxOf(6f, x).dp).height(6.dp).background(th.accent, CircleShape))
+            Box(Modifier.offset((x - 11).coerceIn(0f, maxOf(0f, maxWidth.value - 22)).dp, 0.dp)
+                .size(22.dp).shadow(2.dp, CircleShape).background(Color.White, CircleShape))
         }
     }
 }

@@ -4,6 +4,7 @@
 #pragma once
 #include "engine/Capture.h"
 #include "sequencer/MidiClock.h"
+#include "sequencer/Arpeggiator.h"
 #include "engine/CoreEvent.h"
 #include "EqDisplay.h"
 #include "MeterState.h"
@@ -51,6 +52,7 @@ struct AppAudio {
     virtual void publish(const Project& p, const SoundSnapshot::Options& o,
                          const std::map<std::string, SampleRef>& samples) = 0;
     virtual bool popOut(SeqOut& e) = 0;
+    virtual bool popArp(ArpOut&) { return false; }
     /// Голоса сэмплера из колбэка (полосы воспроизведения окна сэмпла).
     virtual bool popVoice(VoiceOut&) { return false; }
     /// Цепочка мастера колбэка (телеметрия COMP, CLIP, LIM и скоп); nullptr — звука нет.
@@ -311,6 +313,21 @@ public:
     int chordKind() const;
     void toggleChord();
     void setChordKind(int k);
+    void chordTap();
+    void chooseChordType(int k);
+    const TrackArp& arp() const;
+    void setArpMode(bool on);
+    void setArpRate(int rate);
+    void setArpOctaves(int octaves);
+    void setArpLatch(bool on);
+    void setArpGate(double gate);
+    int chordStyle() const;
+    bool randomButton() const;
+    int randomSettings() const { return randomSettings_; }
+    void setRandomSettings(int options);
+    int randomPart() const;
+    void chooseRandomPart(int part);
+    static constexpr int randomDefaults = 0;
     /// Подпись клавиши в режиме CHORD: «Em · i» и второй строкой нижняя нота («E3»).
     std::string chordKeyLabel(int k) const;
     /// Верхняя октава клавиатуры выбранной дорожки (ноты не выше 127).
@@ -700,7 +717,21 @@ private:
     /// Начало прохода клипа дорожки (тик) — из колбэка.
     std::array<int, Params::maxTracks> trackStart_{};
     std::optional<int> heardTick() const;
-    std::optional<int> record(int ti, const std::vector<int>& notes, std::optional<double> velocity);
+    std::optional<int> record(int ti, const std::vector<int>& notes, std::optional<double> velocity,
+                              std::optional<int> tick = std::nullopt);
+    void recordArp();
+    std::array<int, Params::maxTracks> lastArpTick_{};
+    std::array<TrackArp, Params::maxTracks> sentArp_{};
+    void syncArp();
+    enum RandomOption { randomChords = 1, randomDrums = 2, randomSamples = 4, randomSwing = 8, randomAll = 16, showRandomPart = 32 };
+    int randomSettings_ = randomDefaults;
+    std::map<int, std::vector<int>> lastDrumPattern_;
+    std::vector<int> lastProgression_;
+    std::map<int, int> randomParts_;
+    void writeRandom();
+    int randomDrumRole(const Track& t) const;
+    bool randomSlices(const Track& t) const;
+    void editArp(const std::function<void(TrackArp&)>& change);
     /// Правка дубля: первая нота — новая запись UNDO, следующие (пока не было других действий) — в неё же.
     void writeTake(int ti, const std::function<void(Track&)>& change);
     void endRecTake();

@@ -122,6 +122,7 @@ void App::midiMappedButton(int target, bool down, bool touch, bool setState, boo
         case mt::rec: if (down != recOn()) toggleRec(); return;
         case mt::metronome: if (down != metronome_) toggleMetronome(); return;
         case mt::eq: if (down != eqView_) toggleEqView(); return;
+        case mt::arp: setArpMode(down); return;
         case mt::patterns: if (down != patternView_) togglePatterns(); return;
         default: break;
         }
@@ -132,7 +133,7 @@ void App::midiMappedButton(int target, bool down, bool touch, bool setState, boo
     else if (mt::in(target, mt::mute, tracks)) toggleMute(target - mt::mute);
     else if (mt::in(target, mt::solo, tracks)) toggleSolo(target - mt::solo);
     else if (mt::in(target, mt::arm, tracks)) stemTap(target - mt::arm);
-    else if (mt::in(target, mt::chordType, int(Scales::chordKinds.size()))) setChordKind(target - mt::chordType);
+    else if (mt::in(target, mt::chordType, int(Scales::chordKinds.size()))) chooseChordType(target - mt::chordType);
     else if (mt::in(target, mt::pageArrow, 4)) pageArrow(static_cast<PageAction>(target - mt::pageArrow));
     else if (mt::in(target, mt::row, mt::windowRows) || mt::in(target, mt::clip, tracks * mt::windowRows)) {
         if (!patternView_ && !global) return;
@@ -151,7 +152,8 @@ void App::midiMappedButton(int target, bool down, bool touch, bool setState, boo
         case mt::metronome: toggleMetronome(); break;
         case mt::eq: toggleEqView(); break;
         case mt::patterns: togglePatterns(); break;
-        case mt::chord: toggleChord(); break;
+        case mt::chord: chordTap(); break;
+        case mt::arp: setArpMode(!arp().mode); break;
         case mt::octaveUp: setOctave(octave() + 1); break;
         case mt::octaveDown: setOctave(octave() - 1); break;
         case mt::mix: selectChannel(Channel::mix); break;

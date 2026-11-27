@@ -1,8 +1,8 @@
 // App: гамма, корневая нота, октава, клавиши, режим CHORD и типы аккорда, меню клавиатуры (1 / 2 OCTAVES, SWING,
-// VELOCITY; порт частей AppModelPiano.swift и AppModelChords.swift, ветка swift JAMbo). ARP, RANDOM (SHIFT + CHORD,
-// стили ударных) и раздел PART — позже.
+// VELOCITY; порт частей AppModelPiano.swift, AppModelArp.swift и AppModelChords.swift, ветка swift JAMbo).
 #include "App.h"
 #include "model/Chords.h"
+#include "model/DrumRhythm.h"
 #include "model/Scales.h"
 #include <algorithm>
 
@@ -32,7 +32,68 @@ void App::setPianoSettings(int octaves, bool velocity) {
     bump();
 }
 
-bool App::chordOn() const { return chordMode_[size_t(selected_)]; }
+bool App::chordOn() const { return !arp().mode && !randomButton() && chordMode_[size_t(selected_)]; }
+
+const TrackArp& App::arp() const {
+    static const TrackArp off;
+    return channel_ == Channel::track ? track().arp : off;
+}
+
+void App::syncArp() {
+    for (size_t i = 0; i < sentArp_.size(); ++i) {
+        TrackArp a = i < project_.tracks.size() ? project_.tracks[i].arp : TrackArp{};
+        a.on = a.active();
+        if (a == sentArp_[i]) continue;
+        sentArp_[i] = a;
+        audio_->push(CoreEvent::arp(int(i), a.on, a.dir, a.rate, a.octaves, float(a.gate), a.latch));
+    }
+}
+
+void App::editArp(const std::function<void(TrackArp&)>& change) {
+    if (channel_ != Channel::track) return;
+    TrackArp next = arp();
+    change(next);
+    if (next == arp()) return;
+    mutatePlay([&](Project& p) { p.tracks[size_t(selected_)].arp = next; }, false);
+    syncArp();
+}
+
+void App::setArpMode(bool on) {
+    if (channel_ != Channel::track || on == arp().mode) return;
+    const bool enabled = on ? chordOn() : arp().on;
+    chordMode_[size_t(selected_)] = !on && enabled;
+    editArp([&](TrackArp& a) { a.mode = on; a.on = on && enabled; });
+}
+
+void App::setArpRate(int rate) {
+    editArp([&](TrackArp& a) { a.rate = Arp::clampRate(rate); });
+}
+
+void App::setArpOctaves(int octaves) {
+    editArp([&](TrackArp& a) { a.octaves = Arp::clampOctaves(octaves); });
+}
+
+void App::setArpGate(double gate) {
+    if (std::isfinite(gate)) editArp([&](TrackArp& a) { a.gate = Arp::clampGate(std::round(gate * 100) / 100); });
+}
+
+void App::setArpLatch(bool on) {
+    editArp([&](TrackArp& a) { a.latch = on; });
+}
+
+void App::chordTap() {
+    if (channel_ == Channel::track && (shiftHeld_ || randomButton())) writeRandom();
+    else if (arp().mode) editArp([](TrackArp& a) { a.on = !a.on; });
+    else toggleChord();
+}
+
+void App::chooseChordType(int k) {
+    if (arp().mode) editArp([&](TrackArp& a) { a.dir = Arp::clampDir(k); });
+    else if (chordStyle() >= 0) {
+        const int style = DrumRhythm::styleIndex(k);
+        edit([&](Project& p) { for (auto& t : p.tracks) t.drumStyle = style; });
+    } else setChordKind(k);
+}
 
 int App::chordKind() const { return chordKind_[size_t(selected_)]; }
 

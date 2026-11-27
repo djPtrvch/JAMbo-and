@@ -131,6 +131,14 @@ bool AudioEngine::popVoice(jambo::VoiceOut& e) {
     return true;
 }
 
+bool AudioEngine::popArp(jambo::ArpOut& e) {
+    if (!core_) return false;
+    const auto note = core_->arp.out.pop();
+    if (!note) return false;
+    e = *note;
+    return true;
+}
+
 bool AudioEngine::popOut(jambo::SeqOut& e) {
     if (!core_) return false;
     auto x = core_->sequencer.out.pop();

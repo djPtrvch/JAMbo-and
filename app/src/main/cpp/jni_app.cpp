@@ -54,6 +54,7 @@ enum Act {
     duplicateRow, moveRow, deleteRow, copyRow, pasteRow, setGridOption, gridArrow, setGridTop,
     toggleEqView = 180, selectEqBand, setEqType, setEqSlope, setEqMs, setEqDyn, toggleEqBand, deleteEqBand,
     toggleEqBypass,
+    setArpMode = 200, setArpRate, setArpOctaves, setArpLatch, setArpGate, setRandomSettings, chooseRandomPart,
 };
 
 jintArray ints(JNIEnv* env, const std::vector<jint>& v) {
@@ -182,8 +183,15 @@ FN(jdouble, act)(JNIEnv*, jobject, jint code, jint a, jint b, jdouble x) {
     case setClipRate: m.setClipRate(a); break;
     case setScale: m.setScale(a); break;
     case setRoot: m.setRoot(a); break;
-    case toggleChord: m.toggleChord(); break;
-    case setChordKind: m.setChordKind(a); break;
+    case toggleChord: m.chordTap(); break;
+    case setChordKind: m.chooseChordType(a); break;
+    case setArpMode: m.setArpMode(a != 0); break;
+    case setArpRate: m.setArpRate(a); break;
+    case setArpOctaves: m.setArpOctaves(a); break;
+    case setArpLatch: m.setArpLatch(a != 0); break;
+    case setArpGate: m.setArpGate(x); break;
+    case setRandomSettings: m.setRandomSettings(a); break;
+    case chooseRandomPart: m.chooseRandomPart(a); break;
     case setPianoSettings: m.setPianoSettings(a, b != 0); break;
     case setRecordSettings: m.setRecordSettings(a != 0, b != 0); break;
     case setSwing: m.setSwing(x); break;
@@ -407,11 +415,11 @@ FN(jfloatArray, eqSpectrum)(JNIEnv* env, jobject, jint n, jdouble dt) {
     return a;
 }
 
-/// SETTINGS: [QUANTIZE, OVERDUB, MORPH RETURN, MORPH MODE HOLD, LEVEL RELATIVE].
+/// SETTINGS: [QUANTIZE, OVERDUB, MORPH RETURN, MORPH MODE HOLD, LEVEL RELATIVE, флаги RANDOM].
 FN(jintArray, settings)(JNIEnv* env, jobject) {
     std::lock_guard<std::mutex> g(gLock);
     auto& m = app();
-    return ints(env, {m.quantize(), m.overdub(), m.morphReturn(), m.morphHoldMode(), m.levelRelative()});
+    return ints(env, {m.quantize(), m.overdub(), m.morphReturn(), m.morphHoldMode(), m.levelRelative(), m.randomSettings()});
 }
 
 FN(jobjectArray, morphReturnNames)(JNIEnv* env, jobject) { return strings(env, jambo::MorphReturn::names); }
@@ -602,6 +610,15 @@ FN(jintArray, piano)(JNIEnv* env, jobject) {
                       m.project().root, jint(std::lround(m.trackSwing() * 10)),
                       jint(std::lround(jambo::Params::swing().min * 10)), jint(std::lround(jambo::Params::swing().max * 10)),
                       jambo::Scales::keyCount(m.project().scale, 1)});
+}
+
+/// Режим CHORD/ARP и настройки выбранной дорожки.
+FN(jintArray, arp)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> g(gLock);
+    auto& m = app();
+    const auto& a = m.arp();
+    return ints(env, {a.mode, a.on, a.dir, a.rate, a.octaves, a.latch, m.channel() == jambo::Channel::track,
+                      m.chordStyle(), m.randomButton(), jint(std::lround(a.gate * 100)), m.randomPart()});
 }
 
 /// Подписи меню клавиатуры: [тип аккорда, SWING].

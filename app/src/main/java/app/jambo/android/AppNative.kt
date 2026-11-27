@@ -98,6 +98,13 @@ object AppNative {
         const val TOGGLE_EQ_BAND = 186
         const val DELETE_EQ_BAND = 187
         const val TOGGLE_EQ_BYPASS = 188
+        const val SET_ARP_MODE = 200
+        const val SET_ARP_RATE = 201
+        const val SET_ARP_OCTAVES = 202
+        const val SET_ARP_LATCH = 203
+        const val SET_ARP_GATE = 204
+        const val SET_RANDOM_SETTINGS = 205
+        const val CHOOSE_RANDOM_PART = 206
     }
 
     /** EQ: [открыт, мастер, включён, выбранная полоса, дорожек], по полосе (10): [есть, вкл., тип, крутизна, M/S, DYN]. */
@@ -246,6 +253,8 @@ object AppNative {
     external fun keyLabels(): Array<String>
     /** [CHORD вкл., тип аккорда, октав, VELOCITY, OVERDUB, гамма, корневая, SWING·10, SWING от·10, до·10]. */
     external fun piano(): IntArray
+    /** [режим, вкл., направление, скорость, октавы, latch, выбрана дорожка, стиль или −1, RANDOM, GATE в процентах, PART или −1]. */
+    external fun arp(): IntArray
     /** [тип аккорда, SWING]. */
     external fun pianoTexts(): Array<String>
     external fun scaleNames(): Array<String>

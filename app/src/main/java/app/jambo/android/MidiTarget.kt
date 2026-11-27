@@ -31,6 +31,7 @@ object MidiTarget {
     const val SOUND_LEFT = 79
     const val SOUND_RIGHT = 80
     const val PAGE_ARROW = 81
+    const val ARP = 85
     const val TRACK = 100
     const val MUTE = 116
     const val SOLO = 132
@@ -48,7 +49,7 @@ object MidiTarget {
         target == GRID_UP || target == GRID_DOWN || target in ROW until ROW + WINDOW_ROWS ||
             target in CLIP until CLIP + 16 * WINDOW_ROWS
 
-    fun actions(chords: Int) = (PLAY..PATTERNS) + (CHORD..PAGE_ARROW + 3) +
+    fun actions(chords: Int) = (PLAY..PATTERNS) + (CHORD..ARP) +
         (TRACK until KEY + 25) + (CHORD_TYPE until CHORD_TYPE + chords) + (ROW until PAGE + 8) + (STEP until STEP + 16)
 }
 
@@ -60,6 +61,7 @@ fun midiTargetLabel(target: Int): String = with(MidiTarget) {
         in STEP until STEP + 16 -> "STEP ${target - STEP + 1}"
         in BPM..PAGE_ARROW + 3 -> listOf("BPM", "LEVEL", "CHORD", "OCTAVE ▲", "OCTAVE ▼", "LFO1", "LFO2", "LFO3", "ENV",
             "MORPH", "MIX", "MST", "ARM MST", "GRID ▲", "GRID ▼", "SOUND ◀", "SOUND ▶", "PAGE ◀", "PAGE ▶", "PAGE ▲", "PAGE ▼")[target - BPM]
+        ARP -> "ARP"
         in TRACK until MUTE -> "T${target - TRACK + 1}"
         in MUTE until SOLO -> "MUTE ${target - MUTE + 1}"
         in SOLO until ARM -> "SOLO ${target - SOLO + 1}"

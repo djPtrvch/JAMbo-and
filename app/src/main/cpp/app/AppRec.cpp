@@ -30,8 +30,8 @@ std::optional<int> App::heardTick() const {
     return RecordClock::tick(frame, int(c.nextTick), c.nextFrame, c.stepFrames, quantize_);
 }
 
-std::optional<int> App::record(int ti, const std::vector<int>& notes, std::optional<double> velocity) {
-    const auto k = heardTick();
+std::optional<int> App::record(int ti, const std::vector<int>& notes, std::optional<double> velocity, std::optional<int> tick) {
+    const auto k = tick ? tick : heardTick();
     if (!k) return std::nullopt;
     const bool merge = lastRec_.first == ti && lastRec_.second == *k;
     lastRec_ = {ti, *k};
@@ -45,6 +45,24 @@ std::optional<int> App::record(int ti, const std::vector<int>& notes, std::optio
     takeWritten_.insert(ti * 1000 + index);
     writeTake(ti, [&](Track& t) { t.recordNotes(index, notes, merge, overdub, velocity); });
     return index;
+}
+
+void App::recordArp() {
+    ArpOut note;
+    while (audio_->popArp(note)) {
+        if (!recOn_ || !playing_ || !note.playing || channel_ != Channel::track || !held_.empty()) continue;
+        if (note.track < 0 || note.track >= int(project_.tracks.size())) continue;
+        const double stepFrames = std::max(1.0, note.stepFrames);
+        const int tick = RecordClock::tick(note.frame, note.nextTick, note.nextFrame, stepFrames, quantize_);
+        int& last = lastArpTick_[size_t(note.track)];
+        if (last == tick) continue;
+        last = tick;
+        const auto velocity = note.velocity < 1 ? std::optional<double>(note.velocity) : std::nullopt;
+        if (const auto index = record(note.track, {note.note}, velocity, tick)) {
+            const int length = RecordClock::length(note.gateFrames, stepFrames);
+            writeTake(note.track, [&](Track& t) { t.recordLength(*index, length); });
+        }
+    }
 }
 
 void App::writeTake(int ti, const std::function<void(Track&)>& change) {
@@ -68,6 +86,7 @@ void App::endRecTake() {
     takeTracks_.clear();
     takeWritten_.clear();
     lastRec_ = {-1, -1};
+    lastArpTick_.fill(-1);
 }
 
 void App::recPassStep(int ti, int pos) {

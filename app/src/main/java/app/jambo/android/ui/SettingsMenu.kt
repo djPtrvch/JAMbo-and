@@ -20,7 +20,7 @@ import app.jambo.android.Native
 import kotlinx.coroutines.delay
 
 /** Вкладки SETTINGS — только те, чьи функции уже есть (порядок — как в Swift-версии); остальные — с функциями. */
-private val TABS = listOf("RECORD", "MORPH", "LEVEL", "APPEARANCE", "AUDIO ENGINE")
+private val TABS = listOf("RECORD", "RANDOM", "MORPH", "LEVEL", "APPEARANCE", "AUDIO ENGINE")
 
 /** SETTINGS (SettingsMenu.swift): стрелка назад; подпись SECTIONS и вкладки по 3 в ряд; ниже, с чертой, — вкладка.
  *  Настройки — на устройстве (SharedPreferences), общие для проектов. */
@@ -38,9 +38,10 @@ fun SettingsPage(s: ScreenState, back: () -> Unit) {
             Divider()
             when (s.settingsTab) {
                 0 -> RecordTab(s)
-                1 -> MorphTab(s)
-                2 -> LevelTab(s)
-                3 -> AppearanceTab(s)
+                1 -> RandomTab(s)
+                2 -> MorphTab(s)
+                3 -> LevelTab(s)
+                4 -> AppearanceTab(s)
                 else -> EngineTab()
             }
         }
@@ -52,6 +53,18 @@ private fun RecordTab(s: ScreenState) {
     val st = s.settings
     ToggleRow("QUANTIZE", st[0] != 0) { s.act(Act.SET_RECORD_SETTINGS, if (it) 1 else 0, st[1]) }
     MenuNote("ON: a note played with REC lands on the nearest step. OFF: on the step where it was played.")
+}
+
+@Composable
+private fun RandomTab(s: ScreenState) {
+    val options = s.settings[5]
+    val names = listOf("CHORDS / ARP", "DRUMS", "SAMPLES", "AUTO SWING", "STEPS ALL TRACKS", "SHOW PART TYPE")
+    names.forEachIndexed { k, title ->
+        val bit = 1 shl k
+        ToggleRow(title, options and bit != 0) { on ->
+            s.act(Act.SET_RANDOM_SETTINGS, if (on) options or bit else options and bit.inv())
+        }
+    }
 }
 
 @Composable

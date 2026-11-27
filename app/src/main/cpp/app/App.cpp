@@ -8,6 +8,7 @@ namespace jambo {
 
 App::App(AppAudio* audio)
     : audio_(audio), playPos_(size_t(Params::maxTracks + SeqData::chans), -1), cell_(size_t(Params::maxTracks), -1) {
+    lastArpTick_.fill(-1);
     publishAudio();
 }
 
@@ -28,6 +29,14 @@ void App::loadProject(const Project& p) {
     viewPage_ = 0;
     held_.clear();
     used_.clear();
+    for (size_t i = 0; i < sentArp_.size(); ++i) {
+        if (!sentArp_[i].on) continue;
+        audio_->push(CoreEvent::arp(int(i), false, 0, 2, 1, 0.5f, false));
+        sentArp_[i] = {};
+    }
+    randomParts_.clear();
+    lastProgression_.clear();
+    lastDrumPattern_.clear();
     project_ = p;
     audio_->push(CoreEvent::tempo(runningBpm()));
     publishAudio();
@@ -175,6 +184,7 @@ void App::publishAudio() {
     if (libPreviewKey_) o.extra = {*libPreviewKey_};
     static const std::map<std::string, SampleRef> none;
     audio_->publish(project_, o, samples_ ? samples_->samples() : none);
+    syncArp();
 }
 
 void App::changed() {
@@ -351,6 +361,7 @@ void App::tick(double now) {
     }
     applyPendingLead();
     // Ход открытого клипа — p-lock играющего шага на ручках: данные перечитываются; мигание — в кадре экрана.
+    recordArp();
     if (before != openPlayPos()) bump();
 }
 

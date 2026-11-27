@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,21 +59,39 @@ fun KeyboardPanel(s: ScreenState, width: Float) {
     }
 }
 
-/** CHORD: тап — вкл./выкл. режима аккордов (горит, пока включён), долгое нажатие — окно типов аккорда; под словом —
- *  выбранный тип. RANDOM (SHIFT + CHORD) и ARP — позже. */
+/** CHORD / ARP / RANDOM: долгое нажатие открывает настройки текущего режима. */
 @Composable
 private fun ChordButton(s: ScreenState, modifier: Modifier) {
     val th = LocalTheme.current
-    val on = s.piano[0] != 0
+    val arp = s.arp[0] != 0
+    val random = s.arp[8] != 0
+    val pressed = remember { mutableStateOf(false) }
+    val on = when {
+        arp -> s.arp[1] != 0
+        random -> pressed.value
+        else -> s.piano[0] != 0
+    }
     Column(
         modifier.midiLearnMark(s, MidiTarget.CHORD).tile(if (on) th.text else th.panel2).pointerInput(Unit) {
-            detectTapGestures(onTap = { if (!s.learnTarget(MidiTarget.CHORD)) s.act(Act.TOGGLE_CHORD) }, onLongPress = { s.chordMenu = true })
+            detectTapGestures(
+                onPress = {
+                    pressed.value = true
+                    try { tryAwaitRelease() } finally { pressed.value = false }
+                },
+                onTap = { if (!s.learnTarget(MidiTarget.CHORD)) s.act(Act.TOGGLE_CHORD) },
+                onLongPress = { s.chordMenu = true },
+            )
         },
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
     ) {
         val fg = if (on) th.bg else th.text
-        Text("CHORD", color = fg, fontSize = 12.tsp(), fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
-        Text(s.pianoTexts[0], color = fg, fontSize = 10.tsp())
+        Text(if (arp) "ARP" else if (random) "RANDOM" else "CHORD", color = fg, fontSize = 12.tsp(), fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
+        val sub = when {
+            arp -> arpDirections[s.arp[2]]
+            s.arp[7] >= 0 -> if (random) randomStyles[s.arp[7]] else ""
+            else -> s.pianoTexts[0]
+        }
+        Text(sub, color = fg, fontSize = 10.tsp())
     }
 }
 

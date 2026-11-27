@@ -1,6 +1,8 @@
-// Случайный ритм ударных: стили и роли (порт части Core/Model/DrumRhythm.swift, ветка swift JAMbo; рисунки — позже).
+// Случайный ритм ударных: стили, роли и рисунки (порт Core/Model/DrumRhythm.swift, ветка swift JAMbo).
 #pragma once
 #include <algorithm>
+#include <random>
+#include "Clip.h"
 #include "../synth/Jambo.h"
 
 namespace jambo {
@@ -24,5 +26,9 @@ inline int role(int engine) {
     default: return -1;
     }
 }
+inline constexpr double swing[] = {54, 50, 56, 50, 52, 50};
+std::vector<int> drumBase(int role, int style, int length, std::mt19937& rng);
+void writeDrums(Page& page, const std::vector<int>& base, int role, int style, int note,
+                int length, bool vary, bool fill, std::mt19937& rng);
 }  // namespace DrumRhythm
 }  // namespace jambo

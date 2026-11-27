@@ -41,6 +41,7 @@ public:
     void publish(const jambo::Project& p, const jambo::SoundSnapshot::Options& o,
                  const std::map<std::string, jambo::SampleRef>& samples) override;
     bool popOut(jambo::SeqOut& e) override;
+    bool popArp(jambo::ArpOut& e) override;
     bool popVoice(jambo::VoiceOut& e) override;
     jambo::MasterChain* master() override { return core_ ? &core_->master : nullptr; }
     jambo::EqListen* eqListen() override { return core_ ? &core_->eqListen : nullptr; }
