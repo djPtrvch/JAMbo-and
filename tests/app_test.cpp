@@ -1005,6 +1005,9 @@ void arrangerSelectionTransfer() {
 void songRender() {
     CoreAudio audio;
     App app(&audio);
+    Project project;
+    project.tracks[0].setSynth(16);  // KICK: пустая дорожка по умолчанию не звучит.
+    app.loadProject(project);
     app.toggleStep(0);
     app.addArrangeBlock(0, app.project().tracks[0].slot, 0, false);
     app.setArrangeLoop(0, 4);
