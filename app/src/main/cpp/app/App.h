@@ -433,7 +433,7 @@ public:
     void deleteArrangeSection(int index);
     bool arrangeAuto() const { return arrangeAuto_; }
     void toggleArrangeAuto();
-    void setArrangeAuto(int track, const std::string& id, const std::vector<ArrAutoPoint>& points);
+    void setArrangeAuto(int track, const std::string& id, const std::vector<ArrAutoPoint>& points, bool draw = false);
     void deleteArrangeAuto(int track, const std::string& id);
     void clearArrangeAuto(int track);
     bool arrangeReferenceB() const {

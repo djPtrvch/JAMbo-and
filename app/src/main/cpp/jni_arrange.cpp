@@ -223,7 +223,21 @@ FN(jdoubleArray, arrangeAutoPoints)(JNIEnv* env, jobject, jint track, jstring la
     return array;
 }
 
-FN(void, arrangeSetAuto)(JNIEnv* env, jobject, jint track, jstring lane, jdoubleArray data) {
+FN(jdouble, arrangeAutoBase)(JNIEnv* env, jobject, jint track, jstring lane) {
+    const auto id = jniString(env, lane);
+    std::lock_guard<std::mutex> lock(jniLock());
+    const auto& p = jniApp().project();
+    if (track < 0 || track >= int(p.tracks.size())) return 0.5;
+    const auto& t = p.tracks[size_t(track)];
+    const auto& grid = jambo::Params::grid(t.sample);
+    const auto item = std::find_if(grid.begin(), grid.end(), [&](const auto& def) { return def.id == id; });
+    const auto* def = item != grid.end() ? &*item : jambo::Params::byId(id);
+    if (!def) return 0.5;
+    const auto it = t.params.find(id);
+    return def->toNorm(it == t.params.end() ? def->def : it->second);
+}
+
+FN(void, arrangeSetAuto)(JNIEnv* env, jobject, jint track, jstring lane, jdoubleArray data, jboolean draw) {
     if (!data) return;
     const jsize count = env->GetArrayLength(data);
     if (count % 2 != 0 || count / 2 > jambo::ArrAutoLane::maxPoints) return;
@@ -234,7 +248,7 @@ FN(void, arrangeSetAuto)(JNIEnv* env, jobject, jint track, jstring lane, jdouble
     std::vector<jambo::ArrAutoPoint> points;
     for (int i = 0; i < count; i += 2) points.push_back({values[size_t(i)], values[size_t(i + 1)]});
     std::lock_guard<std::mutex> lock(jniLock());
-    jniApp().setArrangeAuto(track, id, points);
+    jniApp().setArrangeAuto(track, id, points, draw);
 }
 
 FN(void, arrangeDeleteAuto)(JNIEnv* env, jobject, jint track, jstring lane) {

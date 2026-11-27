@@ -372,7 +372,7 @@ internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, ste
             }
         }
         if (d.auto) ArrangeAutoPanel(s, d, port, header, lower, Modifier.fillMaxWidth()) {
-            port = port.copy(x = it)
+            port = it
         }
         else if (!d.hideSteps) steps()
     }

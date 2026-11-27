@@ -970,7 +970,8 @@ void arrangerApp() {
     app.toggleArrange();
     app.addArrangeBlock(0, slot, 4, true, 20);
     const auto& blocks = app.project().tracks[0].blocks;
-    check(blocks.size() == 2 && blocks[0].start == 4 && blocks[0].length == 20 && blocks[1].start >= 24,
+    check(blocks.size() >= 2 && blocks.front().start == 4 && blocks.back().start == 24 &&
+          blocks[blocks.size() - 2].end() == 24,
           "arrange app: dropping on a junction inserts a block and shifts later blocks");
 }
 
@@ -1015,6 +1016,37 @@ void arrangerReference() {
     app.togglePatterns();
     check(!app.arrangeReferenceB(), "arrange REF: outside ARRANGE the project is audible");
     std::filesystem::remove_all(dir);
+}
+
+void arrangerRecordAutomation() {
+    CoreAudio audio;
+    App app(&audio);
+    app.selectTrack(1);
+    app.toggleStep(0);
+    const int clip = app.project().tracks[1].slot;
+    app.toggleArrange();
+    app.addArrangeBlock(1, clip, 0, false, 32);
+    const auto base = app.knobStart(6);
+    app.toggleArrangeAuto();
+    app.toggleRec();
+    app.togglePlay();
+    audio.run(16'000);
+    app.tick(0.34);
+    app.knobFinger(6, true);
+    app.beginGesture();
+    app.setKnob(6, 0.2);
+    audio.run(16'000);
+    app.tick(0.67);
+    app.setKnob(6, 0.8);
+    app.knobFinger(6, false);
+    app.endGesture();
+    const auto points = app.project().tracks[1].autoPoints("filter");
+    check(points.size() >= 2 && std::abs(points.front().y - 0.2) < 1e-9 &&
+          std::abs(points.back().y - 0.8) < 1e-9, "arrange AUTO: records a gesture at transport positions");
+    app.togglePlay();
+    check(std::abs(app.knobStart(6) - base) < 1e-9, "arrange AUTO: restores the manual value after a take");
+    app.undo();
+    check(app.project().tracks[1].autoPoints("filter").empty(), "arrange AUTO: UNDO removes a recorded gesture");
 }
 
 void sampleEditor() {
@@ -1200,6 +1232,7 @@ int runAppTests() {
     arrangerApp();
     arrangerRecording();
     arrangerReference();
+    arrangerRecordAutomation();
     sliceAndWarpEditor();
     moveTrackKeepsSound();
     eq();

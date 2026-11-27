@@ -3,6 +3,8 @@ package app.jambo.android.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import app.jambo.android.AppNative
 import kotlin.math.round
+import kotlin.math.roundToInt
+import kotlin.math.abs
 
 private data class ArrangePoint(val step: Double, val value: Double)
 private const val MAX_AUTO_POINTS = 2048
@@ -40,7 +44,7 @@ private const val MAX_AUTO_POINTS = 2048
 @Composable
 internal fun ArrangeAutoPanel(
     s: ScreenState, data: ArrangeData, port: ArrangeViewport, header: Dp, height: Dp,
-    modifier: Modifier, scroll: (Float) -> Unit = {},
+    modifier: Modifier, viewport: (ArrangeViewport) -> Unit,
 ) {
     val theme = LocalTheme.current
     val track = if (s.tracks[2] == 0) s.tracks[1] else -1
@@ -51,10 +55,10 @@ internal fun ArrangeAutoPanel(
     var laneMenu by remember(track) { mutableStateOf<String?>(null) }
     var drawing by remember(track) { mutableStateOf(false) }
     var lastLaneTap by remember(track) { mutableStateOf(0L) }
-    fun save(id: String, points: List<ArrangePoint>) {
+    fun save(id: String, points: List<ArrangePoint>, draw: Boolean = false) {
         val out = DoubleArray(points.size * 2)
         points.forEachIndexed { i, p -> out[i * 2] = p.step; out[i * 2 + 1] = p.value }
-        AppNative.arrangeSetAuto(track, id, out)
+        AppNative.arrangeSetAuto(track, id, out, draw)
         s.refresh()
     }
     Row(modifier.height(height), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
@@ -86,12 +90,14 @@ internal fun ArrangeAutoPanel(
                 val raw = AppNative.arrangeAutoPoints(track, id)
                 List(raw.size / 2) { ArrangePoint(raw[2 * it], raw[2 * it + 1]) }
             }
+            val baseValue = remember(track, id, s.revision) { AppNative.arrangeAutoBase(track, id) }
             var draft by remember(track, id) { mutableStateOf<List<ArrangePoint>?>(null) }
             val current by rememberUpdatedState(points)
             val currentPort by rememberUpdatedState(port)
             val currentData by rememberUpdatedState(data)
-            val set by rememberUpdatedState<(List<ArrangePoint>) -> Unit> { save(id, it) }
-            val currentScroll by rememberUpdatedState(scroll)
+            val set by rememberUpdatedState<(List<ArrangePoint>, Boolean) -> Unit> { pointsToSave, draw -> save(id, pointsToSave, draw) }
+            val currentBase by rememberUpdatedState(baseValue)
+            val setViewport by rememberUpdatedState(viewport)
             Box(Modifier.weight(1f).fillMaxHeight().tile(theme.panel)) {
                 Canvas(Modifier.fillMaxSize().clipToBounds().pointerInput(track, id, drawing) {
                     val taps = SampleDoubleTap()
@@ -102,26 +108,47 @@ internal fun ArrangeAutoPanel(
                         val width = p.stepWidth.takeIf { it > 0 } ?: size.width / 256f
                         val base = current
                         val initial = down.position
+                        val grid = if (d.snap) d.gridSteps.toDouble() else 0.25
                         fun xy(point: ArrangePoint) = Offset((point.step * width - p.x).toFloat(),
                             (size.height * (1 - point.value)).toFloat())
                         fun point(at: Offset): ArrangePoint {
-                            val grid = if (d.snap) d.gridSteps.toDouble() else 0.25
                             val x = (at.x + p.x) / width
-                            return ArrangePoint((round(x / grid) * grid).coerceAtLeast(0.0),
-                                (1.0 - at.y / size.height.coerceAtLeast(1)).coerceIn(0.0, 1.0))
+                            val norm = (1.0 - at.y / size.height.coerceAtLeast(1)).coerceIn(0.0, 1.0)
+                            val snapY = d.snap && !drawing && abs((1 - currentBase) * size.height - at.y) < 10.dp.toPx()
+                            return ArrangePoint((round(x / grid) * grid).coerceAtLeast(0.0), if (snapY) currentBase else norm)
                         }
                         val index = base.indices.filter { base[it].step.isFinite() }
                             .minByOrNull { (xy(base[it]) - initial).getDistance() }
                             ?.takeIf { (xy(base[it]) - initial).getDistance() <= 18.dp.toPx() } ?: -1
                         val chunk = sortedMapOf<Double, ArrangePoint>()
+                        var lastPencil = point(initial)
+                        if (drawing) chunk[lastPencil.step] = lastPencil
                         var dragged = false
+                        var zoomPort = p
                         try {
-                            val up = trackSampleTouch(down, { it.getDistance() >= 8.dp.toPx() }) { pos, _ ->
+                            val up = trackSampleTouch(down, { it.getDistance() >= 8.dp.toPx() }, onTransform = { event ->
+                                val previousCenter = event.calculateCentroid(useCurrent = false)
+                                val center = event.calculateCentroid()
+                                val oldStep = zoomPort.stepWidth.takeIf { it > 0 } ?: width
+                                val anchor = (previousCenter.x + zoomPort.x) / oldStep
+                                val nextStep = (oldStep * event.calculateZoom()).coerceIn(size.width / 1024f, size.width / 64f)
+                                zoomPort = zoomPort.copy(stepWidth = nextStep, x = (anchor * nextStep - center.x).coerceAtLeast(0f))
+                                setViewport(zoomPort)
+                                draft = null
+                            }) { pos, _ ->
                                 dragged = true
                                 val candidate = point(pos)
                                 when {
                                     drawing -> {
+                                        val count = (abs(candidate.step - lastPencil.step) / grid).roundToInt().coerceAtMost(MAX_AUTO_POINTS)
+                                        val sign = if (candidate.step >= lastPencil.step) 1 else -1
+                                        for (i in 1 until count) {
+                                            val x = lastPencil.step + i * grid * sign
+                                            val y = lastPencil.value + (candidate.value - lastPencil.value) * i / count
+                                            chunk[x] = ArrangePoint(x, y)
+                                        }
                                         chunk[candidate.step] = candidate
+                                        lastPencil = candidate
                                         val range = chunk.firstKey()..chunk.lastKey()
                                         draft = base.filter { it.step !in range } + chunk.values
                                     }
@@ -137,17 +164,17 @@ internal fun ArrangeAutoPanel(
                                             it[index] = candidate.copy(step = candidate.step.coerceIn(lo, hi))
                                         }
                                     }
-                                    else -> currentScroll((p.x + initial.x - pos.x).coerceAtLeast(0f))
+                                    else -> setViewport(p.copy(x = (p.x + initial.x - pos.x).coerceAtLeast(0f)))
                                 }
                             }
                             if (up != null) {
-                                val edited = if (dragged) draft else if (index >= 0) {
+                                val edited = if (drawing) chunk.values.toList() else if (dragged) draft else if (index >= 0) {
                                     if (taps.accept(up, index, 24.dp.toPx())) base.filterIndexed { i, _ -> i != index } else null
                                 } else {
                                     val next = point(up.position)
                                     base.filter { it.step != next.step } + next
                                 }
-                                if (edited != null) set(edited.filter { it.step.isFinite() }.take(MAX_AUTO_POINTS))
+                                if (edited != null) set(edited.filter { it.step.isFinite() }.take(MAX_AUTO_POINTS), drawing)
                             }
                         } finally {
                             draft = null
@@ -157,6 +184,8 @@ internal fun ArrangeAutoPanel(
                     val width = port.stepWidth.takeIf { it > 0 } ?: size.width / 256
                     fun x(step: Double) = (step * width - port.x).toFloat()
                     for (n in 0..4) drawLine(theme.line, Offset(0f, n * size.height / 4), Offset(size.width, n * size.height / 4))
+                    val baseY = (1 - baseValue).toFloat() * size.height
+                    drawLine(theme.dim, Offset(0f, baseY), Offset(size.width, baseY))
                     val step = if (width * data.gridSteps < 5.dp.toPx()) 16 else data.gridSteps
                     val from = ((port.x / width).toInt() / step) * step
                     for (n in from..((port.x + size.width) / width).toInt() step step) {

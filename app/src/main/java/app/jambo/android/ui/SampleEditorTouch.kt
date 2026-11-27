@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.math.pow
@@ -61,17 +62,27 @@ internal class SampleNavigation(
 }
 
 internal suspend fun AwaitPointerEventScope.trackSampleTouch(
-    down: PointerInputChange, threshold: (Offset) -> Boolean, onMove: (Offset, Boolean) -> Unit,
+    down: PointerInputChange, threshold: (Offset) -> Boolean,
+    onTransform: ((PointerEvent) -> Unit)? = null, onMove: (Offset, Boolean) -> Unit,
 ): PointerInputChange? {
     down.consume()
     var moved = false
+    var transformed = false
     while (true) {
-        val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: return null
+        val event = awaitPointerEvent()
+        val change = event.changes.firstOrNull { it.id == down.id } ?: return null
         if (change.isConsumed) return null
+        if (onTransform != null && event.changes.count { it.pressed } > 1) {
+            transformed = true
+            onTransform(event)
+            event.changes.forEach { it.consume() }
+            continue
+        }
         if (!change.pressed) {
             change.consume()
-            return change
+            return change.takeUnless { transformed }
         }
+        if (transformed) continue
         if (change.position == change.previousPosition) continue
         val firstMove = !moved && threshold(change.position - down.position)
         if (!moved && !firstMove) continue

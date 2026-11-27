@@ -179,7 +179,8 @@ object AppNative {
     external fun arrangeCarryLength(track: Int, clip: Int): Int
     external fun arrangeAutoParams(track: Int, existing: Boolean): Array<String>
     external fun arrangeAutoPoints(track: Int, lane: String): DoubleArray
-    external fun arrangeSetAuto(track: Int, lane: String, points: DoubleArray)
+    external fun arrangeAutoBase(track: Int, lane: String): Double
+    external fun arrangeSetAuto(track: Int, lane: String, points: DoubleArray, draw: Boolean)
     external fun arrangeDeleteAuto(track: Int, lane: String?)
     external fun sampleEditorWave(columns: Int, a: Double, b: Double): FloatArray
     data class EditorRemap(val key: String, val begin: Double, val end: Double)

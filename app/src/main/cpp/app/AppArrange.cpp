@@ -304,7 +304,7 @@ void App::toggleArrangeAuto() {
     bump();
 }
 
-void App::setArrangeAuto(int t, const std::string& id, const std::vector<ArrAutoPoint>& points) {
+void App::setArrangeAuto(int t, const std::string& id, const std::vector<ArrAutoPoint>& points, bool draw) {
     if (t < 0 || t >= int(project_.tracks.size()) || ArrAutoTarget::index(id) < 0 ||
         points.size() > ArrAutoLane::maxPoints) return;
     std::vector<ArrAutoPoint> checked;
@@ -313,7 +313,12 @@ void App::setArrangeAuto(int t, const std::string& id, const std::vector<ArrAuto
         if (!std::isfinite(point.x) || !std::isfinite(point.y)) return;
         checked.push_back({std::clamp(point.x, 0.0, 1'000'000.0), std::clamp(point.y, 0.0, 1.0)});
     }
-    edit([&](Project& p) { p.tracks[size_t(t)].setAuto(id, checked); });
+    if (draw && !checked.empty()) {
+        std::stable_sort(checked.begin(), checked.end(), [](const auto& a, const auto& b) { return a.x < b.x; });
+        edit([&](Project& p) { p.tracks[size_t(t)].recordAuto(id, checked, 0.005); });
+    } else if (!draw) {
+        edit([&](Project& p) { p.tracks[size_t(t)].setAuto(id, checked); });
+    }
 }
 
 void App::deleteArrangeAuto(int t, const std::string& id) {
