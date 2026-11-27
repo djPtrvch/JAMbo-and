@@ -49,6 +49,7 @@ internal sealed interface ArrangeMenu {
     data object Grid : ArrangeMenu
     data object Group : ArrangeMenu
     data object Reference : ArrangeMenu
+    data class Drop(val selection: IntArray, val step: Int) : ArrangeMenu
     data class Lane(val track: Int, val step: Int) : ArrangeMenu
     data class Block(val track: Int, val block: Int) : ArrangeMenu
     data class Track(val track: Int) : ArrangeMenu
@@ -133,7 +134,7 @@ internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, ste
             val target = carry?.let { move ->
                 val local = move.point - timelineFrame.topLeft
                 val lane = d.tracks.getOrNull(move.track)
-                if (lane == null || local.y < geometry.rulerBottom ||
+                if (move.selection != null || lane == null || local.y < geometry.rulerBottom ||
                     local.y > timelineFrame.height || local.x < geometry.header || local.x > timelineFrame.width) null
                 else with(density) {
                     val near = lane.blocks.firstOrNull { abs(geometry.x(it.start.toFloat()) - local.x) < 16.dp.toPx() }
@@ -144,9 +145,33 @@ internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, ste
                         geometry.x((at + move.length).toFloat()), y + geometry.row - geometry.gap))
                 }
             }
+            val selection = carry?.selection
+            val selectionStep = if (selection != null && carry != null) {
+                val local = carry.point - timelineFrame.topLeft
+                if (local.y in geometry.rulerBottom..timelineFrame.height &&
+                    local.x in geometry.header..timelineFrame.width) {
+                    val step = floor(geometry.step(local.x)).toInt().coerceAtLeast(0)
+                    if (d.snap) (step + d.gridSteps / 2) / d.gridSteps * d.gridSteps else step
+                } else null
+            } else null
+            val preview = remember(selection, selectionStep, s.revision) {
+                if (selection != null && selectionStep != null) AppNative.arrangeSelectionPreview(selection, selectionStep)
+                else intArrayOf(0)
+            }
+            val carryOutlines = (1 until preview.size step 3).map { i ->
+                val track = preview[i]
+                val start = preview[i + 1]
+                val y = geometry.rowTop(track)
+                Rect(geometry.x(start.toFloat()), y, geometry.x((start + preview[i + 2]).toFloat()),
+                    y + geometry.row - geometry.gap)
+            }
             LaunchedEffect(carry?.released, timelineFrame) {
                 if (carry?.released == true && timelineFrame != Rect.Zero) {
-                    if (target != null) s.arrangeAct(ArrangeAct.CARRY, carry.track, carry.clip, target.step,
+                    if (selection != null && selectionStep != null) {
+                        group = emptyList()
+                        if (preview[0] == 1) menu = ArrangeMenu.Drop(selection, selectionStep)
+                        else s.sendGridSelection(selection, selectionStep)
+                    } else if (target != null) s.arrangeAct(ArrangeAct.CARRY, carry.track, carry.clip, target.step,
                         if (target.insert) 1 else 0)
                     s.arrangeCarry = null
                 }
@@ -355,7 +380,7 @@ internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, ste
                 }
             }) {
                 drawArrangeTimeline(geometry, d, s, sectionNames, theme, names, measure, text, take,
-                    group, marquee, outline ?: target?.outline, reference, refDrag, bpm, stepSeconds)
+                    group, marquee, carryOutlines + listOfNotNull(outline ?: target?.outline), reference, refDrag, bpm, stepSeconds)
             }
             if (reference != null) {
                 InkButton(if (d.refB) "B" else "A", d.refB, Modifier.align(Alignment.TopStart).width(44.dp)

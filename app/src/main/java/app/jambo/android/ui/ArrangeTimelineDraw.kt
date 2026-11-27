@@ -19,7 +19,7 @@ import kotlin.math.floor
 internal fun DrawScope.drawArrangeTimeline(
     geometry: TimelineGeometry, d: ArrangeData, s: ScreenState, sectionNames: Array<String>,
     theme: Theme, names: Array<String>, measure: TextMeasurer, text: TextUnit, take: IntArray,
-    group: List<Pair<Int, Int>>, marquee: Rect?, outline: Rect?, reference: ArrangeReference?,
+    group: List<Pair<Int, Int>>, marquee: Rect?, outlines: List<Rect>, reference: ArrangeReference?,
     refDrag: Double?, bpm: Double, stepSeconds: Double,
 ) {
     val g = geometry
@@ -89,7 +89,7 @@ internal fun DrawScope.drawArrangeTimeline(
                 drawRect(theme.text.copy(alpha = 0.15f), start, area)
                 drawRect(theme.text, start, area, style = Stroke(1.dp.toPx()))
             }
-            outline?.let {
+            outlines.forEach {
                 drawRect(theme.accent, Offset(it.left, it.top), Size(it.width, it.height),
                     style = Stroke(2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(
                         floatArrayOf(4.dp.toPx(), 4.dp.toPx()))))

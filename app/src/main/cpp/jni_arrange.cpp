@@ -257,3 +257,47 @@ FN(void, arrangeDeleteAuto)(JNIEnv* env, jobject, jint track, jstring lane) {
     if (lane) jniApp().deleteArrangeAuto(track, id);
     else jniApp().clearArrangeAuto(track);
 }
+
+namespace {
+jambo::GridSelection readGridSelection(JNIEnv* env, jintArray encoded) {
+    jambo::GridSelection result;
+    if (!encoded) return result;
+    const auto count = env->GetArrayLength(encoded);
+    if (count % 2 || count > 32768) return result;
+    std::vector<jint> pairs(size_t(count), 0);
+    if (count) env->GetIntArrayRegion(encoded, 0, count, pairs.data());
+    if (env->ExceptionCheck()) return {};
+    for (int i = 0; i < count; i += 2) {
+        const int row = pairs[size_t(i)], track = pairs[size_t(i + 1)];
+        if (row < 0) continue;
+        if (track == -1) result.rows.insert(row);
+        else if (track >= 0) result.cells[row].insert(track);
+    }
+    return result;
+}
+}
+
+FN(jintArray, gridSelectionMasks)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> lock(jniLock());
+    const auto& p = jniApp().project();
+    std::vector<jint> masks(size_t(p.visibleRows()), 0);
+    for (size_t row = 0; row < masks.size(); ++row)
+        for (size_t track = 0; track < p.tracks.size(); ++track)
+            if (p.tracks[track].clipFilled(int(row))) masks[row] |= jint(1u << track);
+    return jniInts(env, masks);
+}
+
+FN(jintArray, arrangeSelectionPreview)(JNIEnv* env, jobject, jintArray selection, jint step) {
+    const auto selected = readGridSelection(env, selection);
+    if (env->ExceptionCheck()) return nullptr;
+    std::lock_guard<std::mutex> lock(jniLock());
+    const auto preview = jniApp().previewGridSelection(selected, step);
+    return jniInts(env, {preview.begin(), preview.end()});
+}
+
+FN(void, arrangeSendSelection)(JNIEnv* env, jobject, jintArray selection, jint step, jint mode) {
+    const auto selected = readGridSelection(env, selection);
+    if (env->ExceptionCheck() || mode < 0 || mode > 2) return;
+    std::lock_guard<std::mutex> lock(jniLock());
+    jniApp().sendSelectionToArrange(selected, step, mode);
+}

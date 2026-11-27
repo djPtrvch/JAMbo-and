@@ -28,24 +28,15 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.jambo.android.AppNative.Act
-import app.jambo.android.AppNative
 import app.jambo.android.MidiTarget
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlin.math.abs
-import kotlin.math.hypot
-import kotlin.math.roundToInt
 
 /** Геометрия сетки (GridGeometry в PatternGrid.swift): колонка строк над MIX, столбцы — ровно над дорожками, справа
  *  (над MST) — кнопки; 8 строк с зазором 4. Всё — в dp. */
@@ -70,24 +61,6 @@ sealed class GridHit {
     object None : GridHit()
 }
 
-private fun hit(g: GridGeom, d: GridData, x: Float, y: Float): GridHit {
-    val r = (y / g.pitch).toInt()
-    if (y < 0 || r >= d.windowRows || y - g.y(r) > g.rowH) return GridHit.None
-    val k = d.rows[r]
-    if (x < g.step) return if (k >= 0) GridHit.Scene(k) else if (d.plusRow == r) GridHit.Plus else GridHit.None
-    val col = ((x - g.step - Layout.gap) / (g.trackW + Layout.gap)).toInt()
-    if (col < 0 || col >= d.tracks || x - g.x(col) > g.trackW || k < 0) return GridHit.None
-    return GridHit.Cell(col, k)
-}
-
-/** Касание пальца: куда, где и когда начато, сдвинуто ли, удержано, прокрутка колонки строк. */
-private class GridPress(val hit: GridHit, val start: Offset, val t0: Long, val top0: Int) {
-    var moved = false
-    var held = false
-    var scrolling = false
-    var job: Job? = null
-}
-
 /** Сетка паттернов (PATTERNS; PatternGrid.swift): тап по ячейке — запуск, остановка, новый клип; удержание — правка без
  *  запуска, затем протяжка — копия клипа в другую ячейку; свайп вверх — меню ячейки; тап по строке — запуск строки,
  *  двойной тап — меню строки, удержание и протяжка — перенос строки, движение вверх-вниз — прокрутка окна строк.
@@ -108,13 +81,25 @@ fun PatternGrid(s: ScreenState, modifier: Modifier, width: Float) {
                     SceneCell(s, d, r, k, ui, Modifier.offset(0.dp, g.y(r).dp).size(g.step.dp, g.rowH.dp)
                         .midiLearnMark(s, MidiTarget.ROW + r, 6f))
                     for (i in 0 until d.tracks) {
-                        val lifted = ui.ghost != null && ((ui.dragCell == GridHit.Cell(i, k)) || ui.dragRow == k)
+                        val cell = GridHit.Cell(i, k)
+                        val lifted = ui.ghost != null && (ui.dragCell == cell || ui.dragRow == k ||
+                            ui.dragCell?.let { ui.selection.group(it) && ui.selection.contains(cell) } == true)
                         ClipCell(s, d, d.cells[r][i], i, ui.target == GridHit.Cell(i, k), lifted,
                             Modifier.offset(g.x(i).dp, g.y(r).dp).size(g.trackW.dp, g.rowH.dp)
-                                .midiLearnMark(s, MidiTarget.clip(i, r), 6f))
+                                .midiLearnMark(s, MidiTarget.clip(i, r), 6f),
+                            d.cells[r][i].filled && ui.selection.contains(cell))
                     }
                 } else if (d.plusRow == r) {
                     PlusCell(Modifier.offset(0.dp, g.y(r).dp).size(g.step.dp, g.rowH.dp))
+                }
+            }
+            val ink = LocalTheme.current.text
+            ui.band?.let { rect ->
+                Canvas(Modifier.fillMaxSize()) {
+                    val start = Offset(rect.left.dp.toPx(), rect.top.dp.toPx())
+                    val bounds = Size(rect.width.dp.toPx(), rect.height.dp.toPx())
+                    drawRect(ink.copy(alpha = 0.13f), start, bounds)
+                    drawRect(ink, start, bounds, style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
                 }
             }
             Ghost(s, d, g, ui)
@@ -126,6 +111,8 @@ fun PatternGrid(s: ScreenState, modifier: Modifier, width: Float) {
 
 /** Состояние жестов и меню сетки. */
 class GridUi {
+    internal var selection by mutableStateOf(GridSelection())
+    internal var band by mutableStateOf<Rect?>(null)
     var dragCell by mutableStateOf<GridHit.Cell?>(null)
     var dragRow by mutableStateOf<Int?>(null)
     var ghost by mutableStateOf<Offset?>(null)
@@ -137,162 +124,13 @@ class GridUi {
     var lastSceneTap: Pair<Int, Long>? = null
 }
 
-private const val HOLD_MS = 350L
-private const val DOUBLE_TAP_MS = 300L
-
-private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.gridTouches(
-    s: ScreenState, g: GridGeom, ui: GridUi, scope: CoroutineScope, dens: Float,
-) {
-    val presses = HashMap<PointerId, GridPress>()
-    var dragId: PointerId? = null
-    awaitPointerEventScope {
-        while (true) {
-            val ev = awaitPointerEvent()
-            for (c in ev.changes) {
-                val x = c.position.x / dens
-                val y = c.position.y / dens
-                val d = GridData(s.grid)
-                if (c.pressed && !c.previousPressed) {
-                    val hit = hit(g, d, x, y)
-                    if (s.midi.controls.learning) {
-                        when (hit) {
-                            is GridHit.Cell -> d.rows.indexOf(hit.row).takeIf { it >= 0 }
-                                ?.let { s.learnTarget(MidiTarget.clip(hit.track, it)) }
-                            is GridHit.Scene -> d.rows.indexOf(hit.row).takeIf { it >= 0 }
-                                ?.let { s.learnTarget(MidiTarget.ROW + it) }
-                            else -> Unit
-                        }
-                        c.consume()
-                        continue
-                    }
-                    val p = GridPress(hit, Offset(x, y), System.currentTimeMillis(), d.top)
-                    presses[c.id] = p
-                    val id = c.id
-                    p.job = scope.launch {
-                        delay(HOLD_MS)
-                        if (presses[id] !== p || p.moved) return@launch
-                        p.held = true
-                        when (val h = p.hit) {
-                            is GridHit.Cell -> s.act(Act.HOLD_CELL, h.track, h.row)
-                            is GridHit.Scene -> if (dragId == null) {
-                                dragId = id
-                                ui.dragRow = h.row
-                                ui.rowTarget = h.row
-                                ui.ghost = p.start
-                            }
-                            else -> {}
-                        }
-                    }
-                } else if (c.pressed) {
-                    val p = presses[c.id] ?: continue
-                    val dx = x - p.start.x
-                    val dy = y - p.start.y
-                    if (hypot(dx, dy) > 8) p.moved = true
-                    val h = p.hit
-                    if (h is GridHit.Scene || h is GridHit.Plus || h is GridHit.None) {
-                        if (dragId == c.id) {
-                            ui.ghost = Offset(g.step / 2, y)
-                            ui.rowTarget = rowUnder(g, d, y)
-                        } else if (!p.held && h is GridHit.Scene) {
-                            if (!p.scrolling && p.moved && abs(dy) > abs(dx)) p.scrolling = true
-                            if (p.scrolling) {
-                                val top = (p.top0 + (-dy / g.pitch).roundToInt()).coerceIn(0, d.maxTop)
-                                if (top != d.top) s.act(Act.SET_GRID_TOP, top)
-                            }
-                        }
-                    } else if (h is GridHit.Cell && p.held && d.cells.isNotEmpty()) {
-                        if (dragId != null && dragId != c.id) { c.consume(); continue }
-                        if (dragId == null && hypot(dx, dy) <= 8) { c.consume(); continue }
-                        dragId = c.id
-                        val body = s.body
-                        val field = s.patternTouchArea
-                        val button = s.topRects["arrange"]
-                        if (body?.isAttached == true && field?.isAttached == true && button != null) {
-                            val rootPoint = body.localPositionOf(field, c.position)
-                            if (button.contains(rootPoint)) {
-                                val length = AppNative.arrangeCarryLength(h.track, h.row)
-                                if (length > 0) {
-                                    s.arrangeCarry = ArrangeCarry(c.id, h.track, h.row, length, rootPoint)
-                                    s.arrangeAct(ArrangeAct.TOGGLE)
-                                    c.consume()
-                                    continue
-                                }
-                            }
-                        }
-                        ui.dragCell = h
-                        ui.ghost = Offset(x, y)
-                        val t = hit(g, d, x, y)
-                        ui.target = if (t is GridHit.Cell && t != h) t else null
-                    }
-                } else {
-                    val p = presses.remove(c.id) ?: continue
-                    p.job?.cancel()
-                    var dropped: GridHit.Cell? = null
-                    var droppedRow: Int? = null
-                    if (dragId == c.id) {
-                        dropped = ui.target
-                        droppedRow = ui.rowTarget
-                        dragId = null
-                        ui.ghost = null
-                        ui.target = null
-                        ui.rowTarget = null
-                        ui.dragCell = null
-                        ui.dragRow = null
-                    }
-                    if (p.scrolling) { c.consume(); continue }
-                    val h = p.hit
-                    if (p.held) {
-                        if (h is GridHit.Cell && dropped != null)
-                            s.act(Act.DROP_CLIP, h.track, h.row, (dropped.track * 100 + dropped.row).toDouble())
-                        if (h is GridHit.Scene && droppedRow != null && droppedRow != h.row)
-                            s.act(Act.MOVE_ROW, h.row, droppedRow)
-                        c.consume()
-                        continue
-                    }
-                    val dx = x - p.start.x
-                    val dy = y - p.start.y
-                    // Свайп вверх по ячейке — меню ячейки; свайп вниз — ничего.
-                    if (h is GridHit.Cell && -dy > 24 && abs(dx) < -dy) {
-                        ui.cellMenu = h
-                    } else if (hypot(dx, dy) <= 12) {
-                        val now = System.currentTimeMillis()
-                        val last = ui.lastSceneTap
-                        if (h is GridHit.Scene && last != null && last.first == h.row && now - last.second < DOUBLE_TAP_MS) {
-                            // Двойной тап по строке — меню (первый тап уже запустил строку; ожидающий запуск — отмена).
-                            ui.lastSceneTap = null
-                            if (d.playing && d.sceneQueued == h.row) s.act(Act.QUEUE_SCENE, h.row)
-                            ui.rowMenu = h.row
-                        } else {
-                            ui.lastSceneTap = if (h is GridHit.Scene) h.row to now else null
-                            when (h) {
-                                is GridHit.Cell -> s.act(Act.TAP_CELL, h.track, h.row)
-                                is GridHit.Scene -> s.act(Act.QUEUE_SCENE, h.row)
-                                GridHit.Plus -> s.act(Act.ADD_ROW)
-                                GridHit.None -> {}
-                            }
-                        }
-                    }
-                }
-                c.consume()
-            }
-        }
-    }
-}
-
-/** Строка проекта под пальцем, куда встанет перетаскиваемая строка (только видимые строки). */
-private fun rowUnder(g: GridGeom, d: GridData, y: Float): Int? {
-    val r = (y / g.pitch).toInt().coerceIn(0, d.windowRows - 1)
-    val k = d.rows.getOrElse(r) { -1 }
-    return if (k >= 0 && k < d.visibleRows) k else null
-}
-
 /** Ячейка клипа: пустая — фон панели; заполненная — темнее, играющая — светлее и полоса хода внизу; открытая для
  *  правки — жёлтый контур; ожидающая — мигает. */
 @Composable
-private fun ClipCell(s: ScreenState, d: GridData, c: GridCell, track: Int, target: Boolean, lifted: Boolean, modifier: Modifier) {
+private fun ClipCell(s: ScreenState, d: GridData, c: GridCell, track: Int, target: Boolean, lifted: Boolean, modifier: Modifier, selected: Boolean = false) {
     val th = LocalTheme.current
     val bg = if (!c.filled) th.panel else if (c.active) th.panel2 else th.panel2.copy(alpha = 0.62f)
-    val outline = if (target) th.accent else if (c.editing) th.accent else Color.Transparent
+    val outline = if (selected) th.text else if (target || c.editing) th.accent else Color.Transparent
     val blinkOff = c.queued && d.playing && !s.blink
     val shape = RoundedCornerShape(6.dp)
     Box(modifier.alpha(if (lifted) 0.35f else if (blinkOff) 0.35f else 1f).tile(bg, 6f).border(1.dp, outline, shape)) {
@@ -347,7 +185,7 @@ private fun SceneCell(s: ScreenState, d: GridData, r: Int, k: Int, ui: GridUi, m
     val n = s.gridLive.getOrElse(0) { 0 }
     val badge = if (playing) (if (d.rowLoop) "∞" else "${minOf(n + 1, reps)}/$reps") else "×$reps"
     val blinkOff = d.playing && d.sceneQueued == k && !s.blink
-    val line = if (ui.dragRow != null && ui.rowTarget == k) th.accent else Color.Transparent
+    val line = if (k in ui.selection.rows) th.text else if (ui.dragRow != null && ui.rowTarget == k) th.accent else Color.Transparent
     val lifted = ui.ghost != null && ui.dragRow == k
     Box(modifier.alpha(if (blinkOff || lifted) 0.35f else 1f).framed(if (filled) th.panel2 else th.panel, line, 6f)) {
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally,
@@ -378,6 +216,21 @@ private fun Ghost(s: ScreenState, d: GridData, g: GridGeom, ui: GridUi) {
     if (c != null) {
         val r = d.rows.indexOf(c.row)
         if (r < 0) return
+        if (ui.selection.group(c)) {
+            val dx = p.x - g.x(c.track) - g.trackW / 2
+            val dy = p.y - g.y(r) - g.rowH / 2
+            for ((rowIndex, row) in d.rows.withIndex()) {
+                if (row < 0) continue
+                for (track in 0 until d.tracks) {
+                    val cell = d.cells[rowIndex][track]
+                    if (!cell.filled || !ui.selection.contains(GridHit.Cell(track, row))) continue
+                    ClipCell(s, d, cell, track, false, false,
+                        Modifier.offset((g.x(track) + dx).dp, (g.y(rowIndex) + dy).dp)
+                            .size(g.trackW.dp, g.rowH.dp).shadow(10.dp, RoundedCornerShape(6.dp)), selected = true)
+                }
+            }
+            return
+        }
         ClipCell(s, d, d.cells[r][c.track], c.track, false, false,
             Modifier.offset((p.x - g.trackW / 2).dp, (p.y - g.rowH / 2).dp).size(g.trackW.dp, g.rowH.dp)
                 .shadow(10.dp, RoundedCornerShape(6.dp)))

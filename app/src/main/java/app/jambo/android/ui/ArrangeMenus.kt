@@ -97,6 +97,14 @@ internal fun ArrangeMenus(s: ScreenState, d: ArrangeData, menu: ArrangeMenu, sec
                     MenuItem("DUPLICATE") { groupAction(1); close() }
                     MenuItem("DELETE", red = true) { groupAction(2); close() }
                 }
+                is ArrangeMenu.Drop -> {
+                    listOf("HERE", "INSERT", "TO END").forEachIndexed { mode, label ->
+                        MenuItem(label) {
+                            s.sendGridSelection(menu.selection, menu.step, mode)
+                            close()
+                        }
+                    }
+                }
                 ArrangeMenu.Reference -> {
                     MenuItem("LOAD") { action(ArrangeAct.REF_LOAD) }
                     MenuItem("DELETE", red = true) { action(ArrangeAct.REF_DELETE) }

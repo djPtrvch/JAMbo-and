@@ -37,6 +37,11 @@ extern const std::vector<std::string> names;
 double seconds(int k, double bpm);
 }  // namespace MorphReturn
 
+struct GridSelection {
+    std::set<int> rows;
+    std::map<int, std::set<int>> cells;
+};
+
 struct Project {
     /// Версия формата (10 — нынешняя; история — ProjectRepair).
     int version = 10;
@@ -175,6 +180,8 @@ struct Project {
     void setLoop(int a, int b);
     /// TO ARRANGE: строка k — с позиции at (nullopt — в конец); конец участка или nullopt.
     std::optional<int> rowToArrange(int k, std::optional<int> at, bool repeats = true);
+    std::optional<int> selectionToArrange(const GridSelection& selection, std::optional<int> start, bool repeats = true);
+    void insertArrangeSpace(int start, int length);
     std::optional<std::pair<int, int>> placeRow(int k, const std::vector<int>& only, int reps, std::optional<int> at);
     static std::string markerName(const std::string& s);
     std::vector<std::pair<int, ArrBlock>> groupBlocks(const std::vector<BlockRef>& sel) const;

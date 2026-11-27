@@ -426,6 +426,8 @@ public:
     void toggleArrangeSteps();
     void sendRowToArrange(int row, std::optional<int> step);
     void sendClipToArrange(int track, int row);
+    void sendSelectionToArrange(const GridSelection& selection, int step, int mode);
+    std::vector<int> previewGridSelection(const GridSelection& selection, int step) const;
     void setArrangeTrackColor(int track, int color);
     void addArrangeSection(int step);
     void resizeArrangeSection(int index, int step, bool left);

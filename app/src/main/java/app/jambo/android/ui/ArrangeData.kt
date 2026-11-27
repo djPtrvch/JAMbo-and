@@ -42,7 +42,7 @@ internal object ArrangeAct {
 
 internal data class ArrangeCarry(
     val pointer: PointerId, val track: Int, val clip: Int, val length: Int, val point: Offset,
-    val released: Boolean = false,
+    val released: Boolean = false, val selection: IntArray? = null,
 )
 
 internal fun ScreenState.arrangeAct(command: Int, a: Int = 0, b: Int = 0, c: Int = 0, d: Int = 0) {

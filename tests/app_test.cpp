@@ -975,6 +975,33 @@ void arrangerApp() {
           "arrange app: dropping on a junction inserts a block and shifts later blocks");
 }
 
+void arrangerSelectionTransfer() {
+    CoreAudio audio;
+    App app(&audio);
+    app.toggleStep(0);
+    app.selectTrack(1);
+    app.toggleStep(0);
+    const int row = app.project().tracks[0].slot;
+    app.addArrangeBlock(0, row, 16, false);
+    app.addArrangeSection(16);
+    GridSelection selection;
+    selection.cells[row] = {0, 1};
+    const auto preview = app.previewGridSelection(selection, 16);
+    check(preview.size() >= 4 && preview[0] == 1, "arrange selection: preview detects overlap");
+    app.sendSelectionToArrange(selection, 16, 1);
+    const auto& p = app.project();
+    check(p.tracks[0].blocks.size() == 2 && p.tracks[0].blocks[0].start == 16 &&
+          p.tracks[0].blocks[1].start == p.tracks[0].blocks[0].end() &&
+          p.tracks[1].blocks.size() == 1 && p.arrange.markers[0].at == p.tracks[0].blocks[1].start,
+          "arrange selection: INSERT shifts blocks and sections and puts selected clips in parallel");
+    app.undo();
+    check(app.project().tracks[0].blocks.size() == 1 && app.project().tracks[1].blocks.empty(),
+          "arrange selection: transfer is one undo operation");
+    app.sendSelectionToArrange(selection, 0, 2);
+    check(!app.project().tracks[1].blocks.empty() && app.project().tracks[1].blocks[0].start >= 32,
+          "arrange selection: TO END starts after the last block");
+}
+
 void arrangerRecording() {
     CoreAudio audio;
     App app(&audio);
@@ -1231,6 +1258,7 @@ int runAppTests() {
     sampleEditor();
     arrangerApp();
     arrangerRecording();
+    arrangerSelectionTransfer();
     arrangerReference();
     arrangerRecordAutomation();
     sliceAndWarpEditor();

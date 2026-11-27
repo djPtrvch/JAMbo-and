@@ -97,7 +97,10 @@ fun GridMenus(s: ScreenState, d: GridData, g: GridGeom, ui: GridUi) {
             MenuItem("PASTE", enabled = d.hasClipCopy) { run(Act.PASTE_CLIP) }
             MenuItem("DELETE", enabled = filled, red = true) { run(Act.DELETE_CLIP) }
             MenuItem("TO ARRANGE", enabled = filled) {
-                s.arrangeAct(ArrangeAct.CLIP_TO_ARRANGE, c.track, c.row)
+                if (ui.selection.group(c)) {
+                    s.sendGridSelection(ui.selection.encode())
+                    ui.selection = GridSelection()
+                } else s.arrangeAct(ArrangeAct.CLIP_TO_ARRANGE, c.track, c.row)
                 ui.cellMenu = null
             }
         }
@@ -108,7 +111,7 @@ fun GridMenus(s: ScreenState, d: GridData, g: GridGeom, ui: GridUi) {
         val h = 310f
         val below = g.y(r) + g.rowH + 6
         val y = if (below + h < g.h) below else maxOf(0f, g.y(r) - 6 - h)
-        RowMenu(s, d, k, Modifier.offset(g.x(0).dp, y.dp).width(menuW.dp)) { ui.rowMenu = null }
+        RowMenu(s, d, k, ui, Modifier.offset(g.x(0).dp, y.dp).width(menuW.dp)) { ui.rowMenu = null }
     }
     if (ui.gridMenu) {
         Dismiss { ui.gridMenu = false }
@@ -131,7 +134,7 @@ private fun Panel(modifier: Modifier, content: @Composable () -> Unit) {
 
 /** Меню строки: имя (до 12 знаков), REPEATS − n +, DUPLICATE, COPY, PASTE, DELETE, OK (имя и повторы — по OK). */
 @Composable
-private fun RowMenu(s: ScreenState, d: GridData, k: Int, modifier: Modifier, close: () -> Unit) {
+private fun RowMenu(s: ScreenState, d: GridData, k: Int, ui: GridUi, modifier: Modifier, close: () -> Unit) {
     val th = LocalTheme.current
     val names = s.sceneNames
     val n = d.visibleRows
@@ -161,7 +164,10 @@ private fun RowMenu(s: ScreenState, d: GridData, k: Int, modifier: Modifier, clo
             s.act(Act.BEGIN_GESTURE)
             try {
                 AppNative.setScene(k, name, reps)
-                s.arrangeAct(ArrangeAct.ROW, k, -1)
+                if (ui.selection.touches(k)) {
+                    s.sendGridSelection(ui.selection.encode())
+                    ui.selection = GridSelection()
+                } else s.arrangeAct(ArrangeAct.ROW, k, -1)
             } finally {
                 s.act(Act.END_GESTURE)
             }
