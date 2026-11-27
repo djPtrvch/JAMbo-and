@@ -894,6 +894,14 @@ private:
     void editTrack(const std::function<void(Track&)>& change);
     void editSeq(const std::function<void(Track&)>& change);
     void mutatePlay(const std::function<void(Project&)>& change, bool publish);
+    struct HistoryPage {
+        Channel channel;
+        int trackId, clip, page;
+        bool span;
+        std::optional<GridPage> grid;
+    };
+    HistoryPage historyPage() const;
+    void showHistoryPage(const HistoryPage& place);
     void restore(const Project& snap);
     void changed();
     void inputNotes();

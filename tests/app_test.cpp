@@ -233,6 +233,93 @@ void pages() {
     app.setClipRate(Clip::rates()[0]);
     check(app.clipRate() == Clip::rates()[0], "app: SPEED клипа");
 }
+void undoRedoPages() {
+    CoreAudio audio;
+    App app(&audio);
+    Project p;
+    p.tracks[0].addPage();
+    p.tracks[1].addPage();
+    app.loadProject(p);
+
+    app.openPage(0);
+    app.toggleStep(0);
+    app.openPage(1);
+    app.beginGesture();
+    app.toggleStep(16);
+    app.endGesture();
+    app.selectTrack(1);
+    app.openPage(0);
+    app.toggleStep(1);
+
+    app.undo();
+    check(app.selectedTrack() == 1 && app.viewPage() == 0 && !app.project().tracks[1].step(1)->on,
+          "history: UNDO shows the edited track and page");
+    app.undo();
+    check(app.selectedTrack() == 0 && app.viewPage() == 1 && !app.project().tracks[0].step(16)->on,
+          "history: UNDO shows the page of a gesture");
+    app.undo();
+    check(app.viewPage() == 0 && !app.project().tracks[0].step(0)->on, "history: UNDO goes back to page one");
+    app.redo();
+    check(app.viewPage() == 0 && app.project().tracks[0].step(0)->on, "history: REDO restores page one");
+    app.redo();
+    check(app.viewPage() == 1 && app.project().tracks[0].step(16)->on, "history: REDO goes forward to page two");
+    app.redo();
+    check(app.selectedTrack() == 1 && app.viewPage() == 0 && app.project().tracks[1].step(1)->on,
+          "history: REDO shows the other track and page");
+
+    app.setLatched(true, false);
+    app.pagePress(App::GridPage::fx);
+    app.toggleStep(2);
+    app.pagePress(App::GridPage::fx);
+    app.undo();
+    check(app.fxMode(), "history: UNDO shows latched FX");
+    app.pagePress(App::GridPage::fx);
+    app.redo();
+    check(app.fxMode(), "history: REDO shows latched FX");
+
+    p.rows = 2;
+    p.fillRows();
+    app.loadProject(p);
+    app.holdCell(0, 1);
+    app.toggleStep(2);
+    app.holdCell(0, 0);
+    app.undo();
+    check(app.project().tracks[0].open == 1 && !app.project().tracks[0].step(2)->on,
+          "history: UNDO reopens the edited clip");
+    app.holdCell(0, 0);
+    app.redo();
+    check(app.project().tracks[0].open == 1 && app.project().tracks[0].step(2)->on,
+          "history: REDO reopens the edited clip");
+}
+
+void reorderPresets() {
+    const auto dir = std::filesystem::temp_directory_path() / ("jambo-preset-order-" + Library::newId());
+    CoreAudio audio;
+    App app(&audio);
+    app.openLibraryStorage(dir.string());
+    for (const std::string name : {"A", "B", "C"}) {
+        app.saveEqPreset(name);
+        for (int m = 0; m < 4; ++m) app.saveMasterPreset(m, name);
+    }
+    app.moveEqPreset(0, 2);
+    app.moveEqPreset(2, 1);
+    for (int m = 0; m < 4; ++m) {
+        app.moveMasterPreset(m, 0, 2);
+        app.moveMasterPreset(m, 2, 1);
+    }
+
+    CoreAudio reopenedAudio;
+    App reopened(&reopenedAudio);
+    reopened.openLibraryStorage(dir.string());
+    const auto matches = [](const auto& list) {
+        return list.size() == 3 && list[0].name == "B" && list[1].name == "A" && list[2].name == "C";
+    };
+    check(matches(reopened.eqPresets().list), "presets: EQ order persists after moving down and up");
+    for (int m = 0; m < 4; ++m)
+        check(matches(reopened.masterPresets().list(m)), "presets: master module order persists after moving down and up");
+    std::filesystem::remove_all(dir);
+}
+
 void fxPages() {
     CoreAudio a;
     App app(&a);
@@ -940,6 +1027,8 @@ int runAppTests() {
     morphApp();
     fxPages();
     pages();
+    undoRedoPages();
+    reorderPresets();
     mod();
     sound();
     steps();

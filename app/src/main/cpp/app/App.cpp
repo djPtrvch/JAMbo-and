@@ -78,11 +78,12 @@ void App::setBpm(double value) {
 
 void App::edit(const std::function<void(Project&)>& change) {
     const Project before = project_;
+    const auto place = historyPage();
     change(project_);
     // Новые блоки аранжировки — со своей копией клипа (AppModel.edit).
     if (needsOwnPatterns(project_)) project_.ownArrPatterns();
     if (project_ == before) return;
-    history_.record(before, project_);
+    history_.record(before, project_, place);
     changed();
 }
 
@@ -116,7 +117,7 @@ void App::mutatePlay(const std::function<void(Project&)>& change, bool publish) 
 void App::beginGesture() { history_.beginGesture(project_); }
 
 void App::endGesture() {
-    history_.endGesture(project_);
+    history_.endGesture(project_, historyPage());
     bump();
 }
 
@@ -126,6 +127,29 @@ void App::undo() {
 
 void App::redo() {
     if (auto next = history_.redo(project_)) restore(*next);
+}
+
+App::HistoryPage App::historyPage() const {
+    std::optional<GridPage> grid;
+    if (fxMode()) grid = GridPage::fx;
+    else if (modMode()) grid = GridPage::mod;
+    return {channel_, track().id, track().open, viewPage_, spanView_, grid};
+}
+
+void App::showHistoryPage(const HistoryPage& place) {
+    if (place.channel == Channel::track) {
+        const auto it = std::find_if(project_.tracks.begin(), project_.tracks.end(),
+                                     [&](const Track& t) { return t.id == place.trackId; });
+        if (it == project_.tracks.end()) return;
+        const int at = int(it - project_.tracks.begin());
+        if (channel_ != Channel::track || selected_ != at) selectTrack(at);
+        if (place.clip >= 0 && place.clip < int(it->clips.size())) it->open = place.clip;
+        for (const auto page : {GridPage::fx, GridPage::mod}) {
+            if (latched(page) && pageOn(page) != (place.grid == page)) setPageHeld(page, place.grid == page);
+        }
+    } else if (channel_ != place.channel) selectChannel(place.channel);
+    viewPage_ = std::clamp(place.page, 0, int(seq().pages().size()) - 1);
+    spanView_ = place.span;
 }
 
 /// Вернуть проект к снимку: что играет, mute, solo, октава клавиатуры — UNDO не меняет.
@@ -151,6 +175,7 @@ void App::restore(const Project& snap) {
     held_.clear();
     selected_ = std::min(selected_, int(project_.tracks.size()) - 1);
     viewPage_ = std::min(viewPage_, int(seq().pages().size()) - 1);
+    if (const auto* place = std::any_cast<HistoryPage>(&history_.lastPlace())) showHistoryPage(*place);
     if (bpmChanged) audio_->push(CoreEvent::tempo(runningBpm()));
     changed();
 }

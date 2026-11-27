@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -213,6 +214,12 @@ private fun EditorWave(
     select: (Float, Float) -> Unit, slice: (Int, Float) -> Unit,
 ) {
     val theme = LocalTheme.current
+    val phone = LocalConfiguration.current.smallestScreenWidthDp < 600
+    val flagWidth = if (phone) 18.dp else 8.dp
+    val flagHeight = if (phone) 30.dp else 14.dp
+    val flagStroke = if (phone) 2.dp else 1.dp
+    val dragRadius = if (phone) 22.dp else 16.dp
+    val dragZone = if (phone) 48.dp else 34.dp
     val currentWave by rememberUpdatedState(wave)
     val currentMarks by rememberUpdatedState(marks)
     val selection by rememberUpdatedState(start to end)
@@ -233,14 +240,18 @@ private fun EditorWave(
                 setSlice(mark, if (mark < 0) x else -1f)
             })
         }
-        .pointerInput(key) {
+        .pointerInput(key, phone) {
             var handle = -1
+            var markOffset = 0f
             detectDragGestures(
                 onDragStart = { p ->
                     val x = (p.x / size.width).coerceIn(0f, 1f)
-                    if (p.y < 34.dp.toPx()) {
-                        moving = nearest(x, 16.dp.toPx() / size.width)
-                        movingAt = x
+                    if (p.y < dragZone.toPx()) {
+                        moving = nearest(x, dragRadius.toPx() / size.width)
+                        if (moving >= 0) {
+                            movingAt = if (phone) currentWave[3 + moving] else x
+                            markOffset = movingAt - x
+                        }
                     }
                     handle = if (moving >= 0) -1 else if (p.y >= size.height - 44.dp.toPx()) {
                         if (kotlin.math.abs(x - selection.first) <= kotlin.math.abs(x - selection.second)) 0 else 1
@@ -253,7 +264,7 @@ private fun EditorWave(
                 onDragCancel = { moving = -1 },
             ) { change, _ ->
                 val x = (change.position.x / size.width).coerceIn(0f, 1f)
-                if (moving >= 0) movingAt = x
+                if (moving >= 0) movingAt = (x + markOffset).coerceIn(0f, 1f)
                 else if (handle == 0) setSelection(x.coerceAtMost(selection.second - 0.001f), selection.second)
                 else if (handle == 1) setSelection(selection.first, x.coerceAtLeast(selection.first + 0.001f))
             }
@@ -281,8 +292,10 @@ private fun EditorWave(
         }
         for (i in 0 until marks) {
             val x = (if (i == moving) movingAt else wave[3 + i]) * size.width
-            drawLine(theme.rec, Offset(x, 0f), Offset(x, size.height), 1.dp.toPx())
-            drawRect(theme.rec, Offset(x - 3.dp.toPx(), 4.dp.toPx()), Size(8.dp.toPx(), 14.dp.toPx()))
+            drawLine(theme.rec, Offset(x, 0f), Offset(x, size.height), flagStroke.toPx())
+            val width = flagWidth.toPx().coerceAtMost(size.width)
+            val left = if (phone) (x - width / 2).coerceIn(0f, size.width - width) else x - 3.dp.toPx()
+            drawRect(theme.rec, Offset(left, 4.dp.toPx()), Size(width, flagHeight.toPx()))
         }
         for (i in 0 until heads.size - 1 step 2) {
             val x = heads[i] * size.width

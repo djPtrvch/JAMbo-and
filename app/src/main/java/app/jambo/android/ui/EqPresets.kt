@@ -2,7 +2,6 @@ package app.jambo.android.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,9 +10,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -21,11 +18,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import app.jambo.android.AppNative
 
 /**
@@ -56,38 +50,16 @@ fun EqPresetsOverlay(s: ScreenState) {
                 MenuItem(if (saved) "SAVED" else "SAVE DEFAULT", current = saved) { AppNative.eqPresetAct(6, 0, 0, ""); s.refresh() }
             }
             if (names.isEmpty()) MenuNote("No EQ presets yet — save one with SAVE")
-            else Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                var open by remember { mutableStateOf(-1) }
-                var dragK by remember { mutableStateOf(-1) }
-                var dragDy by remember { mutableStateOf(0f) }
-                val rowPx = 52 * d
-                names.forEachIndexed { k, name ->
-                    Box(Modifier.zIndex(if (dragK == k) 1f else 0f).graphicsLayer {
-                        if (dragK == k) {
-                            translationY = dragDy
-                            shadowElevation = 8 * density
-                        }
-                    }.pointerInput(k, names.size) {
-                        detectDragGesturesAfterLongPress(
-                            onDragStart = { dragK = k; dragDy = 0f; open = -1 },
-                            onDragEnd = {
-                                val to = (k + Math.round(dragDy / rowPx)).coerceIn(0, names.size - 1)
-                                dragK = -1
-                                dragDy = 0f
-                                if (to != k) { AppNative.eqPresetAct(5, k, to, ""); s.refresh() }
-                            },
-                            onDragCancel = { dragK = -1; dragDy = 0f },
-                        ) { c, delta -> c.consume(); dragDy += delta.y }
-                    }) {
-                        SwipeRow(name, null, null, null, false, open == k, { o -> open = if (o) k else -1 }, {
-                            s.eqPresetsOpen = false
-                            AppNative.eqPresetAct(2, k, 0, ""); s.refresh()
-                        }, { s.eqPresetsOpen = false; rename = k }) {
-                            AppNative.eqPresetAct(4, k, 0, ""); s.refresh()
-                        }
-                    }
-                }
-            }
+            else PresetRows(
+                names.asList(),
+                load = { k ->
+                    s.eqPresetsOpen = false
+                    AppNative.eqPresetAct(2, k, 0, ""); s.refresh()
+                },
+                rename = { k -> s.eqPresetsOpen = false; rename = k },
+                delete = { k -> AppNative.eqPresetAct(4, k, 0, ""); s.refresh() },
+                move = { from, to -> AppNative.eqPresetAct(5, from, to, ""); s.refresh() },
+            )
         }
     }
     if (save) InputDialog("PRESET NAME", AppNative.eqPresetNextName(), 40, { save = false }) { text ->
