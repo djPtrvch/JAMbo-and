@@ -1,6 +1,8 @@
 package app.jambo.android.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.RowScope
@@ -33,7 +35,6 @@ import app.jambo.android.AppNative.Act
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
-import kotlin.math.pow
 import kotlin.math.round
 import kotlin.math.roundToInt
 
@@ -67,24 +68,6 @@ internal class WarpSample(data: DoubleArray) {
 }
 
 internal data class WarpPoint(val at: Double, val beat: Double)
-internal data class SampleView(val left: Double = 0.0, val span: Double = 1.0) {
-    val right get() = left + span
-    fun fraction(x: Float, width: Int) = left + span * x / width.coerceAtLeast(1)
-    fun x(fraction: Double, width: Float) = ((fraction - left) / span * width).toFloat()
-}
-
-internal fun editView(
-    initial: SampleView, dx: Float, dy: Float, x: Float, width: Int, vertical: Boolean, frames: Int, zoomPx: Float,
-): SampleView {
-    val fraction = (x / width.coerceAtLeast(1)).coerceIn(0f, 1f)
-    val span = if (vertical) (initial.span * 2.0.pow((dy / zoomPx).toDouble())).coerceIn(
-        minOf(1.0, 256.0 / frames.coerceAtLeast(1)), 1.0,
-    ) else initial.span
-    val left = if (vertical) initial.left + (initial.span - span) * fraction
-        else initial.left - dx / width.coerceAtLeast(1) * span
-    return SampleView(left.coerceIn(0.0, 1 - span), span)
-}
-
 internal object WarpAct {
     const val ENTER = 0
     const val BYPASS = 1
@@ -178,6 +161,7 @@ internal fun WarpWave(
     val current by rememberUpdatedState(warp)
     val currentView by rememberUpdatedState(view)
     val currentGrid by rememberUpdatedState(grid)
+    val currentSetView by rememberUpdatedState(setView)
     val transform = frozen ?: warp
     val origin = transform.firstBeat + view.left * (transform.endBeat - transform.firstBeat)
     val end = transform.firstBeat + view.right * (transform.endBeat - transform.firstBeat)
@@ -190,104 +174,75 @@ internal fun WarpWave(
     val bottom = if (phone) 46.dp else 30.dp
 
     Canvas(Modifier.fillMaxSize().pointerInput(key, phone) {
-        detectTapGestures(
-            onTap = { p ->
-                val m = current
-                val at = currentView.fraction(p.x, size.width)
-                val beat = m.firstBeat + at * (m.endBeat - m.firstBeat)
-                val hit = nearestWarp(m, beat, hitTolerance(currentView, m, size.width,
-                    if (p.y >= size.height - bottom.toPx()) flagWidth.toPx() / 2 + 6.dp.toPx() else 14.dp.toPx()))
-                if (hit >= 0) selected = hit
-            },
-            onDoubleTap = { p ->
-                val m = current
-                val fraction = currentView.fraction(p.x, size.width)
-                val beat = m.firstBeat + fraction * (m.endBeat - m.firstBeat)
-                val tolerance = hitTolerance(currentView, m, size.width,
-                    if (p.y >= size.height - bottom.toPx()) flagWidth.toPx() / 2 + 6.dp.toPx() else 14.dp.toPx())
-                val hit = nearestWarp(m, beat, tolerance, p.y >= size.height - bottom.toPx())
-                if (hit >= 0) {
-                    s.warp(WarpAct.REMOVE, hit)
-                    selected = -1
-                } else if (hit != startMark) {
-                    val at = m.sourceAt(beat)
-                    if (at > 0 && at < 1) s.warp(WarpAct.ADD, a = at)
-                    selected = -1
-                }
-            },
-        )
-    }.pointerInput(key, phone) {
-        var index = -1
-        var topDrag = false
-        var draggingBeat = false
-        var position = Offset.Zero
-        var anchor = Offset.Zero
-        var view0 = SampleView()
-        var vertical: Boolean? = null
-        var originalBeat = 0.0
-        var m0 = current
-        fun close() {
-            if (draggingBeat) s.act(Act.END_GESTURE)
-            draggingBeat = false
-            frozen = null
-            movingTop = null
-        }
-        try {
-            detectDragGestures(
-                onDragStart = { p ->
-                    m0 = current
-                    view0 = currentView
-                    anchor = p
-                    position = p
-                    vertical = null
-                    val beat = m0.firstBeat + view0.fraction(p.x, size.width) * (m0.endBeat - m0.firstBeat)
-                    val atTop = p.y < top.toPx()
-                    val atBottom = p.y >= size.height - bottom.toPx() - 8.dp.toPx()
-                    val reach = if (atTop || atBottom) flagWidth.toPx() / 2 + 6.dp.toPx() else 14.dp.toPx()
-                    index = nearestWarp(m0, beat, hitTolerance(view0, m0, size.width, reach), atBottom, atTop)
-                    if (index == -1 && atBottom && selected in m0.markers.indices) index = selected
-                    topDrag = atTop && index >= 0
-                    if (index != -1) {
-                        frozen = m0
-                        originalBeat = if (index == startMark) m0.beatOf(0.0) else m0.markers[index].beat
-                        if (!topDrag) {
+        val taps = SampleDoubleTap()
+        awaitEachGesture {
+            val down = awaitFirstDown()
+            val p = down.position
+            val m = current
+            val view0 = currentView
+            val first = m.firstBeat
+            val range = m.endBeat - first
+            val nav = SampleNavigation(view0, p, size.width, m.frames, 110.dp.toPx())
+            val beat = first + view0.fraction(p.x, size.width) * range
+            val atTop = p.y < top.toPx()
+            val atBottom = p.y >= size.height - (bottom + 8.dp).toPx()
+            val reach = if (atTop || atBottom) flagWidth.toPx() / 2 + 6.dp.toPx() else 14.dp.toPx()
+            val hit = nearestWarp(m, beat, hitTolerance(view0, m, size.width, reach), atBottom, atTop)
+            var index = if (hit == -1 && atBottom && selected in m.markers.indices) selected else hit
+            val topDrag = atTop && index >= 0
+            val originalBeat = when (index) {
+                startMark -> m.beatOf(0.0)
+                -1 -> beat
+                else -> m.markers[index].beat
+            }
+            if (index != -1) frozen = m
+            if (index >= 0) selected = index
+            var moved = false
+            var editingBeat = false
+            var targetBeat = originalBeat
+            try {
+                val up = trackSampleTouch(down, {
+                    (if (topDrag) abs(it.x) else it.getDistance()) >= 10.dp.toPx()
+                }) { position, firstMove ->
+                    moved = true
+                    if (index == -1) {
+                        nav.move(position)?.let(currentSetView)
+                    } else {
+                        if (firstMove && !topDrag) {
                             s.act(Act.BEGIN_GESTURE)
-                            draggingBeat = true
+                            editingBeat = true
                             if (index == startMark) {
                                 s.warp(WarpAct.START)
                                 index = 0
+                                selected = index
                             }
                         }
-                        selected = index
+                        targetBeat = originalBeat + (position.x - p.x) / size.width.coerceAtLeast(1) *
+                            view0.span * range
+                        if (topDrag) {
+                            movingTop = index to view0.x((targetBeat - first) / range, size.width.toFloat())
+                        } else {
+                            s.warp(WarpAct.MOVE, index, b = snapWarpBeat(targetBeat, currentGrid))
+                        }
                     }
-                },
-                onDragEnd = {
-                    if (topDrag && index >= 0 && movingTop != null) {
-                        val beat = originalBeat + (position.x - anchor.x) / size.width.coerceAtLeast(1) *
-                            view0.span * (m0.endBeat - m0.firstBeat)
-                        s.warp(WarpAct.PLACE, index, m0.sourceAt(beat), round(beat / currentGrid) * currentGrid)
-                    }
-                    close()
-                },
-                onDragCancel = { close() },
-            ) { change, _ ->
-                position = change.position
-                change.consume()
-                if (index >= 0) {
-                    val beat = originalBeat + (position.x - anchor.x) / size.width.coerceAtLeast(1) *
-                        view0.span * (m0.endBeat - m0.firstBeat)
-                    if (topDrag) {
-                        val f = (beat - m0.firstBeat) / (m0.endBeat - m0.firstBeat)
-                        movingTop = index to view0.x(f, size.width.toFloat())
-                    } else s.warp(WarpAct.MOVE, index, b = round(beat / currentGrid) * currentGrid)
-                } else {
-                    if (vertical == null) vertical = abs(position.y - anchor.y) > abs(position.x - anchor.x)
-                    setView(editView(view0, position.x - anchor.x, position.y - anchor.y, anchor.x,
-                        size.width, vertical == true, m0.frames, 110.dp.toPx()))
                 }
+                if (up != null && topDrag && moved) {
+                    s.warp(WarpAct.PLACE, index, m.sourceAt(targetBeat), snapWarpBeat(targetBeat, currentGrid))
+                } else if (up != null && !topDrag && !moved && taps.accept(up, hit, 24.dp.toPx())) {
+                    if (hit >= 0) {
+                        s.warp(WarpAct.REMOVE, hit)
+                        selected = -1
+                    } else if (hit != startMark) {
+                        val at = m.sourceAt(first + view0.fraction(up.position.x, size.width) * range)
+                        if (at > 0 && at < 1) s.warp(WarpAct.ADD, a = at)
+                        selected = -1
+                    }
+                }
+            } finally {
+                if (editingBeat) s.act(Act.END_GESTURE)
+                frozen = null
+                movingTop = null
             }
-        } finally {
-            close()
         }
     }) {
         fun x(beat: Double) = ((beat - origin) / (end - origin) * size.width).toFloat()
@@ -303,19 +258,24 @@ internal fun WarpWave(
                 drawLine(theme.text.copy(alpha = 0.64f), Offset(xx, y - peaks[j + 1] * lane * 0.45f), Offset(xx, y - peaks[j] * lane * 0.45f))
             }
         }
+        val pxPerBeat = size.width / (end - origin).coerceAtLeast(1e-9)
         var step = grid
-        while (step * size.width / (end - origin) < 8.dp.toPx() && step < 1e8) step *= 2
+        while (step * pxPerBeat < 8.dp.toPx() && step < 1e8) step *= 2
         var tick = floor(origin / step) * step
         while (tick <= end) {
-            val bar = abs(tick / 4 - round(tick / 4)) < 1e-6
-            val beat = abs(tick - round(tick)) < 1e-6
-            val color = theme.text.copy(alpha = if (bar) 0.78f else if (beat) 0.54f else 0.36f)
-            val thickness = (if (bar) 2.2.dp else if (beat) 1.6.dp else 1.2.dp).toPx().coerceAtLeast(1f)
+            val bar = tick % 4.0 == 0.0
+            val beat = tick % 1.0 == 0.0
             val at = x(tick)
-            if (at in 0f..size.width) drawLine(color, Offset(at, topPx), Offset(at, size.height - bottomPx), thickness)
-            if (bar) {
-                val label = measure.measure((round(tick / 4).toInt() + 1).toString(), TextStyle(color = theme.text, fontSize = if (phone) 14.sp else 12.sp, fontWeight = FontWeight.SemiBold))
-                drawText(label, topLeft = Offset(x(tick) + 5.dp.toPx(), 4.dp.toPx()))
+            if (at in 0f..size.width) {
+                val color = theme.text.copy(alpha = if (bar) 0.85f else if (beat) 0.65f else 0.48f)
+                val thickness = (if (bar) 2f else 1f) * 1.dp.toPx().coerceAtLeast(1f)
+                drawRect(color, Offset(at.roundToInt().toFloat(), topPx),
+                    Size(thickness, (size.height - bottomPx - topPx).coerceAtLeast(0f)))
+                if (bar && 4 * pxPerBeat > 24.dp.toPx()) {
+                    val label = measure.measure((tick / 4).toInt().plus(1).toString(),
+                        TextStyle(color = theme.text, fontSize = if (phone) 14.sp else 12.sp, fontWeight = FontWeight.SemiBold))
+                    drawText(label, topLeft = Offset(at + 8.dp.toPx(), (topPx - label.size.height) / 2))
+                }
             }
             tick += step
         }
@@ -332,8 +292,12 @@ internal fun WarpWave(
             warpFlag(at, beatLabel(mark.beat), color, theme.bg, measure, flagWidth.toPx(), bottomPx, topPx,
                 mark.at * warp.frames >= 48)
         }
+        drawSampleScrollbar(view, theme.panel2, theme.accent)
     }
 }
+
+private fun snapWarpBeat(beat: Double, step: Double): Double =
+    if (beat < 0) ceil(beat / step - 0.5) * step else floor(beat / step + 0.5) * step
 
 private fun hitTolerance(view: SampleView, m: WarpSample, width: Int, pixels: Float) =
     pixels / width.coerceAtLeast(1) * view.span * (m.endBeat - m.firstBeat)

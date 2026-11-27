@@ -1,8 +1,8 @@
 package app.jambo.android.ui
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -91,71 +91,59 @@ internal fun EditorWave(
         return if (closest != null && abs(closest.at - at) <= reach) closest.at else at
     }
 
-    val input = if (!enabled) Modifier else Modifier
-        .pointerInput(key, phone) {
-            detectTapGestures(
-                onPress = { p ->
-                    val index = nearFlag(p.x, p.y, size.width, flagWidth.toPx() / 2, 4.dp.toPx(), (4.dp + flagHeight).toPx(), flagSlop.toPx())
-                    if (index >= 0 || s.heldSlice < 0) s.holdSampleSlice(index)
-                    try { tryAwaitRelease() } finally { if (s.heldSlice == index) s.releaseSampleSlice() }
-                },
-                onDoubleTap = { p ->
-                    if (!s.heldSliceUsed) {
-                        val index = nearFlag(p.x, p.y, size.width, flagWidth.toPx() / 2, 4.dp.toPx(), (4.dp + flagHeight).toPx(), flagSlop.toPx())
-                        val at = snap(currentView.fraction(p.x, size.width), size.width, 12.dp.toPx())
+    val input = if (!enabled) Modifier else Modifier.pointerInput(key, phone) {
+        val taps = SampleDoubleTap()
+        awaitEachGesture {
+            val down = awaitFirstDown()
+            val p = down.position
+            val view0 = currentView
+            val nav = SampleNavigation(view0, p, size.width, currentWarp.frames, 110.dp.toPx())
+            val index = nearFlag(p.x, p.y, size.width, flagWidth.toPx() / 2, 4.dp.toPx(),
+                (4.dp + flagHeight).toPx(), flagSlop.toPx())
+            val width = size.width.toFloat()
+            val ds = abs(p.x - gripCenter(view0.x(selection.first.toDouble(), width), width, trimGrip.toPx(), false))
+            val de = abs(p.x - gripCenter(view0.x(selection.second.toDouble(), width), width, trimGrip.toPx(), true))
+            val handle = if (index < 0 && p.y >= size.height - trimStrip.toPx() && minOf(ds, de) <= trimTarget.toPx()) {
+                if (ds <= de) 0 else 1
+            } else -1
+            val x0 = view0.fraction(p.x, size.width)
+            val markOffset = if (index >= 0) currentWave[3 + index] - x0 else 0.0
+            val trimOffset = if (handle >= 0 && phone) (if (handle == 0) selection.first else selection.second) - x0 else 0.0
+            var dragged = false
+            if (index >= 0) s.holdSampleSlice(index)
+            try {
+                val up = trackSampleTouch(down, { it.getDistance() >= 10.dp.toPx() }) { position, firstMove ->
+                    dragged = true
+                    val x = view0.fraction(position.x, size.width).coerceIn(0.0, 1.0)
+                    val gap = minOf(0.5f, 64f / currentWarp.frames.coerceAtLeast(1))
+                    when {
+                        index >= 0 -> {
+                            if (firstMove) s.releaseSampleSlice()
+                            movingAt = snap(x + markOffset, size.width, 12.dp.toPx()).coerceIn(0.0, 1.0).toFloat()
+                            moving = index
+                        }
+                        handle == 0 -> setSelection((x + trimOffset).toFloat()
+                            .coerceIn(0f, maxOf(0f, selection.second - gap)), selection.second)
+                        handle == 1 -> setSelection(selection.first, (x + trimOffset).toFloat()
+                            .coerceIn(minOf(1f, selection.first + gap), 1f))
+                        else -> nav.move(position)?.let(currentSetView)
+                    }
+                }
+                if (up != null) {
+                    if (moving >= 0) setSlice(moving, movingAt)
+                    else if (!dragged && handle < 0 && (index < 0 || !s.heldSliceUsed) &&
+                        taps.accept(up, index, 24.dp.toPx())
+                    ) {
+                        val at = snap(view0.fraction(up.position.x, size.width), size.width, 12.dp.toPx())
                         setSlice(index, if (index >= 0) -1f else at.coerceIn(0.0, 0.999999).toFloat())
                     }
-                },
-            )
-        }
-        .pointerInput(key, phone) {
-            var handle = -1
-            var markOffset = 0.0
-            var trimOffset = 0.0
-            var view0 = SampleView()
-            var anchor = Offset.Zero
-            var vertical: Boolean? = null
-            detectDragGestures(
-                onDragStart = { p ->
-                    view0 = currentView
-                    anchor = p
-                    vertical = null
-                    val x = view0.fraction(p.x, size.width)
-                    moving = nearFlag(p.x, p.y, size.width, flagWidth.toPx() / 2, 4.dp.toPx(), (4.dp + flagHeight).toPx(), flagSlop.toPx())
-                    if (moving >= 0) {
-                        movingAt = currentWave[3 + moving]
-                        markOffset = movingAt - x
-                        s.releaseSampleSlice()
-                    }
-                    val width = size.width.toFloat()
-                    val ds = abs(p.x - gripCenter(view0.x(selection.first.toDouble(), width), width, trimGrip.toPx(), false))
-                    val de = abs(p.x - gripCenter(view0.x(selection.second.toDouble(), width), width, trimGrip.toPx(), true))
-                    handle = if (moving < 0 && p.y >= size.height - trimStrip.toPx() && minOf(ds, de) <= trimTarget.toPx()) {
-                        if (ds <= de) 0 else 1
-                    } else -1
-                    trimOffset = if (!phone || handle < 0) 0.0
-                        else (if (handle == 0) selection.first else selection.second) - x
-                },
-                onDragEnd = {
-                    if (moving >= 0) setSlice(moving, movingAt)
-                    moving = -1
-                },
-                onDragCancel = { moving = -1 },
-            ) { change, _ ->
-                change.consume()
-                val p = change.position
-                val x = view0.fraction(p.x, size.width).coerceIn(0.0, 1.0)
-                val gap = minOf(0.5f, 64f / currentWarp.frames.coerceAtLeast(1))
-                if (moving >= 0) movingAt = snap(x + markOffset, size.width, 12.dp.toPx()).coerceIn(0.0, 1.0).toFloat()
-                else if (handle == 0) setSelection((x + trimOffset).toFloat().coerceIn(0f, maxOf(0f, selection.second - gap)), selection.second)
-                else if (handle == 1) setSelection(selection.first, (x + trimOffset).toFloat().coerceIn(minOf(1f, selection.first + gap), 1f))
-                else {
-                    if (vertical == null) vertical = abs(p.y - anchor.y) > abs(p.x - anchor.x)
-                    currentSetView(editView(view0, p.x - anchor.x, p.y - anchor.y, anchor.x,
-                        size.width, vertical == true, currentWarp.frames, 110.dp.toPx()))
                 }
+            } finally {
+                if (index >= 0 && s.heldSlice == index) s.releaseSampleSlice()
+                moving = -1
             }
         }
+    }
     Canvas(Modifier.fillMaxSize().then(input)) {
         val channels = wave[0].toInt()
         val lane = size.height / channels
@@ -231,5 +219,6 @@ internal fun EditorWave(
             drawLine(theme.text.copy(alpha = heads[i + 1].coerceIn(0f, 1f)),
                 Offset(x, 0f), Offset(x, size.height), 1.dp.toPx())
         }
+        drawSampleScrollbar(view, theme.panel2, theme.accent)
     }
 }

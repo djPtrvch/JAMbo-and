@@ -177,12 +177,12 @@ fun SampleEditor(s: ScreenState, modifier: Modifier) {
                                         val total = next.endBeat - next.firstBeat
                                         val lo = (next.beatOf(view.left) - next.firstBeat) / total
                                         val hi = (next.beatOf(view.right) - next.firstBeat) / total
-                                        view = SampleView(lo, (hi - lo).coerceAtLeast(1e-9))
+                                        view = SampleView.between(lo, hi, next.frames)
                                     } else {
                                         val total = warp.endBeat - warp.firstBeat
-                                        val lo = warp.sourceAt(warp.firstBeat + view.left * total).coerceIn(0.0, 1.0)
-                                        val hi = warp.sourceAt(warp.firstBeat + view.right * total).coerceIn(lo, 1.0)
-                                        view = if (hi > lo) SampleView(lo, hi - lo) else SampleView()
+                                        val lo = warp.sourceAt(warp.firstBeat + view.left * total)
+                                        val hi = warp.sourceAt(warp.firstBeat + view.right * total)
+                                        view = SampleView.between(lo, hi, warp.frames)
                                     }
                                     warpOn = !warpOn
                                     status = AppNative.sampleEditorStatus()
