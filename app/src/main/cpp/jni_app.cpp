@@ -41,7 +41,7 @@ enum Act {
     selectTrack = 20, selectChannel, swipe,
     holdStep = 40, toggleStep, setNoteLength, copyStep, restoreCopy, setPatternLength, stepUsed,
     knobStart = 60, setKnob, knobDoubleTap,
-    keyDown = 80, keyUp, octaveStep, midiNote,
+    keyDown = 80, keyUp, octaveStep, midiNote, releaseScreenKeys,
     setSource = 85, knobFinger, assignSource, assignStart, setAssign,
     openSoundMenu = 90, closeSoundMenu, pickSynth, cleanSampler, stepSoundToTrack, folderArrow,
     tick = 100,
@@ -145,6 +145,7 @@ FN(jdouble, act)(JNIEnv*, jobject, jint code, jint a, jint b, jdouble x) {
     case setAssign: m.setAssign(a, b, x); break;
     case keyDown: m.keyDown(a, b, x); break;
     case keyUp: m.keyUp(a); break;
+    case releaseScreenKeys: m.releaseScreenKeys(); break;
     case octaveStep: m.setOctave(m.octave() + a); break;
     case midiNote: m.midiNote(a, b); break;
     case openSoundMenu: m.openSoundMenu(); break;

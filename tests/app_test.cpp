@@ -233,6 +233,37 @@ void pages() {
     app.setClipRate(Clip::rates()[0]);
     check(app.clipRate() == Clip::rates()[0], "app: SPEED клипа");
 }
+void interruptedScreenKeys() {
+    CoreAudio audio;
+    App app(&audio);
+    app.keyDown(1, 0, 1);
+    app.selectTrack(1);
+    app.keyDown(2, 1, 1);
+    const int mapped = MidiTarget::key + 2;
+    app.midiMappedButton(mapped, true, false, false);
+    const int midiNote = app.keyNote(2);
+    check(app.litNotes().size() == 3, "keyboard: two screen touches and one MIDI mapping illuminate the keyboard");
+    while (audio.core.events.pop()) {}
+
+    app.releaseScreenKeys();
+    check(app.litNotes() == std::set<int>{midiNote}, "keyboard: backgrounding clears only screen touches");
+    const auto first = audio.core.events.pop();
+    const auto second = audio.core.events.pop();
+    check(first && first->kind == CoreEvent::Kind::noteOff && first->a == 0 && first->c == 1 &&
+          second && second->kind == CoreEvent::Kind::noteOff && second->a == 1 && second->c == 2,
+          "keyboard: cancelled touches release their voices on the tracks that started them");
+    app.releaseScreenKeys();
+    app.keyUp(1);
+    app.keyUp(2);
+    check(!audio.core.events.pop(), "keyboard: late Android release after cancellation does not release twice");
+
+    app.keyDown(1, 0, 1);
+    check(app.litNotes().size() == 2, "keyboard: a new touch plays on return");
+    app.keyUp(1);
+    app.midiMappedButton(mapped, false, false, false);
+    check(app.litNotes().empty(), "keyboard: both normal screen and MIDI note-off still work");
+}
+
 void undoRedoPages() {
     CoreAudio audio;
     App app(&audio);
@@ -1027,6 +1058,7 @@ int runAppTests() {
     morphApp();
     fxPages();
     pages();
+    interruptedScreenKeys();
     undoRedoPages();
     reorderPresets();
     mod();

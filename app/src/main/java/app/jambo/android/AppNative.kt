@@ -30,6 +30,7 @@ object AppNative {
         const val KEY_UP = 81
         const val OCTAVE_STEP = 82
         const val MIDI_NOTE = 83
+        const val RELEASE_SCREEN_KEYS = 84
         const val SET_SOURCE = 85
         const val KNOB_FINGER = 86
         const val ASSIGN_SOURCE = 87

@@ -22,6 +22,7 @@ import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.changedToDown
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
@@ -100,32 +101,39 @@ private fun KeyRow(s: ScreenState, modifier: Modifier) {
     val th = LocalTheme.current
     val keys = s.keys
     val count = keys[0]
-    val touches = remember { HashMap<PointerId, Int>() }
+    val focused = LocalWindowInfo.current.isWindowFocused
     Row(
-        modifier.pointerInput(count) {
-            awaitPointerEventScope {
-                var serial = 0
-                while (true) {
-                    val ev = awaitPointerEvent()
-                    for (c in ev.changes) {
-                        if (c.changedToDown()) {
-                            val cell = (size.width + KEY_GAP * density) / maxOf(1, count)
-                            val k = (c.position.x / cell).toInt().coerceIn(0, count - 1)
-                            if (s.learnTarget(MidiTarget.KEY + k)) {
-                                c.consume()
-                                continue
+        modifier.pointerInput(count, focused) {
+            if (!focused || count == 0) return@pointerInput
+            val touches = HashMap<PointerId, Int>()
+            var serial = 0
+            try {
+                awaitPointerEventScope {
+                    while (true) {
+                        val ev = awaitPointerEvent()
+                        for (c in ev.changes) {
+                            if (c.changedToDown()) {
+                                val cell = (size.width + KEY_GAP * density) / count
+                                val k = (c.position.x / cell).toInt().coerceIn(0, count - 1)
+                                if (s.learnTarget(MidiTarget.KEY + k)) {
+                                    c.consume()
+                                    continue
+                                }
+                                val id = ++serial
+                                touches[c.id] = id
+                                // Сила (KEY VELOCITY) — по месту на клавише: верх — тихо, низ — громко.
+                                val y = (c.position.y / maxOf(1, size.height)).coerceIn(0f, 1f)
+                                s.act(Act.KEY_DOWN, id, k, 0.2 + 0.8 * y)
+                            } else if (!c.pressed) {
+                                // При отмене Android может прислать уже поглощённое отпускание.
+                                touches.remove(c.id)?.let { s.act(Act.KEY_UP, it) }
                             }
-                            val id = ++serial
-                            touches[c.id] = id
-                            // Сила (KEY VELOCITY) — по месту на клавише: верх — тихо, низ — громко.
-                            val y = (c.position.y / maxOf(1, size.height)).coerceIn(0f, 1f)
-                            s.act(Act.KEY_DOWN, id, k, 0.2 + 0.8 * y)
-                        } else if (c.changedToUp()) {
-                            touches.remove(c.id)?.let { s.act(Act.KEY_UP, it) }
+                            c.consume()
                         }
-                        c.consume()
                     }
                 }
+            } finally {
+                for (id in touches.values) s.act(Act.KEY_UP, id)
             }
         },
         horizontalArrangement = Arrangement.spacedBy(KEY_GAP.dp),

@@ -69,7 +69,7 @@ void App::midiMappedButton(int target, bool down, bool touch, bool setState, boo
         const int key = target - mt::key;
         const int id = mt::keysIdentity + key;
         if (down) {
-            if (!pressedKeys_.count(id)) keyDown(id, key, 1);
+            if (!pressedKeys_.count(id)) keyDown(id, key, 1, false);
         } else keyUp(id);
         return;
     }

@@ -51,6 +51,11 @@ class MainActivity : ComponentActivity() {
         midi.start()
     }
 
+    override fun onPause() {
+        AppNative.act(AppNative.Act.RELEASE_SCREEN_KEYS)
+        super.onPause()
+    }
+
     override fun onStop() {
         // Уход в фон: записать Autosave сразу.
         AppNative.act(AppNative.Act.FLUSH_AUTOSAVE)

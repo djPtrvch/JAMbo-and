@@ -343,7 +343,7 @@ void App::liveNoteOn(int t, const std::vector<int>& notes, int id, double veloci
         audio_->push(CoreEvent::noteOn(t, *it, id, velocity_ ? float(velocity) : 1.0f));
 }
 
-void App::keyDown(int id, int k, double velocity) {
+void App::keyDown(int id, int k, double velocity, bool screenKey) {
     auto notes = keyNotes(k);
     if (!notes) return;
     const int ti = selected_;
@@ -355,7 +355,7 @@ void App::keyDown(int id, int k, double velocity) {
     } else {
         inputNotes();
     }
-    keyHolds_[id] = {ti, *notes, recIndex, steadyNow()};
+    keyHolds_[id] = {ti, *notes, recIndex, steadyNow(), screenKey};
     bump();
 }
 
@@ -375,6 +375,14 @@ void App::keyUp(int id) {
         }
     }
     bump();
+}
+
+// Android может прервать касание клавиатуры без его обычного отпускания.
+void App::releaseScreenKeys() {
+    for (auto it = keyHolds_.begin(); it != keyHolds_.end();) {
+        const auto key = it++;
+        if (key->second.screenKey) keyUp(key->first);
+    }
 }
 
 /// Нажатые ноты: зажатые шаги получают их, иначе они — выбранные ноты дорожки.

@@ -344,8 +344,9 @@ public:
     /// Подсвечены (нажаты, играют, ноты зажатого шага); обведены (выбраны / ноты зажатого шага).
     std::set<int> litNotes() const;
     std::set<int> shownNotes() const;
-    void keyDown(int id, int k, double velocity);
+    void keyDown(int id, int k, double velocity, bool screenKey = true);
     void keyUp(int id);
+    void releaseScreenKeys();
     void setOctave(int o);
     /// Ноты с MIDI-входа — на выбранную дорожку (как клавиша; id — номер ноты со сдвигом).
     void midiNote(int note, int velocity);
@@ -649,6 +650,7 @@ private:
         /// Записанный шаг (длина — при отпускании) и время нажатия (с).
         std::optional<int> recIndex;
         double t0 = 0;
+        bool screenKey = false;
     };
     std::map<int, KeyHold> keyHolds_;
     std::optional<std::pair<int, Step>> lastCopy_;
