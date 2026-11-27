@@ -5,7 +5,7 @@
 - Перенесено: FX — Delay, Reverb, Drive (с DriveTables), Duck; движки — KICK, ANALOG, FM, WTABLE, SUB (JamboVoice), SNARE, HAT, CLAP, PERC (JamboDrums), TEXTURE, GRANULAR (с TexGran), таблицы и встроенные wavetable. Эталоны: 36 из 36 (fx_*, j16–j19), −102…−315 dB; ударные — тесты свойств (как DrumEngineTests). Без проверки: SUB и режимы модуляции ANALOG. TEXTURE и GRANULAR — тесты свойств (уровень, ровность; GRANULAR — NaN, лимит зёрен); пик GRANULAR на крайних ручках до +6,5 dBFS — сверить со Swift на слух.
 - Справочники: Params (+Fmt), SynthEngines, FilterType, Scales — тест `tables_test.cpp`; KnobDefaults и миграции Filter, которым нужен проект, — с моделью.
 - Модель проекта: Step, Clip, Track, Project и типы полей (поля TrackMore и ProjectMore — обычные поля), KnobDefaults без JSON, `Track::setSynth`, `Project::migrateFilter` — тест `model_test.cpp`.
-- Файл проекта: ProjectFormat (`jambo-swift`, JSON как у iPad; nlohmann/json — `scripts/fetch-deps.sh`), чтение по правилам Swift Codable (`model/Json.h`), repair и миграции версий 3–10, пресеты синта и KnobDefaults — тест `coding_test.cpp`. Хранилище проектов на диске — позже.
+- Файл проекта: ProjectFormat (`jambo-swift`, JSON как у iPad; nlohmann/json — `scripts/fetch-deps.sh`), чтение по правилам Swift Codable (`model/Json.h`), repair и миграции версий 3–10, пресеты синта и KnobDefaults — тест `coding_test.cpp`. ProjectStore и ProjectSession управляют хранилищем, а ProjectPack переносит архивы `.jambo` с медиа — тесты `store_test.cpp`.
 - Правки и UNDO: History (место правки — `std::any`), TrackEdits, RollEdits, Roll, StepNotes — тест `edit_test.cpp` (EditTests, MorphTests).
 - Аудиоядро: SoundSnapshot (с TempoDetect, Onsets, WarpMap), ModEngine, SynthVoices + RenderPool (MULTICORE), SeqSnapshot, Launcher, Sequencer, StemRing — тесты audio_test, synth_test, seq_test; Sampler для секвенсора — интерфейс SeqVoices.
 - Сэмплер (голоса, микшер, MIDI OUT, предпрослушка, WARP), таймстретч BEAT и NORMAL, FxRack — тест sampler_test.cpp; EQ (EqUnit с M/S и Dynamic, EqListen, спектры), уровни и LUFS, замеры колбэка — эталоны eq_* (22 из 22), тест eq_test.cpp.
@@ -16,4 +16,6 @@
   звук пропадал до следующего шага. Тест — app_test (moveTrackKeepsSound).
 - Перенесены позже ядра: Library, SampleStore (+ Sha256, AudioFile, Resample), PitchDetect, MasterInput, MasterPresets,
   EqPresets — тест library_test.
-- Не перенесено: HeadPack, PhonesProfile/PhonesEq, переход MIX (Project::mixed, blendMaster), правки варпинга Track, SampleEdit; часть тестов Swift через ядро — список в handoff.md.
+- RANDOM: DrumRhythm, MelodyRhythm, StyleRhythm/StyleRoles, TechnoRhythm и SliceRhythm. Тесты `app_test.cpp` сверяют свойства с правилами Swift, в том числе сквозной цикл Techno, вариации ударных и сбивки нарезки.
+- Аранжировщик: ArrangeEdits, ArrangeAuto, ArrangeRecorder, воспроизведение аранжировки в Launcher/Sequencer и события AudioCore уже есть. Следующий этап — действия App, мост JNI и экран ARRANGE/AUTO.
+- Не перенесено: HeadPack, PhonesProfile/PhonesEq, переход MIX (Project::mixed, blendMaster), правки варпинга Track. Состояние экрана и сборок — в [handoff.md](../../handoff.md).
