@@ -3,6 +3,7 @@ package app.jambo.android.ui
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerInputChange
@@ -106,4 +107,18 @@ internal fun DrawScope.drawSampleScrollbar(view: SampleView, track: Color, accen
     val left = (view.left * size.width).toFloat().coerceAtMost(size.width - thumb)
     drawRect(track, Offset(0f, top), Size(size.width, height))
     drawRect(accent, Offset(left, top), Size(thumb, height))
+}
+
+internal fun DrawScope.drawMarkerFlag(
+    color: Color, left: Float, width: Float, back: Float, shoulder: Float, tip: Offset,
+) {
+    val right = left + width
+    drawPath(Path().apply {
+        moveTo(left, back)
+        lineTo(right, back)
+        lineTo(right, shoulder)
+        lineTo(tip.x, tip.y)
+        lineTo(left, shoulder)
+        close()
+    }, color)
 }

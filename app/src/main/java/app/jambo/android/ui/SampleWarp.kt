@@ -19,7 +19,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -318,17 +317,10 @@ private fun DrawScope.warpFlag(
     val y = size.height - strip + 6.dp.toPx()
     val h = strip - 10.dp.toPx()
     drawLine(color, Offset(x, top), Offset(x, y), 1.dp.toPx())
-    drawRect(color, Offset(x - half, y), Size(width, h))
-    drawPath(Path().apply {
-        moveTo(x - half, y); lineTo(x, y - 8.dp.toPx()); lineTo(x + half, y); close()
-    }, color)
+    drawMarkerFlag(color, x - half, width, y + h, y, Offset(x, y - 8.dp.toPx()))
     val layout = text.measure(label, TextStyle(color = ink, fontSize = 11.sp))
     drawText(layout, topLeft = Offset(x - layout.size.width / 2f, y + (h - layout.size.height) / 2))
     if (upper) {
-        val bar = 4.dp.toPx()
-        drawPath(Path().apply {
-            moveTo(x - half, bar); lineTo(x + half, bar); lineTo(x + half, top - 10.dp.toPx())
-            lineTo(x, top - 2.dp.toPx()); lineTo(x - half, top - 10.dp.toPx()); close()
-        }, color)
+        drawMarkerFlag(color, x - half, width, 4.dp.toPx(), top - 10.dp.toPx(), Offset(x, top - 2.dp.toPx()))
     }
 }

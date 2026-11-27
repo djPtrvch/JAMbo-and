@@ -40,7 +40,7 @@ internal fun EditorWave(
     val flagHeight = if (phone) 34.dp else 14.dp
     val flagStroke = if (phone) 2.dp else 1.dp
     val flagSlop = if (phone) 6.dp else 0.dp
-    val trimGrip = 32.dp
+    val trimGrip = if (phone) 32.dp else 22.dp
     val trimTarget = if (phone) 32.dp else 26.dp
     val trimStrip = if (phone) 56.dp else 44.dp
     val measure = rememberTextMeasurer()
@@ -80,7 +80,7 @@ internal fun EditorWave(
     }
 
     fun gripCenter(x: Float, width: Float, grip: Float, right: Boolean): Float {
-        if (!phone || x !in 0f..width) return x
+        if (x !in 0f..width) return x
         val half = minOf(grip, width) / 2
         return (x + if (right) -half else half).coerceIn(half, width - half)
     }
@@ -99,7 +99,7 @@ internal fun EditorWave(
             val view0 = currentView
             val nav = SampleNavigation(view0, p, size.width, currentWarp.frames, 110.dp.toPx())
             val index = nearFlag(p.x, p.y, size.width, flagWidth.toPx() / 2, 4.dp.toPx(),
-                (4.dp + flagHeight).toPx(), flagSlop.toPx())
+                (12.dp + flagHeight).toPx(), flagSlop.toPx())
             val width = size.width.toFloat()
             val ds = abs(p.x - gripCenter(view0.x(selection.first.toDouble(), width), width, trimGrip.toPx(), false))
             val de = abs(p.x - gripCenter(view0.x(selection.second.toDouble(), width), width, trimGrip.toPx(), true))
@@ -108,7 +108,7 @@ internal fun EditorWave(
             } else -1
             val x0 = view0.fraction(p.x, size.width)
             val markOffset = if (index >= 0) currentWave[3 + index] - x0 else 0.0
-            val trimOffset = if (handle >= 0 && phone) (if (handle == 0) selection.first else selection.second) - x0 else 0.0
+            val trimOffset = if (handle >= 0) (if (handle == 0) selection.first else selection.second) - x0 else 0.0
             var dragged = false
             if (index >= 0) s.holdSampleSlice(index)
             try {
@@ -167,19 +167,18 @@ internal fun EditorWave(
             val x = x(f)
             if (x !in 0f..size.width) continue
             drawLine(theme.accent, Offset(x, 0f), Offset(x, size.height), 2.dp.toPx())
+            val grip = trimGrip.toPx().coerceAtMost(size.width)
+            val center = gripCenter(x, size.width, grip, i == 1)
+            val height = (if (phone) 30.dp else 22.dp).toPx()
+            val top = size.height - height
+            drawMarkerFlag(theme.accent, center - grip / 2, grip, size.height, top + 7.dp.toPx(),
+                Offset(x.coerceIn(center - grip / 2 + grip * 0.2f, center + grip / 2 - grip * 0.2f), top))
             if (phone) {
-                val grip = trimGrip.toPx().coerceAtMost(size.width)
-                val center = gripCenter(x, size.width, grip, i == 1)
-                val height = 30.dp.toPx()
-                val top = size.height - height
-                drawRect(theme.accent, Offset(center - grip / 2, top), Size(grip, height))
                 for (offset in listOf(-3.dp, 3.dp)) {
                     val xx = center + offset.toPx()
-                    drawLine(theme.onAccent.copy(alpha = 0.8f), Offset(xx, top + height * 0.25f),
-                        Offset(xx, top + height * 0.75f), 1.5.dp.toPx())
+                    drawLine(theme.onAccent.copy(alpha = 0.8f), Offset(xx, top + height * 0.4f),
+                        Offset(xx, top + height * 0.8f), 1.5.dp.toPx())
                 }
-            } else {
-                drawCircle(theme.accent, 6.dp.toPx(), Offset(x, size.height - 14.dp.toPx()))
             }
         }
         for (i in 0 until marks) {
@@ -189,8 +188,10 @@ internal fun EditorWave(
             val sizePx = flagWidth.toPx().coerceAtMost(size.width)
             val left = (x - sizePx / 2).coerceIn(0f, size.width - sizePx)
             val y = 4.dp.toPx()
-            drawLine(ink, Offset(x, y), Offset(x, size.height), flagStroke.toPx())
-            drawRect(ink, Offset(left, y), Size(sizePx, flagHeight.toPx()))
+            val shoulder = y + flagHeight.toPx()
+            val tip = Offset(x.coerceIn(left + sizePx * 0.15f, left + sizePx * 0.85f), shoulder + 8.dp.toPx())
+            drawLine(ink, Offset(x, shoulder), Offset(x, size.height), flagStroke.toPx())
+            drawMarkerFlag(ink, left, sizePx, y, shoulder, tip)
             val role = roles.getOrNull(i)?.let { sliceRoleNames[it] }
             val label = labels.getOrElse(i) { "" }
             val layout = measure.measure(if (role != null && role == label) "NO NOTE" else label, TextStyle(color = theme.bg,
@@ -204,7 +205,7 @@ internal fun EditorWave(
                 val pad = 3.dp.toPx()
                 val badgeWidth = tag.size.width + 2 * pad
                 val tagX = (x + 4.dp.toPx()).coerceIn(0f, maxOf(0f, size.width - badgeWidth))
-                val tagY = y + flagHeight.toPx() + 4.dp.toPx()
+                val tagY = tip.y + 4.dp.toPx()
                 drawRect(if (active) theme.accent else theme.bg, Offset(tagX, tagY),
                     Size(badgeWidth, tag.size.height + 2 * pad))
                 drawText(tag, topLeft = Offset(tagX + pad, tagY + pad))
