@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -184,9 +185,9 @@ internal fun WarpWave(
     val theme = LocalTheme.current
     val measure = rememberTextMeasurer()
     val phone = LocalConfiguration.current.smallestScreenWidthDp < 600
-    val flagWidth = if (phone) 54.dp else 36.dp
-    val top = if (phone) 47.dp else 37.dp
-    val bottom = if (phone) 42.dp else 30.dp
+    val flagWidth = if (phone) 60.dp else 36.dp
+    val top = if (phone) 51.dp else 37.dp
+    val bottom = if (phone) 46.dp else 30.dp
 
     Canvas(Modifier.fillMaxSize().pointerInput(key, phone) {
         detectTapGestures(
@@ -293,28 +294,30 @@ internal fun WarpWave(
         val topPx = top.toPx()
         val bottomPx = bottom.toPx()
         drawRect(theme.bg.copy(alpha = 0.35f), Offset(0f, size.height - bottomPx), Size(size.width, bottomPx))
-        var step = grid
-        while (step * size.width / (end - origin) < 8.dp.toPx() && step < 1e8) step *= 2
-        var tick = floor(origin / step) * step
-        while (tick <= end) {
-            val bar = abs(tick / 4 - round(tick / 4)) < 1e-6
-            val beat = abs(tick - round(tick)) < 1e-6
-            val color = if (bar) theme.dim else if (beat) theme.line else theme.line.copy(alpha = 0.5f)
-            drawLine(color, Offset(x(tick), topPx), Offset(x(tick), size.height - bottomPx), 1.dp.toPx())
-            if (bar) {
-                val label = measure.measure((round(tick / 4).toInt() + 1).toString(), TextStyle(color = theme.dim, fontSize = 11.sp))
-                drawText(label, topLeft = Offset(x(tick) + 5.dp.toPx(), 4.dp.toPx()))
-            }
-            tick += step
-        }
         val lane = (size.height - topPx - bottomPx).coerceAtLeast(1f) / channels.coerceAtLeast(1)
         if (peaks.size >= channels * columns * 2) {
             for (c in 0 until channels) for (k in 0 until columns) {
                 val j = 2 * (c * columns + k)
                 val y = topPx + (c + 0.5f) * lane
                 val xx = size.width * (k + 0.5f) / columns
-                drawLine(theme.text, Offset(xx, y - peaks[j + 1] * lane * 0.45f), Offset(xx, y - peaks[j] * lane * 0.45f))
+                drawLine(theme.text.copy(alpha = 0.64f), Offset(xx, y - peaks[j + 1] * lane * 0.45f), Offset(xx, y - peaks[j] * lane * 0.45f))
             }
+        }
+        var step = grid
+        while (step * size.width / (end - origin) < 8.dp.toPx() && step < 1e8) step *= 2
+        var tick = floor(origin / step) * step
+        while (tick <= end) {
+            val bar = abs(tick / 4 - round(tick / 4)) < 1e-6
+            val beat = abs(tick - round(tick)) < 1e-6
+            val color = theme.text.copy(alpha = if (bar) 0.78f else if (beat) 0.54f else 0.36f)
+            val thickness = (if (bar) 2.2.dp else if (beat) 1.6.dp else 1.2.dp).toPx().coerceAtLeast(1f)
+            val at = x(tick)
+            if (at in 0f..size.width) drawLine(color, Offset(at, topPx), Offset(at, size.height - bottomPx), thickness)
+            if (bar) {
+                val label = measure.measure((round(tick / 4).toInt() + 1).toString(), TextStyle(color = theme.text, fontSize = if (phone) 14.sp else 12.sp, fontWeight = FontWeight.SemiBold))
+                drawText(label, topLeft = Offset(x(tick) + 5.dp.toPx(), 4.dp.toPx()))
+            }
+            tick += step
         }
         for (k in 0 until s.heads.size - 1 step 2) {
             val at = x(warp.beatOf(s.heads[k].toDouble()))

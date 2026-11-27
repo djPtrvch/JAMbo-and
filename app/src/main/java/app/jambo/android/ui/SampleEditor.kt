@@ -159,8 +159,7 @@ fun SampleEditor(s: ScreenState, modifier: Modifier) {
             }
             val flag = roleFlag
             if (flag >= 0 && s.heldSlice == flag && !warpOn) {
-                val names = listOf(0 to "KICK", 1 to "SNARE", 2 to "HAT", 5 to "PERC", 6 to "BASS", 7 to "LEAD", 3 to "PAD")
-                for ((role, label) in names) {
+                for ((role, label) in sliceRoleNames) {
                     InkButton(label, roles.getOrNull(flag) == role, Modifier.weight(1f), Layout.topHeight) {
                         s.selectSampleSliceRole(flag, role)
                     }
@@ -213,7 +212,7 @@ fun SampleEditor(s: ScreenState, modifier: Modifier) {
             when {
                 recording -> CaptureWave(recordingPeaks)
                 channels > 0 && warpOn -> WarpWave(s, key, warp, warpGrid, channels, editorColumns, view) { view = it }
-                channels > 0 -> EditorWave(s, key, wave, count, labels, warp, view, { view = it }, start, end, s.heads, !busy,
+                channels > 0 -> EditorWave(s, key, wave, count, labels, roles, warp, view, { view = it }, start, end, s.heads, !busy,
                     { a, b -> start = a; end = b }, { index, at ->
                         AppNative.sampleEditorSlice(index, at.toDouble())
                         s.refresh()
