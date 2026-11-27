@@ -54,7 +54,7 @@ enum Act {
     duplicateRow, moveRow, deleteRow, copyRow, pasteRow, setGridOption, gridArrow, setGridTop,
     toggleEqView = 180, selectEqBand, setEqType, setEqSlope, setEqMs, setEqDyn, toggleEqBand, deleteEqBand,
     toggleEqBypass,
-    setArpMode = 200, setArpRate, setArpOctaves, setArpLatch, setArpGate, setRandomSettings, chooseRandomPart,
+    setArpMode = 200, setArpRate, setArpOctaves, setArpLatch, setArpGate, setRandomSettings, chooseRandomPart, setSamplerSettings,
 };
 
 jintArray ints(JNIEnv* env, const std::vector<jint>& v) {
@@ -193,6 +193,7 @@ FN(jdouble, act)(JNIEnv*, jobject, jint code, jint a, jint b, jdouble x) {
     case setArpGate: m.setArpGate(x); break;
     case setRandomSettings: m.setRandomSettings(a); break;
     case chooseRandomPart: m.chooseRandomPart(a); break;
+    case setSamplerSettings: m.setSamplerSettings(a == 1 ? jambo::SliceMap::scale : jambo::SliceMap::chromatic, b != 0); break;
     case setPianoSettings: m.setPianoSettings(a, b != 0); break;
     case setRecordSettings: m.setRecordSettings(a != 0, b != 0); break;
     case setSwing: m.setSwing(x); break;
@@ -420,7 +421,7 @@ FN(jfloatArray, eqSpectrum)(JNIEnv* env, jobject, jint n, jdouble dt) {
 FN(jintArray, settings)(JNIEnv* env, jobject) {
     std::lock_guard<std::mutex> g(gLock);
     auto& m = app();
-    return ints(env, {m.quantize(), m.overdub(), m.morphReturn(), m.morphHoldMode(), m.levelRelative(), m.randomSettings()});
+    return ints(env, {m.quantize(), m.overdub(), m.morphReturn(), m.morphHoldMode(), m.levelRelative(), m.randomSettings(), int(m.sliceMap()), m.warpFollow()});
 }
 
 FN(jobjectArray, morphReturnNames)(JNIEnv* env, jobject) { return strings(env, jambo::MorphReturn::names); }

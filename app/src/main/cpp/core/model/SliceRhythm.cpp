@@ -12,9 +12,9 @@ constexpr int perPage = Params::stepsPerPage;
 constexpr int cutNote = 1000;
 using namespace RhythmRandom;
 
-std::vector<SlicePiece> slicePieces(const Track& t, SampleData& sample, const Project& project) {
+std::vector<SlicePiece> slicePieces(const Track& t, SampleData& sample, const Project& project, SliceMap map, bool follow) {
     auto marks = t.sliceMarks(t.sample);
-    const auto notes = Slices::notes(marks, SliceMap::chromatic, project.scale, project.root);
+    const auto notes = Slices::notes(marks, map, project.scale, project.root);
     const bool noted = std::any_of(marks.begin(), marks.end(), [](const auto& m) { return !m.isFree(); });
     std::vector<size_t> indexes;
     for (size_t i = 0; i < marks.size(); ++i)
@@ -23,7 +23,8 @@ std::vector<SlicePiece> slicePieces(const Track& t, SampleData& sample, const Pr
     const auto info = t.warps.find(t.sample);
     std::optional<WarpMap> warp;
     if (info != t.warps.end() && !info->second.isOff() && !info->second.isEmpty()) {
-        const double bpm = WarpMap::bpm(&info->second, info->second.bpm ? 0 : sample.loopBpm());
+        const double bpm = WarpMap::bpm(&info->second, info->second.bpm && !follow ? 0 : sample.loopBpm(),
+                                        follow ? std::optional<double>(project.bpm) : std::nullopt);
         warp.emplace(info->second, sample.frames(), bpm);
     }
     std::vector<SlicePiece> out;

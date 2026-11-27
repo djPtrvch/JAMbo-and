@@ -29,7 +29,7 @@ class ScreenState(val midi: app.jambo.android.MidiHub) {
     var arp by mutableStateOf(IntArray(11).apply { this[7] = -1; this[9] = 50; this[10] = -1 }); private set
     var projects by mutableStateOf(IntArray(3)); private set
     var projectRows by mutableStateOf(arrayOf("")); private set
-    var settings by mutableStateOf(IntArray(6)); private set
+    var settings by mutableStateOf(IntArray(8)); private set
     var grid by mutableStateOf(IntArray(18)); private set
     var sceneNames by mutableStateOf(emptyArray<String>()); private set
     /** Ход сетки (каждый кадр, пока открыта) и фаза мигания ожидающих ячеек. */
@@ -234,6 +234,48 @@ class ScreenState(val midi: app.jambo.android.MidiHub) {
     var theme by mutableIntStateOf(0)
     /** Открытая вкладка SETTINGS. */
     var settingsTab by mutableIntStateOf(0)
+
+    var heldSlice by mutableIntStateOf(-1)
+        private set
+    var heldSliceUsed = false
+        private set
+    var refusedSlice by mutableIntStateOf(-1)
+        private set
+    private var lastSlice = -1
+    private var lastSliceKey = -1
+    private var lastSliceTap = 0L
+
+    fun holdSampleSlice(index: Int) {
+        heldSlice = index
+        heldSliceUsed = false
+        lastSlice = -1
+        refusedSlice = -1
+    }
+
+    fun releaseSampleSlice() { heldSlice = -1 }
+
+    fun clearSliceRefusal() { refusedSlice = -1 }
+
+    fun assignSampleSlice(key: Int): Boolean {
+        val index = heldSlice
+        if (!sampleEditor || index < 0) return false
+        val now = android.os.SystemClock.uptimeMillis()
+        val clear = lastSlice == index && lastSliceKey == key && now - lastSliceTap < 350
+        heldSliceUsed = true
+        lastSlice = if (clear) -1 else index
+        lastSliceKey = key
+        lastSliceTap = now
+        refusedSlice = if (AppNative.sampleSliceAssign(index, if (clear) -1 else key)) -1 else index
+        refresh()
+        return true
+    }
+
+    fun selectSampleSliceRole(index: Int, role: Int) {
+        if (heldSlice != index) return
+        heldSliceUsed = true
+        AppNative.sampleSliceRole(index, role)
+        refresh()
+    }
 
     fun learnTarget(target: Int): Boolean {
         if (!midi.controls.learning) return false

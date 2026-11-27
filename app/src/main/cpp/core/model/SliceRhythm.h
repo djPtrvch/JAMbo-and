@@ -2,6 +2,7 @@
 #pragma once
 #include "Clip.h"
 #include "MelodyRhythm.h"
+#include "Sounds.h"
 
 namespace jambo {
 struct Track;
@@ -17,7 +18,8 @@ struct SlicePiece {
     int role;
 };
 
-std::vector<SlicePiece> slicePieces(const Track& track, SampleData& sample, const Project& project);
+std::vector<SlicePiece> slicePieces(const Track& track, SampleData& sample, const Project& project,
+                                    SliceMap map = SliceMap::chromatic, bool follow = false);
 RhythmPattern pattern(const std::vector<SlicePiece>& pieces, const RhythmRandom::Ints& lengths, int style,
                       const RhythmRandom::Ints* last, RhythmRandom::Rng& rng);
 RhythmRandom::Ints code(const std::vector<RhythmNote>& events);

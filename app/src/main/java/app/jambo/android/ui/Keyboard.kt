@@ -115,7 +115,7 @@ private fun KeyRow(s: ScreenState, modifier: Modifier) {
                             if (c.changedToDown()) {
                                 val cell = (size.width + KEY_GAP * density) / count
                                 val k = (c.position.x / cell).toInt().coerceIn(0, count - 1)
-                                if (s.learnTarget(MidiTarget.KEY + k)) {
+                                if (s.learnTarget(MidiTarget.KEY + k) || s.assignSampleSlice(k)) {
                                     c.consume()
                                     continue
                                 }

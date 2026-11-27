@@ -584,6 +584,18 @@ public:
     std::string editorName() const;
     void editorEdit(int operation, double a, double b);
     void editorSlice(int index, double at);
+    std::vector<std::string> editorSliceLabels() const;
+    std::vector<int> editorSliceRoles() const;
+    bool editorAssignSlice(int index, int note);
+    void editorSliceRole(int index, int role);
+    void setSamplerSettings(SliceMap map, bool follow);
+    SliceMap sliceMap() const { return sliceMap_; }
+    bool warpFollow() const { return warpFollow_; }
+    WarpInfo editorWarpInfo() const;
+    double editorWarpBpm(const SampleRef& sample) const;
+    enum class WarpEdit { enter, bypass, bpm, automatic, clear, add, start, move, place, remove };
+    void editWarp(WarpEdit command, int index, double a, double b);
+    void editorWarpPreview();
     void editorPreview(double a, double b);
     bool editorPreviewing() const { return previewOn_; }
     void editorSave();
@@ -726,6 +738,8 @@ private:
     std::array<TrackArp, Params::maxTracks> sentArp_{};
     void syncArp();
     enum RandomOption { randomChords = 1, randomDrums = 2, randomSamples = 4, randomSwing = 8, randomAll = 16, showRandomPart = 32 };
+    SliceMap sliceMap_ = SliceMap::chromatic;
+    bool warpFollow_ = false;
     int randomSettings_ = randomDefaults;
     std::map<int, std::vector<int>> lastDrumPattern_;
     std::vector<int> lastProgression_;

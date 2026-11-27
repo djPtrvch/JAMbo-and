@@ -130,7 +130,10 @@ fun SwipeRow(
 
 /** Окно ввода имени: поле (обведено белым), CANCEL и OK; ввод — limit знаков (подставленное длиннее — можно). */
 @Composable
-fun InputDialog(title: String, initial: String, limit: Int, cancel: () -> Unit, enter: (String) -> Unit) {
+fun InputDialog(
+    title: String, initial: String, limit: Int, cancel: () -> Unit,
+    extra: Pair<String, () -> Unit>? = null, enter: (String) -> Unit,
+) {
     val th = LocalTheme.current
     var value by remember { mutableStateOf(TextFieldValue(initial, TextRange(0, initial.length))) }
     val focus = remember { FocusRequester() }
@@ -148,6 +151,7 @@ fun InputDialog(title: String, initial: String, limit: Int, cancel: () -> Unit, 
             )
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 MenuItem("CANCEL", Modifier.weight(1f)) { cancel() }
+                if (extra != null) MenuItem(extra.first, Modifier.weight(1f)) { extra.second() }
                 MenuItem("OK", Modifier.weight(1f)) { enter(value.text) }
             }
         }

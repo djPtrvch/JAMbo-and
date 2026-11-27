@@ -30,6 +30,7 @@ add_library(jambo SHARED
   jni_bridge.cpp
   jni_app.cpp
   jni_lib.cpp
+  jni_sample_editor.cpp
   jni_midi.cpp
   jni_project_pack.cpp
   jni_master.cpp

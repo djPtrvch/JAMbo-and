@@ -106,6 +106,7 @@ object AppNative {
         const val SET_ARP_GATE = 204
         const val SET_RANDOM_SETTINGS = 205
         const val CHOOSE_RANDOM_PART = 206
+        const val SET_SAMPLER_SETTINGS = 207
     }
 
     /** EQ: [открыт, мастер, включён, выбранная полоса, дорожек], по полосе (10): [есть, вкл., тип, крутизна, M/S, DYN]. */
@@ -163,9 +164,17 @@ object AppNative {
     external fun midiNoteFrom(note: Int, velocity: Int, identity: Int)
 
     external fun sampleEditorTexts(): Array<String>
-    external fun sampleEditorWave(columns: Int): FloatArray
+    external fun sampleEditorWave(columns: Int, a: Double, b: Double): FloatArray
     external fun sampleEditorEdit(operation: Int, a: Double, b: Double)
     external fun sampleEditorSlice(index: Int, at: Double)
+    external fun sampleSliceLabels(): Array<String>
+    external fun sampleSliceRoles(): IntArray
+    external fun sampleSliceAssign(index: Int, key: Int): Boolean
+    external fun sampleSliceRole(index: Int, role: Int)
+    external fun sampleWarpAct(command: Int, index: Int, a: Double, b: Double)
+    external fun sampleWarpPreview()
+    external fun sampleWarpInfo(): DoubleArray
+    external fun sampleWarpWave(columns: Int, origin: Double, endBeat: Double): FloatArray
     external fun sampleEditorPreview(a: Double, b: Double)
     external fun sampleEditorStatus(): Int
     external fun sampleEditorSave()

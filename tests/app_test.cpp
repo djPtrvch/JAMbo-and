@@ -869,6 +869,69 @@ void projectImport() {
     std::filesystem::remove_all(dir);
 }
 
+void sliceAndWarpEditor() {
+    const auto dir = std::filesystem::temp_directory_path() / ("jambo-warp-" + Library::newId());
+    CoreAudio audio;
+    App app(&audio);
+    app.openLibraryStorage(dir.string());
+    auto sample = std::make_shared<SampleData>(4800, true);
+    for (int i = 0; i < sample->frames(); ++i) {
+        sample->left()[i] = i < 3600 ? 0.25f : 0.75f;
+        sample->right()[i] = sample->left()[i];
+    }
+    const auto key = SampleStore::store(*sample, app.sampleStore()->dir());
+    Project project;
+    project.bpm = 132;
+    project.tracks[0].sample = key;
+    project.files[key] = "Slices.wav";
+    app.loadProject(project);
+
+    app.editorSlice(-1, 0.25);
+    app.editorSlice(-1, 0.5);
+    check(app.editorSliceLabels() == std::vector<std::string>{"C3", "C#3"}, "slice editor: chromatic labels");
+    app.setSamplerSettings(SliceMap::scale, true);
+    check(app.editorSliceLabels() == std::vector<std::string>{"C3", "D3"}, "slice editor: scale labels");
+    check(!app.editorAssignSlice(0, 50) && app.editorAssignSlice(1, 52), "slice editor: rejects a note already assigned");
+    app.editorSliceRole(1, 0);
+    app.editorAssignSlice(0, -1);
+    check(app.editorSliceLabels() == std::vector<std::string>{"NO NOTE", "E3"} && app.editorSliceRoles()[1] == 0,
+          "slice editor: note-free mark and RANDOM role are stored separately");
+    const auto pieces = SliceRhythm::slicePieces(app.project().tracks[0], *sample, app.project(), app.sliceMap(), true);
+    check(pieces.size() == 1 && pieces[0].note == 52 && pieces[0].role == 0,
+          "slice editor: RANDOM consumes the assigned note and role");
+
+    using W = App::WarpEdit;
+    app.editWarp(W::enter, -1, 0, 0);
+    check(app.editorWarpInfo().bpm == 132, "warp editor: opening in follow mode sets empty file BPM");
+    app.editWarp(W::start, -1, 0, 0);
+    app.editWarp(W::add, -1, 0.5, 0);
+    app.editWarp(W::add, -1, 0.5001, 0);
+    check(app.editorWarpInfo().marks.size() == 2, "warp editor: rejects markers closer than 1 ms");
+    app.editWarp(W::move, 1, 0, 1.5);
+    app.editWarp(W::place, 1, 0.75, 2);
+    check(app.editorWarpInfo().marks[1] == WarpMark{0.75, 2}, "warp editor: top flag changes source frame and beat");
+    app.undo();
+    check(app.editorWarpInfo().marks[1] == WarpMark{0.5, 1.5}, "warp editor: undo restores the source and beat");
+    app.redo();
+    app.editWarp(W::bypass, -1, 0, 0);
+    check(app.editorWarpInfo().isOff() && app.editorWarpInfo().marks.size() == 2, "warp editor: bypass keeps its markers");
+    app.editWarp(W::bypass, -1, 0, 0);
+    app.editorEdit(3, 0.25, 0.5);
+    const auto cut = app.sampleData(app.editorKey());
+    check(cut && cut->frames() == 3600 && app.editorWarpInfo().marks.size() == 2 &&
+        std::abs(app.editorWarpInfo().marks.back().at - 2.0 / 3) < 1e-9, "warp editor: CUT remaps the warp marks");
+    app.editWarp(W::automatic, -1, 0.25, 0);
+    check(!app.editorWarpInfo().marks.empty() && app.editorWarpInfo().marks.front() == WarpMark{0, 0},
+          "warp editor: AUTO WARP begins at the first beat");
+    app.editWarp(W::clear, -1, 0, 0);
+    check(app.editorWarpInfo().marks.empty() && app.editorWarpInfo().bpm == 132, "warp editor: CLEAR WARP preserves BPM");
+    app.editorEdit(4, 0, 1);
+    check(app.editorKey().empty(), "sample editor: CLEAR removes the track sample");
+    app.undo();
+    check(app.editorKey() != key && app.sampleData(app.editorKey()), "sample editor: CLEAR can be undone");
+    std::filesystem::remove_all(dir);
+}
+
 void sampleEditor() {
     const auto dir = std::filesystem::temp_directory_path() / ("jambo-editor-" + Library::newId());
     {
@@ -1045,6 +1108,7 @@ int runAppTests() {
     midiTargets();
     midi();
     sampleEditor();
+    sliceAndWarpEditor();
     moveTrackKeepsSound();
     eq();
     grid();

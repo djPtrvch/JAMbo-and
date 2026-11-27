@@ -20,7 +20,7 @@ import app.jambo.android.Native
 import kotlinx.coroutines.delay
 
 /** Вкладки SETTINGS — только те, чьи функции уже есть (порядок — как в Swift-версии); остальные — с функциями. */
-private val TABS = listOf("RECORD", "RANDOM", "MORPH", "LEVEL", "APPEARANCE", "AUDIO ENGINE")
+private val TABS = listOf("RECORD", "SAMPLER", "RANDOM", "MORPH", "LEVEL", "APPEARANCE", "AUDIO ENGINE")
 
 /** SETTINGS (SettingsMenu.swift): стрелка назад; подпись SECTIONS и вкладки по 3 в ряд; ниже, с чертой, — вкладка.
  *  Настройки — на устройстве (SharedPreferences), общие для проектов. */
@@ -38,10 +38,11 @@ fun SettingsPage(s: ScreenState, back: () -> Unit) {
             Divider()
             when (s.settingsTab) {
                 0 -> RecordTab(s)
-                1 -> RandomTab(s)
-                2 -> MorphTab(s)
-                3 -> LevelTab(s)
-                4 -> AppearanceTab(s)
+                1 -> SamplerTab(s)
+                2 -> RandomTab(s)
+                3 -> MorphTab(s)
+                4 -> LevelTab(s)
+                5 -> AppearanceTab(s)
                 else -> EngineTab()
             }
         }
@@ -53,6 +54,17 @@ private fun RecordTab(s: ScreenState) {
     val st = s.settings
     ToggleRow("QUANTIZE", st[0] != 0) { s.act(Act.SET_RECORD_SETTINGS, if (it) 1 else 0, st[1]) }
     MenuNote("ON: a note played with REC lands on the nearest step. OFF: on the step where it was played.")
+}
+
+@Composable
+private fun SamplerTab(s: ScreenState) {
+    val map = s.settings[6]
+    val follow = s.settings[7]
+    FieldLabel("SLICE NOTES")
+    MenuChoices(listOf("CHROMATIC" to (map == 0), "SCALE" to (map == 1))) { s.act(Act.SET_SAMPLER_SETTINGS, it, follow) }
+    MenuNote("CHROMATIC assigns slices by semitone. SCALE follows the project's scale from its root in octave 3.")
+    ToggleRow("WARP TO PROJECT BPM", follow != 0) { s.act(Act.SET_SAMPLER_SETTINGS, map, if (it) 1 else 0) }
+    MenuNote("Opening WARP for a sample without a file BPM sets it to the project tempo.")
 }
 
 @Composable

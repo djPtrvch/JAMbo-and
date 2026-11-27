@@ -147,7 +147,7 @@ void App::writeRandom() {
         } else if (randomSlices(t)) {
             const auto sample = sampleData(t.sample);
             if (sample) {
-                auto pieces = SliceRhythm::slicePieces(t, *sample, project_);
+                auto pieces = SliceRhythm::slicePieces(t, *sample, project_, sliceMap_, warpFollow_);
                 if (!pieces.empty()) jobs.push_back({i, pages, SlicedSample{std::move(pieces), drumNote(t, root, oct)}});
             }
         } else if (randomSettings_ & randomChords) {

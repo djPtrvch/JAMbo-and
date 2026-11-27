@@ -202,6 +202,8 @@ void App::publishAudio() {
         if (table(key)) tables[key] = tables_[key];
     ensureSamples(assets.samples);
     SoundSnapshot::Options o;
+    o.map = sliceMap_;
+    o.warpFollow = warpFollow_;
     o.tables = tables;
     o.levelRelative = levelRelative_;
     if (libPreviewKey_) o.extra = {*libPreviewKey_};
