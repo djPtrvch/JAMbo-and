@@ -259,25 +259,35 @@ internal fun WarpWave(
             }
         }
         val pxPerBeat = size.width / (end - origin).coerceAtLeast(1e-9)
+        val minSpacing = if (phone) maxOf(6.dp.toPx(), 5f) else 8.dp.toPx()
         var step = grid
-        while (step * pxPerBeat < 8.dp.toPx() && step < 1e8) step *= 2
-        var tick = floor(origin / step) * step
-        while (tick <= end) {
+        while (step * pxPerBeat < minSpacing && step < 1e8) step *= 2
+        val firstTick = ceil(origin / step).toLong()
+        val lastTick = floor(end / step).toLong()
+        val gridHeight = (size.height - bottomPx - topPx).coerceAtLeast(0f)
+        val subdivisionWidth = if (phone) maxOf(2.dp.roundToPx(), 4) else maxOf(1.dp.roundToPx(), 2)
+        for (i in firstTick..lastTick) {
+            val tick = i * step
             val bar = tick % 4.0 == 0.0
             val beat = tick % 1.0 == 0.0
             val at = x(tick)
-            if (at in 0f..size.width) {
-                val color = theme.text.copy(alpha = if (bar) 0.85f else if (beat) 0.65f else 0.48f)
-                val thickness = (if (bar) 2f else 1f) * 1.dp.toPx().coerceAtLeast(1f)
-                drawRect(color, Offset(at.roundToInt().toFloat(), topPx),
-                    Size(thickness, (size.height - bottomPx - topPx).coerceAtLeast(0f)))
-                if (bar && 4 * pxPerBeat > 24.dp.toPx()) {
-                    val label = measure.measure((tick / 4).toInt().plus(1).toString(),
-                        TextStyle(color = theme.text, fontSize = if (phone) 14.sp else 12.sp, fontWeight = FontWeight.SemiBold))
-                    drawText(label, topLeft = Offset(at + 8.dp.toPx(), (topPx - label.size.height) / 2))
-                }
+            val alpha = when {
+                bar -> 0.96f
+                beat -> 0.86f
+                else -> if (phone) 0.73f else 0.58f
             }
-            tick += step
+            val thickness = subdivisionWidth + when {
+                bar -> 2
+                beat -> 1
+                else -> 0
+            }
+            val left = (at.roundToInt() - thickness / 2).toFloat()
+            drawRect(theme.text.copy(alpha = alpha), Offset(left, topPx), Size(thickness.toFloat(), gridHeight))
+            if (bar && 4 * pxPerBeat > 24.dp.toPx()) {
+                val label = measure.measure((tick / 4).toInt().plus(1).toString(),
+                    TextStyle(color = theme.text, fontSize = if (phone) 14.sp else 12.sp, fontWeight = FontWeight.SemiBold))
+                drawText(label, topLeft = Offset(at + 8.dp.toPx(), (topPx - label.size.height) / 2))
+            }
         }
         for (k in 0 until s.heads.size - 1 step 2) {
             val at = x(warp.beatOf(s.heads[k].toDouble()))
