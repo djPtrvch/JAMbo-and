@@ -164,6 +164,16 @@ object AppNative {
     external fun midiNoteFrom(note: Int, velocity: Int, identity: Int)
 
     external fun sampleEditorTexts(): Array<String>
+    external fun arrangeAct(command: Int, a: Int, b: Int, c: Int, d: Int)
+    external fun arrangeData(): IntArray
+    external fun arrangePosition(): Int
+    external fun arrangeSections(): Array<String>
+    external fun arrangeRenameSection(index: Int, title: String)
+    external fun arrangeClips(track: Int): IntArray
+    external fun arrangeAutoParams(track: Int, existing: Boolean): Array<String>
+    external fun arrangeAutoPoints(track: Int, lane: String): DoubleArray
+    external fun arrangeSetAuto(track: Int, lane: String, points: DoubleArray)
+    external fun arrangeDeleteAuto(track: Int, lane: String?)
     external fun sampleEditorWave(columns: Int, a: Double, b: Double): FloatArray
     data class EditorRemap(val key: String, val begin: Double, val end: Double)
     external fun sampleEditorEdit(operation: Int, a: Double, b: Double): EditorRemap?

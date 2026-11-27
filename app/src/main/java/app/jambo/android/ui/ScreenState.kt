@@ -31,6 +31,8 @@ class ScreenState(val midi: app.jambo.android.MidiHub) {
     var projectRows by mutableStateOf(arrayOf("")); private set
     var settings by mutableStateOf(IntArray(8)); private set
     var grid by mutableStateOf(IntArray(18)); private set
+    var arrange by mutableStateOf(intArrayOf(0)); private set
+    var arrangePosition by mutableIntStateOf(0); private set
     var sceneNames by mutableStateOf(emptyArray<String>()); private set
     /** Ход сетки (каждый кадр, пока открыта) и фаза мигания ожидающих ячеек. */
     var gridLive by mutableStateOf(IntArray(2)); private set
@@ -168,8 +170,10 @@ class ScreenState(val midi: app.jambo.android.MidiHub) {
             val b = (System.nanoTime() / 250_000_000L) % 2 == 0L
             if (b != blink) blink = b
         }
+        if (arrange[0] != 0) arrangePosition = AppNative.arrangePosition()
         if (f[0] == revision) return
         revision = f[0]
+        AppNative.arrangeData().let { if (!it.contentEquals(arrange)) arrange = it }
         AppNative.top().let { if (!it.contentEquals(top)) top = it }
         AppNative.topTexts().let { if (!it.contentEquals(topTexts)) topTexts = it }
         AppNative.tracks().let { if (!it.contentEquals(tracks)) tracks = it }

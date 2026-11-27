@@ -125,9 +125,17 @@ private fun Body(s: ScreenState, th: Theme, controllerActions: ControllerActions
     var gridRect by remember { mutableStateOf(Rect.Zero) }
     var renaming by remember { mutableStateOf(-1) }
     Box(Modifier.fillMaxSize().padding(horizontal = Layout.side.dp).onGloballyPositioned { body = it; s.body = it }) {
+        val lowerPanel: @Composable () -> Unit = {
+            Box(Modifier.onGloballyPositioned { c ->
+                body?.let { b -> if (b.isAttached) s.tracksRect = b.localBoundingBoxOf(c) }
+            }) { TrackRow(s, Layout.step(width)) }
+            SequencerRow(s)
+            KeyboardPanel(s, width)
+        }
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
             TopBar(s) { s.mainMenu = !s.mainMenu }
-            if (s.grid[0] != 0) PatternGrid(s, Modifier.weight(1f).fillMaxWidth(), width)
+            if (s.arrange[0] != 0) ArrangeWindow(s, width, Modifier.weight(1f).fillMaxWidth(), lowerPanel)
+            else if (s.grid[0] != 0) PatternGrid(s, Modifier.weight(1f).fillMaxWidth(), width)
             else if (s.masterWin[0] >= 0) Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
                 MasterWindow(s, Modifier.weight(1f).fillMaxHeight())
                 MeterColumn(s, Modifier.fillMaxHeight())
@@ -160,11 +168,7 @@ private fun Body(s: ScreenState, th: Theme, controllerActions: ControllerActions
                 }
                 MeterColumn(s, Modifier.fillMaxHeight())
             }
-            Box(Modifier.onGloballyPositioned { c ->
-                body?.let { b -> if (b.isAttached) s.tracksRect = b.localBoundingBoxOf(c) }
-            }) { TrackRow(s, Layout.step(width)) }
-            SequencerRow(s)
-            KeyboardPanel(s, width)
+            if (s.arrange[0] == 0) lowerPanel()
         }
         if (s.sound[2] != 0) SoundMenuOverlay(s, left)
         if (s.pageMenu >= 0) PageMenuOverlay(s, pagesRect)

@@ -933,6 +933,41 @@ void sliceAndWarpEditor() {
     std::filesystem::remove_all(dir);
 }
 
+void arrangerApp() {
+    CoreAudio audio;
+    App app(&audio);
+    app.toggleStep(0);
+    const int slot = app.project().tracks[0].slot;
+    app.togglePatterns();
+    app.toggleArrange();
+    check(app.arrangeView() && !app.patternView(), "arrange app: PATTERNS and ARRANGE are mutually exclusive");
+    app.addArrangeBlock(0, slot, 5, false);
+    check(app.project().tracks[0].blocks.size() == 1 && app.project().tracks[0].blocks[0].start == 4 &&
+          app.project().tracks[0].blocks[0].pattern.has_value(),
+          "arrange app: add snaps and creates an independent clip");
+    check(app.project().tracks[0].editBlock == 0, "arrange app: selected block is the edit target");
+    app.setArrangeAuto(0, "filter", {{4, 0.2}, {8, 0.8}});
+    const auto value = app.project().tracks[0].autoValue("filter", 6);
+    check(value && std::abs(*value - 0.5) < 1e-9, "arrange app: AUTO curves are placed in timeline blocks");
+    app.undo();
+    check(!app.project().tracks[0].autoValue("filter", 6), "arrange app: UNDO removes the AUTO edit");
+    app.setArrangeLoop(4, 12);
+    app.toggleArrangeLoop();
+    app.seekArrange(8);
+    app.togglePlay();
+    audio.run(64'000);
+    app.tick(1.3);
+    check(app.arrangePlaying() && app.arrangePosition() >= 4 && app.arrangePosition() < 12,
+          "arrange app: playback follows the loop and reports its position");
+    app.togglePatterns();
+    check(app.patternView() && !app.arrangeView() && app.arrangePlaying() &&
+          !app.project().tracks[0].editBlock,
+          "arrange app: the timeline keeps playing while PATTERNS is open");
+    app.togglePlay();
+    app.togglePlay();
+    check(!app.arrangePlaying(), "arrange app: PLAY in PATTERNS starts the grid");
+}
+
 void sampleEditor() {
     const auto dir = std::filesystem::temp_directory_path() / ("jambo-editor-" + Library::newId());
     {
@@ -1113,6 +1148,7 @@ int runAppTests() {
     midiTargets();
     midi();
     sampleEditor();
+    arrangerApp();
     sliceAndWarpEditor();
     moveTrackKeepsSound();
     eq();

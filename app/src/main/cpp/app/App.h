@@ -398,6 +398,35 @@ public:
     // Сетка паттернов (AppGrid.cpp)
     bool patternView() const { return patternView_; }
     void togglePatterns();
+    bool arrangeView() const { return arrangeView_; }
+    bool arrangePlaying() const { return arrangePlaying_; }
+    int arrangePosition() const { return arrangePlaying_ ? arrangeLive_ : arrangeCursor_; }
+    std::optional<Project::BlockRef> arrangeSelection() const { return arrangeSelection_; }
+    void toggleArrange();
+    void seekArrange(int step);
+    void selectArrangeBlock(int track, int block);
+    void addArrangeBlock(int track, int clip, int step, bool insert);
+    void moveArrangeBlock(int track, int block, int step);
+    void resizeArrangeBlock(int track, int block, int begin, int end);
+    void duplicateArrangeBlock(int track, int block);
+    void deleteArrangeBlock(int track, int block);
+    void splitArrangeBlock();
+    void setArrangeGrid(int grid);
+    void toggleArrangeSnap();
+    void setArrangeLoop(int begin, int end);
+    void toggleArrangeLoop();
+    void toggleArrangeSteps();
+    void sendRowToArrange(int row, std::optional<int> step);
+    void setArrangeTrackColor(int track, int color);
+    void addArrangeSection(int step);
+    void resizeArrangeSection(int index, int step, bool left);
+    void renameArrangeSection(int index, const std::string& name);
+    void deleteArrangeSection(int index);
+    bool arrangeAuto() const { return arrangeAuto_; }
+    void toggleArrangeAuto();
+    void setArrangeAuto(int track, const std::string& id, const std::vector<ArrAutoPoint>& points);
+    void deleteArrangeAuto(int track, const std::string& id);
+    void clearArrangeAuto(int track);
     void tapCell(int i, int k);
     /// Удержание: пустая — только выбор; заполненная — правка без запуска.
     void holdCell(int i, int k);
@@ -777,6 +806,13 @@ private:
     double beatUntil_ = 0;
 
     bool patternView_ = false;
+    bool arrangeView_ = false, arrangePlaying_ = false, arrangeAuto_ = false;
+    int arrangeCursor_ = 0, arrangeLive_ = 0;
+    std::optional<Project::BlockRef> arrangeSelection_;
+    void closeArrange();
+    void prepareArrangePlay();
+    void syncArrangeEditBlock();
+    bool validArrangeBlock(int track, int block) const;
     bool eqView_ = false;
     int eqBand_ = -1;
     SpectrumDisplay spectrum_;

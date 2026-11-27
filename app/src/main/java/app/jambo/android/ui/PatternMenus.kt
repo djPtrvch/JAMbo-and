@@ -146,6 +146,7 @@ private fun RowMenu(s: ScreenState, d: GridData, k: Int, modifier: Modifier, clo
             MenuItem("PASTE", Modifier.weight(1f), enabled = d.hasRowCopy) { act(Act.PASTE_ROW) }
             MenuItem("DELETE", Modifier.weight(1f), red = true) { act(Act.DELETE_ROW) }
         }
+        MenuItem("TO ARRANGE") { s.arrangeAct(ArrangeAct.ROW, k, -1); close() }
         MenuItem("OK") {
             AppNative.setScene(k, name, reps)
             s.refresh()

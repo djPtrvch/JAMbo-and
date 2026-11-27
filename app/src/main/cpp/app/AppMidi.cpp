@@ -19,7 +19,7 @@ void App::startMidiPlay(double host) {
     liveStopped();
     midiPhaseStep_ = -1;
     const auto frame = int64_t(std::llround(midiFrameAt(host)));
-    audio_->push(CoreEvent::arrange(false, 0));
+    prepareArrangePlay();
     audio_->push(CoreEvent::playAt(frame));
     bump();
 }

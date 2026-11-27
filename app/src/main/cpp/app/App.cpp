@@ -19,6 +19,10 @@ void App::loadProject(const Project& p) {
         audio_->push(CoreEvent::play(false));
     }
     history_.reset();
+    arrangePlaying_ = false;
+    arrangeCursor_ = 0;
+    arrangeLive_ = 0;
+    arrangeSelection_.reset();
     endRecTake();
     liveStopped();
     lead_ = 0;
@@ -36,6 +40,7 @@ void App::loadProject(const Project& p) {
         sentArp_[i] = {};
     }
     project_ = p;
+    syncArrangeEditBlock();
     audio_->push(CoreEvent::tempo(runningBpm()));
     publishAudio();
     bump();
@@ -47,9 +52,9 @@ void App::togglePlay() {
     playing_ = !playing_;
     endRecTake();
     liveStopped();
-    if (playing_) {
-        audio_->push(CoreEvent::arrange(false, 0));
-    } else {
+    if (!playing_) {
+        arrangePlaying_ = false;
+        syncArrangeEditBlock();
         beatFlash_ = false;
     }
     if (playing_ && midiBpm_) {
@@ -57,7 +62,10 @@ void App::togglePlay() {
         const auto tick = midiClockFollower_.nextTick(nextAudible - midiOffset_);
         midiClockFollower_.anchor(tick);
         startMidiPlay(tick + midiOffset_ - audio_->outputLatency());
-    } else audio_->push(CoreEvent::play(playing_));
+    } else {
+        if (playing_) prepareArrangePlay();
+        audio_->push(CoreEvent::play(playing_));
+    }
     bump();
 }
 
@@ -213,6 +221,7 @@ void App::publishAudio() {
 }
 
 void App::changed() {
+    syncArrangeEditBlock();
     publishAudio();
     projectChanged();
     bump();
@@ -234,6 +243,7 @@ void App::selectTrack(int i) {
     const int before = eqChannel();
     selected_ = i;
     channel_ = Channel::track;
+    syncArrangeEditBlock();
     if (masterUnity_) setUnity(false);
     held_.clear();
     if (eqView_ && eqChannel() != before) {
@@ -247,6 +257,7 @@ void App::selectTrack(int i) {
 void App::selectChannel(Channel c) {
     const int before = eqChannel();
     channel_ = c;
+    syncArrangeEditBlock();
     if (c != Channel::master && masterUnity_) setUnity(false);
     if (eqView_ && eqChannel() != before) {
         eqBand_ = -1;
@@ -278,6 +289,12 @@ void App::swipe(int i, bool down) {
 int App::rawTrackPlayPos() const {
     const Track& t = track();
     const int s = selected_;
+    if (arrangePlaying_ && arrangeView_) {
+        const auto i = t.editBlock;
+        if (!i || !validArrangeBlock(s, *i)) return -1;
+        const auto& b = t.blocks[size_t(*i)];
+        return b.start <= arrangeLive_ && arrangeLive_ < b.end() ? playPos_[size_t(s)] : -1;
+    }
     const int cell = cell_[size_t(s)];
     if (t.open != t.slot || cell >= SeqData::slots) return -1;
     return playPos_[size_t(s)];
@@ -292,6 +309,7 @@ int App::openPlayPos() const {
 
 void App::playEvent(const SeqOut& e) {
     if (e.kind == SeqOut::Kind::clip) {
+        if (arrangePlaying_) return;
         const int t = e.track;
         if (t >= int(project_.tracks.size())) return;
         const int slot = e.a;
@@ -314,8 +332,10 @@ void App::playEvent(const SeqOut& e) {
         }
     } else if (e.kind == SeqOut::Kind::ended && playing_) {
         playing_ = false;
+        arrangePlaying_ = false;
         endRecTake();
         liveStopped();
+        syncArrangeEditBlock();
         bump();
     }
 }
@@ -369,6 +389,12 @@ void App::tick(double now) {
             bump();
             break;
         case SeqOut::Kind::ended: playEvent(e); break;
+        case SeqOut::Kind::arrange:
+            if (arrangePlaying_) {
+                arrangeLive_ = e.a;
+                syncArrangeEditBlock();
+            }
+            break;
         case SeqOut::Kind::beat:
             beatAccent_ = e.on;
             beatFlash_ = true;

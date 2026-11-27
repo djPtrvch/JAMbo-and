@@ -51,6 +51,7 @@ void App::applyLead(int i) {
 // MARK: — запуск
 
 void App::queueClip(int i, int k) {
+    if (arrangePlaying_) return;
     if (playing_) {
         audio_->push(CoreEvent::launch(i, k));
         return;
@@ -68,6 +69,7 @@ void App::queueClip(int i, int k) {
 }
 
 void App::queueScene(int k, bool atPass) {
+    if (arrangePlaying_) return;
     if (playing_) {
         audio_->push(CoreEvent::scene(k, atPass));
         return;
@@ -100,6 +102,7 @@ void App::openClip(int i, int k) {
 // MARK: — ячейки
 
 void App::tapCell(int i, int k) {
+    if (arrangePlaying_) return;
     if (i >= int(project_.tracks.size())) return;
     selectTrack(i);
     openClip(i, k);
@@ -267,6 +270,7 @@ void App::setGridTop(int top) {
 
 void App::togglePatterns() {
     patternView_ = !patternView_;
+    if (patternView_) closeArrange();
     if (patternView_) browser_.reset();
     if (patternView_ && channel_ == Channel::master) closeMasterWindow();
     if (patternView_) mixerOpen_ = false;
