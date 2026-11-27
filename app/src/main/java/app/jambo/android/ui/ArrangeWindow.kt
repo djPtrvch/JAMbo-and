@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,17 +30,20 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import app.jambo.android.AppNative
 import app.jambo.android.AppNative.Act
 import app.jambo.android.MidiTarget
+import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
 internal data class ArrangeViewport(val x: Float = 0f, val y: Float = 0f, val stepWidth: Float = 0f)
+private data class CarryTarget(val step: Int, val insert: Boolean, val outline: Rect)
 
 internal sealed interface ArrangeMenu {
     data object Grid : ArrangeMenu
@@ -71,6 +75,7 @@ internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, ste
     val bpm = (s.top[0] / 10.0).coerceAtLeast(20.0)
     val stepSeconds = 15.0 / bpm
     var refDrag by remember { mutableStateOf<Double?>(null) }
+    var timelineFrame by remember { mutableStateOf(Rect.Zero) }
     val theme = LocalTheme.current
     var port by remember { mutableStateOf(ArrangeViewport()) }
     var menu by remember { mutableStateOf<ArrangeMenu?>(null) }
@@ -124,7 +129,50 @@ internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, ste
             val stepDuration by rememberUpdatedState(stepSeconds)
             val names = s.trackNames
             val take = remember(s.arrangePosition.toInt(), s.revision) { AppNative.arrangeTake() }
-            Canvas(Modifier.width(timelineWidth).fillMaxHeight().clipToBounds().pointerInput(Unit) {
+            val carry = s.arrangeCarry
+            val target = carry?.let { move ->
+                val local = move.point - timelineFrame.topLeft
+                val lane = d.tracks.getOrNull(move.track)
+                if (lane == null || local.y < geometry.rulerBottom ||
+                    local.y > timelineFrame.height || local.x < geometry.header || local.x > timelineFrame.width) null
+                else with(density) {
+                    val near = lane.blocks.firstOrNull { abs(geometry.x(it.start.toFloat()) - local.x) < 16.dp.toPx() }
+                    val step = floor(geometry.step(local.x)).toInt().coerceAtLeast(0)
+                    val at = near?.start ?: if (d.snap) (step + d.gridSteps / 2) / d.gridSteps * d.gridSteps else step
+                    val y = geometry.rowTop(move.track)
+                    CarryTarget(at, near != null, Rect(geometry.x(at.toFloat()), y,
+                        geometry.x((at + move.length).toFloat()), y + geometry.row - geometry.gap))
+                }
+            }
+            LaunchedEffect(carry?.released, timelineFrame) {
+                if (carry?.released == true && timelineFrame != Rect.Zero) {
+                    if (target != null) s.arrangeAct(ArrangeAct.CARRY, carry.track, carry.clip, target.step,
+                        if (target.insert) 1 else 0)
+                    s.arrangeCarry = null
+                }
+            }
+            LaunchedEffect(carry?.pointer) {
+                if (carry == null) return@LaunchedEffect
+                val reach = with(density) { 40.dp.toPx() }
+                val shift = with(density) { 14.dp.toPx() }
+                while (true) {
+                    delay(33)
+                    val finger = s.arrangeCarry ?: break
+                    if (finger.released) break
+                    val local = finger.point - timelineFrame.topLeft
+                    if (local.y !in geo.rulerBottom..timelineFrame.height) continue
+                    val delta = when {
+                        local.x < geo.header + reach && local.x >= 0 -> -shift
+                        local.x > timelineFrame.width - reach && local.x <= timelineFrame.width -> shift
+                        else -> 0f
+                    }
+                    if (delta != 0f) port = port.copy(x = (port.x + delta).coerceAtLeast(0f))
+                }
+            }
+            Canvas(Modifier.width(timelineWidth).fillMaxHeight().clipToBounds()
+                .onGloballyPositioned { coordinates ->
+                    s.body?.takeIf { it.isAttached }?.let { timelineFrame = it.localBoundingBoxOf(coordinates) }
+                }.pointerInput(Unit) {
                 var lastTap = -1_000L
                 var lastPos = Offset.Zero
                 awaitEachGesture {
@@ -307,7 +355,7 @@ internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, ste
                 }
             }) {
                 drawArrangeTimeline(geometry, d, s, sectionNames, theme, names, measure, text, take,
-                    group, marquee, outline, reference, refDrag, bpm, stepSeconds)
+                    group, marquee, outline ?: target?.outline, reference, refDrag, bpm, stepSeconds)
             }
             if (reference != null) {
                 InkButton(if (d.refB) "B" else "A", d.refB, Modifier.align(Alignment.TopStart).width(44.dp)

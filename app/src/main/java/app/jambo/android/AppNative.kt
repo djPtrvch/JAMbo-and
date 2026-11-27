@@ -176,6 +176,7 @@ object AppNative {
     external fun arrangeRefOffset(offset: Double)
     external fun arrangeRenameSection(index: Int, title: String)
     external fun arrangeClips(track: Int): IntArray
+    external fun arrangeCarryLength(track: Int, clip: Int): Int
     external fun arrangeAutoParams(track: Int, existing: Boolean): Array<String>
     external fun arrangeAutoPoints(track: Int, lane: String): DoubleArray
     external fun arrangeSetAuto(track: Int, lane: String, points: DoubleArray)

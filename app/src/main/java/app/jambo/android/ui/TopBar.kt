@@ -163,15 +163,6 @@ private fun Toggle(title: String, on: Boolean, modifier: Modifier, action: () ->
     }
 }
 
-/** Кнопка следующих этапов: подпись серая, не нажимается. */
-@Composable
-private fun Later(title: String, modifier: Modifier) {
-    val th = LocalTheme.current
-    Box(modifier.fillMaxHeight().tile(th.panel2), contentAlignment = Alignment.Center) {
-        Text(title, color = th.dim, fontSize = 13.tsp(), fontWeight = FontWeight.Bold, maxLines = 1)
-    }
-}
-
 @Composable
 private fun Glyph(symbol: String, enabled: Boolean, modifier: Modifier, action: () -> Unit) {
     val th = LocalTheme.current

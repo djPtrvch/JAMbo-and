@@ -8,7 +8,7 @@ namespace {
 enum class Command {
     toggle, seek, select, add, insert, move, resize, duplicate, remove, split, grid, snap,
     loop, loopRange, steps, autoPanel, row, color, section, sectionStart, sectionEnd, deleteSection, record,
-    copyBlock, pasteBlock, trackClipboard, refToggle, refLoad, refDelete, refB, clipToArrange
+    copyBlock, pasteBlock, trackClipboard, refToggle, refLoad, refDelete, refB, clipToArrange, carry
 };
 }
 
@@ -47,6 +47,11 @@ FN(void, arrangeAct)(JNIEnv*, jobject, jint command, jint a, jint b, jint c, jin
     case Command::refDelete: app.deleteArrangeReference(); break;
     case Command::refB: app.toggleArrangeReferenceB(); break;
     case Command::clipToArrange: app.sendClipToArrange(a, b); break;
+    case Command::carry: {
+        const int length = app.arrangeCarryLength(a, b);
+        if (length > 0) app.addArrangeBlock(a, b, c, d != 0, length);
+        break;
+    }
     }
 }
 
@@ -176,6 +181,11 @@ FN(jintArray, arrangeClips)(JNIEnv* env, jobject, jint track) {
         for (int i = 0; i < p.visibleRows(); ++i) if (t.clipFilled(i)) ids.push_back(i);
     }
     return jniInts(env, ids);
+}
+
+FN(jint, arrangeCarryLength)(JNIEnv*, jobject, jint track, jint clip) {
+    std::lock_guard<std::mutex> lock(jniLock());
+    return jniApp().arrangeCarryLength(track, clip);
 }
 
 FN(jobjectArray, arrangeAutoParams)(JNIEnv* env, jobject, jint track, jboolean existing) {

@@ -32,10 +32,12 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.jambo.android.AppNative.Act
+import app.jambo.android.AppNative
 import app.jambo.android.MidiTarget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -98,6 +100,7 @@ fun PatternGrid(s: ScreenState, modifier: Modifier, width: Float) {
         val ui = remember { GridUi() }
         val scope = rememberCoroutineScope()
         Box(Modifier.width((g.w - g.step - Layout.gap).dp).fillMaxHeight()
+            .onGloballyPositioned { s.patternTouchArea = it }
             .pointerInput(g.w, g.h, d.tracks) { gridTouches(s, g, ui, scope, density) }) {
             for (r in 0 until d.windowRows) {
                 val k = d.rows[r]
@@ -201,6 +204,21 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.gridTouc
                         if (dragId != null && dragId != c.id) { c.consume(); continue }
                         if (dragId == null && hypot(dx, dy) <= 8) { c.consume(); continue }
                         dragId = c.id
+                        val body = s.body
+                        val field = s.patternTouchArea
+                        val button = s.topRects["arrange"]
+                        if (body?.isAttached == true && field?.isAttached == true && button != null) {
+                            val rootPoint = body.localPositionOf(field, c.position)
+                            if (button.contains(rootPoint)) {
+                                val length = AppNative.arrangeCarryLength(h.track, h.row)
+                                if (length > 0) {
+                                    s.arrangeCarry = ArrangeCarry(c.id, h.track, h.row, length, rootPoint)
+                                    s.arrangeAct(ArrangeAct.TOGGLE)
+                                    c.consume()
+                                    continue
+                                }
+                            }
+                        }
                         ui.dragCell = h
                         ui.ghost = Offset(x, y)
                         val t = hit(g, d, x, y)

@@ -966,6 +966,12 @@ void arrangerApp() {
     app.togglePlay();
     app.togglePlay();
     check(!app.arrangePlaying(), "arrange app: PLAY in PATTERNS starts the grid");
+    app.togglePlay();
+    app.toggleArrange();
+    app.addArrangeBlock(0, slot, 4, true, 20);
+    const auto& blocks = app.project().tracks[0].blocks;
+    check(blocks.size() == 2 && blocks[0].start == 4 && blocks[0].length == 20 && blocks[1].start >= 24,
+          "arrange app: dropping on a junction inserts a block and shifts later blocks");
 }
 
 void arrangerRecording() {

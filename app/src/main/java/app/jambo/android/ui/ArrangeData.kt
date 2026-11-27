@@ -1,6 +1,8 @@
 package app.jambo.android.ui
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerId
 import app.jambo.android.AppNative
 
 internal object ArrangeAct {
@@ -35,7 +37,13 @@ internal object ArrangeAct {
     const val REF_DELETE = 28
     const val REF_B = 29
     const val CLIP_TO_ARRANGE = 30
+    const val CARRY = 31
 }
+
+internal data class ArrangeCarry(
+    val pointer: PointerId, val track: Int, val clip: Int, val length: Int, val point: Offset,
+    val released: Boolean = false,
+)
 
 internal fun ScreenState.arrangeAct(command: Int, a: Int = 0, b: Int = 0, c: Int = 0, d: Int = 0) {
     AppNative.arrangeAct(command, a, b, c, d)

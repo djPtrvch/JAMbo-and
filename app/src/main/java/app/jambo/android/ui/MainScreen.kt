@@ -35,6 +35,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import app.jambo.android.AppNative
@@ -124,7 +125,18 @@ private fun Body(s: ScreenState, th: Theme, controllerActions: ControllerActions
     var pagesRect by remember { mutableStateOf(Rect.Zero) }
     var gridRect by remember { mutableStateOf(Rect.Zero) }
     var renaming by remember { mutableStateOf(-1) }
-    Box(Modifier.fillMaxSize().padding(horizontal = Layout.side.dp).onGloballyPositioned { body = it; s.body = it }) {
+    Box(Modifier.fillMaxSize().padding(horizontal = Layout.side.dp).onGloballyPositioned { body = it; s.body = it }
+        .pointerInput(s) {
+            awaitPointerEventScope {
+                while (true) {
+                    val event = awaitPointerEvent(PointerEventPass.Final)
+                    val carry = s.arrangeCarry ?: continue
+                    if (carry.released) continue
+                    val pointer = event.changes.firstOrNull { it.id == carry.pointer } ?: continue
+                    s.arrangeCarry = carry.copy(point = pointer.position, released = !pointer.pressed)
+                }
+            }
+        }) {
         val lowerPanel: @Composable () -> Unit = {
             Box(Modifier.onGloballyPositioned { c ->
                 body?.let { b -> if (b.isAttached) s.tracksRect = b.localBoundingBoxOf(c) }
@@ -132,9 +144,11 @@ private fun Body(s: ScreenState, th: Theme, controllerActions: ControllerActions
             SequencerRow(s)
             KeyboardPanel(s, width)
         }
+        val showArrange = s.arrange[0] != 0 && s.lib[0] == 0 && s.eq[0] == 0 && !s.sampleEditor &&
+            s.masterWin[0] < 0 && s.masterWin.getOrElse(7) { 0 } == 0
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
             TopBar(s) { s.mainMenu = !s.mainMenu }
-            if (s.arrange[0] != 0 && s.lib[0] == 0) ArrangeWindow(s, width, Modifier.weight(1f).fillMaxWidth(), lowerPanel)
+            if (showArrange) ArrangeWindow(s, width, Modifier.weight(1f).fillMaxWidth(), lowerPanel)
             else if (s.grid[0] != 0) PatternGrid(s, Modifier.weight(1f).fillMaxWidth(), width)
             else if (s.masterWin[0] >= 0) Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
                 MasterWindow(s, Modifier.weight(1f).fillMaxHeight())
@@ -168,7 +182,7 @@ private fun Body(s: ScreenState, th: Theme, controllerActions: ControllerActions
                 }
                 MeterColumn(s, Modifier.fillMaxHeight())
             }
-            if (s.arrange[0] == 0 || s.lib[0] != 0) lowerPanel()
+            if (!showArrange) lowerPanel()
         }
         if (s.sound[2] != 0) SoundMenuOverlay(s, left)
         if (s.pageMenu >= 0) PageMenuOverlay(s, pagesRect)

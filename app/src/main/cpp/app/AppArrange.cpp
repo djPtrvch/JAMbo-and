@@ -100,13 +100,20 @@ void App::selectArrangeBlock(int t, int b) {
     selectTrack(t);
 }
 
-void App::addArrangeBlock(int t, int clip, int step, bool insert) {
+int App::arrangeCarryLength(int t, int clip) const {
+    if (t < 0 || t >= int(project_.tracks.size()) || !project_.tracks[size_t(t)].clipFilled(clip)) return 0;
+    const int reps = clip < int(project_.scenes.size()) ? std::max(1, project_.scenes[size_t(clip)].repeats) : 1;
+    return project_.tracks[size_t(t)].clipSteps(clip) * reps;
+}
+
+void App::addArrangeBlock(int t, int clip, int step, bool insert, std::optional<int> length) {
     if (t < 0 || t >= int(project_.tracks.size()) || !project_.tracks[size_t(t)].clipFilled(clip)) return;
-    const int at = project_.arrange.snapped(std::clamp(step, 0, 1'000'000));
+    const int safe = std::clamp(step, 0, 1'000'000);
+    const int at = insert ? safe : project_.arrange.snapped(safe);
     int result = -1;
     edit([&](Project& p) {
         auto& tr = p.tracks[size_t(t)];
-        result = insert ? tr.insertBlock(clip, at) : tr.addBlock(clip, at);
+        result = insert ? tr.insertBlock(clip, at, length) : tr.addBlock(clip, at, length);
     });
     if (result >= 0) selectArrangeBlock(t, result);
 }

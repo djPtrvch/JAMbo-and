@@ -406,7 +406,8 @@ public:
     void toggleArrange();
     void seekArrange(int step);
     void selectArrangeBlock(int track, int block);
-    void addArrangeBlock(int track, int clip, int step, bool insert);
+    void addArrangeBlock(int track, int clip, int step, bool insert, std::optional<int> length = std::nullopt);
+    int arrangeCarryLength(int track, int clip) const;
     void moveArrangeBlock(int track, int block, int step);
     void resizeArrangeBlock(int track, int block, int begin, int end);
     void duplicateArrangeBlock(int track, int block);
