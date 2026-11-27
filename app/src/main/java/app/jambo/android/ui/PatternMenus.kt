@@ -210,7 +210,7 @@ private fun GridMenu(s: ScreenState, d: GridData, modifier: Modifier) {
 
 /** Значок LOOP ROW (как «повтор»): прямоугольная петля со скруглением, вверху стрелка вправо, внизу — влево. */
 @Composable
-private fun LoopIcon(color: androidx.compose.ui.graphics.Color) {
+internal fun LoopIcon(color: androidx.compose.ui.graphics.Color) {
     val k = LocalIconScale.current
     androidx.compose.foundation.Canvas(Modifier.size((18 * k).dp, (13 * k).dp)) {
         val w = size.width

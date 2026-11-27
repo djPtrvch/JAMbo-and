@@ -24,6 +24,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
@@ -68,13 +69,14 @@ sealed class GridHit {
 @Composable
 fun PatternGrid(s: ScreenState, modifier: Modifier, width: Float) {
     val d = GridData(s.grid)
+    val phone = LocalConfiguration.current.smallestScreenWidthDp < 600
     BoxWithConstraints(modifier) {
         val g = GridGeom(maxWidth.value, maxHeight.value, Layout.step(width), d.tracks, d.windowRows)
         val ui = remember { GridUi() }
         val scope = rememberCoroutineScope()
         Box(Modifier.width((g.w - g.step - Layout.gap).dp).fillMaxHeight()
             .onGloballyPositioned { s.patternTouchArea = it }
-            .pointerInput(g.w, g.h, d.tracks) { gridTouches(s, g, ui, scope, density) }) {
+            .pointerInput(g.w, g.h, d.tracks, phone) { gridTouches(s, g, ui, scope, density, phone) }) {
             for (r in 0 until d.windowRows) {
                 val k = d.rows[r]
                 if (k >= 0) {

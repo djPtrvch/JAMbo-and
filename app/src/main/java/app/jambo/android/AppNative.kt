@@ -164,6 +164,10 @@ object AppNative {
     external fun midiNoteFrom(note: Int, velocity: Int, identity: Int)
 
     external fun sampleEditorTexts(): Array<String>
+    external fun setAdditionalSettings(
+        repeats: Boolean, recordFromStart: Boolean, stretchBeat: Boolean, sends: Int, click: Int,
+    )
+    external fun paintDrumSteps(first: Int, last: Int): Boolean
     external fun songSeconds(): Double
     external fun prepareSong(): Boolean
     external fun renderSongFile(path: String, codec: Int, depth: Int, rate: Int, tail: Int): Int

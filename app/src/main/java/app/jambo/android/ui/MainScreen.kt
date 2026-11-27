@@ -49,6 +49,7 @@ import app.jambo.android.BleMidiPeripheral
 @Composable
 fun MainScreen(midi: MidiHub, ble: BleMidiPeripheral, scan: () -> Unit, advertise: (Boolean) -> Unit, link: (Boolean) -> Unit) {
     val s = remember(midi) { ScreenState(midi) }
+    LoadArrangePreferences(s)
     val controllerActions = remember(ble, scan, advertise, link) { ControllerActions(ble, scan, advertise, link) }
     val dark = when (s.theme) { 1 -> false; 2 -> true; else -> isSystemInDarkTheme() }
     val th = if (dark) Theme.dark else Theme.light

@@ -66,7 +66,7 @@ FN(jintArray, arrangeData)(JNIEnv* env, jobject) {
         int(a.loop), a.loopFrom, a.loopTo, p.arrangeEnd(), selected ? selected->first : -1,
         selected ? selected->second : -1, jint(p.tracks.size()), jint(a.markers.size()),
         int(app.hasArrangeBlockCopy()), int(app.hasArrangeTrackCopy()), int(app.arrangeRecording()),
-        int(a.showRef && a.ref.has_value()), int(app.arrangeReferenceB())};
+        int(a.showRef && a.ref.has_value()), int(app.arrangeReferenceB()), int(app.arrangePlaying())};
     for (const auto& marker : a.markers)
         values.insert(values.end(), {marker.at, marker.end.value_or(-1), marker.color});
     for (const auto& track : p.tracks) {
@@ -300,4 +300,15 @@ FN(void, arrangeSendSelection)(JNIEnv* env, jobject, jintArray selection, jint s
     if (env->ExceptionCheck() || mode < 0 || mode > 2) return;
     std::lock_guard<std::mutex> lock(jniLock());
     jniApp().sendSelectionToArrange(selected, step, mode);
+}
+
+FN(void, setAdditionalSettings)(JNIEnv*, jobject, jboolean repeats, jboolean recordFromStart,
+                                jboolean stretchBeat, jint sends, jint click) {
+    std::lock_guard<std::mutex> lock(jniLock());
+    jniApp().setAdditionalSettings(repeats, recordFromStart, stretchBeat, sends, click);
+}
+
+FN(jboolean, paintDrumSteps)(JNIEnv*, jobject, jint first, jint last) {
+    std::lock_guard<std::mutex> lock(jniLock());
+    return jniApp().paintDrumSteps(first, last);
 }

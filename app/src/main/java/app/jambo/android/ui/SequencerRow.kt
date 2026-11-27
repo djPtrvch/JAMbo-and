@@ -30,6 +30,7 @@ import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.jambo.android.AppNative
 import app.jambo.android.AppNative.Act
 import app.jambo.android.StepBits
 import app.jambo.android.MidiTarget
@@ -96,6 +97,13 @@ private class SeqTouches(val s: ScreenState) {
         val p = presses[id] ?: return
         if (p.secondary) return
         if (col == p.col && !p.dragged) return
+        val base = p.index - p.col
+        if (s.arrangePreferences.drumPaint && AppNative.paintDrumSteps(base + minOf(p.col, col), base + maxOf(p.col, col))) {
+            p.dragged = true
+            p.used = true
+            s.refresh()
+            return
+        }
         if (col < p.col) return
         p.dragged = true
         p.used = true

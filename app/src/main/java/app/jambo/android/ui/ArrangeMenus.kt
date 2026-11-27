@@ -36,13 +36,7 @@ internal fun ArrangeMenus(s: ScreenState, d: ArrangeData, menu: ArrangeMenu, sec
         Column(Modifier.width(340.dp).fillMaxHeight(0.74f).menuBox().padding(8.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(6.dp)) {
             when (menu) {
-                ArrangeMenu.Grid -> {
-                    MenuHead("GRID")
-                    listOf("1 BAR", "1/2", "1/4", "1 STEP").forEachIndexed { i, title ->
-                        MenuItem(title, current = d.grid == i) { action(ArrangeAct.GRID, i) }
-                    }
-                    MenuItem("SNAP TO GRID", current = d.snap) { action(ArrangeAct.SNAP) }
-                }
+                ArrangeMenu.Grid -> Unit
                 is ArrangeMenu.Block -> {
                     val block = d.tracks.getOrNull(menu.track)?.blocks?.getOrNull(menu.block)
                     MenuHead(block?.let { s.sceneNames.getOrNull(it.clip).takeUnless { it.isNullOrEmpty() } ?: (it.clip + 1).toString() } ?: "BLOCK")

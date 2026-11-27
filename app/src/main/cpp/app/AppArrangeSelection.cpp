@@ -9,21 +9,21 @@ void App::sendSelectionToArrange(const GridSelection& selection, int step, int m
         : project_.arrange.snapped(step < 0 ? arrangeCursor_ : std::min(step, 1'000'000));
     if (mode == 1) {
         Project probe = project_;
-        const auto end = probe.selectionToArrange(selection, at);
+        const auto end = probe.selectionToArrange(selection, at, arrangeRepeats_);
         if (!end) return;
         edit([&](Project& p) {
             p.insertArrangeSpace(at, *end - at);
-            p.selectionToArrange(selection, at);
+            p.selectionToArrange(selection, at, arrangeRepeats_);
         });
     } else {
-        edit([&](Project& p) { p.selectionToArrange(selection, at); });
+        edit([&](Project& p) { p.selectionToArrange(selection, at, arrangeRepeats_); });
     }
 }
 
 std::vector<int> App::previewGridSelection(const GridSelection& selection, int step) const {
     Project probe = project_;
     const int at = project_.arrange.snapped(std::clamp(step, 0, 1'000'000));
-    const auto end = probe.selectionToArrange(selection, at);
+    const auto end = probe.selectionToArrange(selection, at, arrangeRepeats_);
     std::vector<int> result{0};
     if (!end) return result;
     for (size_t t = 0; t < project_.tracks.size(); ++t) {

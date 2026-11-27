@@ -1054,6 +1054,32 @@ void arrangerRecording() {
     check(app.project().tracks[0].blocks.empty(), "arrange record: UNDO removes the take in one edit");
 }
 
+void arrangerSettings() {
+    CoreAudio audio;
+    App app(&audio);
+    app.toggleStep(0);
+    const int row = app.project().tracks[0].slot;
+    app.setScene(row, "Verse", 3);
+    const int pass = app.project().tracks[0].clipSteps(row);
+    check(app.arrangeCarryLength(0, row) == 3 * pass, "arrange settings: ROW REPEATS defaults to on");
+    app.setAdditionalSettings(false, true, true, 3, 150);
+    check(app.arrangeCarryLength(0, row) == pass, "arrange settings: ROW REPEATS off carries one pass");
+    GridSelection group;
+    group.rows.insert(row);
+    app.sendSelectionToArrange(group, 0, 0);
+    check(app.project().arrangeEnd() == pass, "arrange settings: group transfer uses ROW REPEATS too");
+    app.seekArrange(24);
+    app.toggleArrangeRecord();
+    app.togglePlay();
+    audio.run(512);
+    app.tick(0.01);
+    check(app.arrangeRecording() && app.arrangePosition() == 0,
+          "arrange settings: BEGINNING starts grid recording at zero");
+    const auto* sound = audio.core.sampler.sound();
+    check(sound && sound->stretchAlgo == 2 && sound->scSend[0] > 0 && sound->scSend[1] > 0 && sound->scSend[2] == 0 &&
+          audio.core.sequencer.metronomeGain() == 1.5, "settings: Stretch, Duck sends and click level reach audio");
+}
+
 void arrangerReference() {
     const auto dir = std::filesystem::temp_directory_path() / ("jambo-ref-" + Library::newId());
     CoreAudio audio;
@@ -1291,6 +1317,7 @@ int runAppTests() {
     sampleEditor();
     arrangerApp();
     arrangerRecording();
+    arrangerSettings();
     arrangerSelectionTransfer();
     songRender();
     arrangerReference();

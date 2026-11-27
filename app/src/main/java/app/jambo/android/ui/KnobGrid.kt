@@ -181,7 +181,7 @@ fun KnobGrid(s: ScreenState, modifier: Modifier) {
                         val row = (c.position.y / (size.height / 4f)).toInt().coerceIn(0, 3)
                         when {
                             c.changedToDown() -> {
-                                val slot = row * 4 + col
+                                val slot = if (s.tracks[2] != 1 && s.arrangePreferences.knobColumns) col * 4 + row else row * 4 + col
                                 val cw = (size.width - 3 * SPACING * density) / 4 / density
                                 val ch = (size.height - 3 * SPACING * density) / 4 / density
                                 val local = androidx.compose.ui.geometry.Offset(
@@ -216,13 +216,13 @@ fun KnobGrid(s: ScreenState, modifier: Modifier) {
             Row(Modifier.weight(1f).fillMaxWidth().zIndex(if (s.liftSlot >= 0 && s.liftSlot / 4 == row) 1f else 0f),
                 horizontalArrangement = Arrangement.spacedBy(SPACING.dp)) {
                 for (col in 0 until 4) {
-                    val k = row * 4 + col
+                    val mixCell = s.tracks[2] == 1
+                    val k = if (!mixCell && s.arrangePreferences.knobColumns) col * 4 + row else row * 4 + col
                     val o = k * KNOB_STRIDE
                     val v = s.knobs
                     val lfo = v[o + 6].toInt()
                     val mod = if (lfo > 0) s.modNorms[k].takeIf { it >= 0 } else null
                     val modText = if (mod != null) s.modTexts[k] else ""
-                    val mixCell = s.tracks[2] == 1
                     // Перестановка в MIX: поднятая ручка идёт за пальцем (чуть крупнее, над остальными), дорожки между
                     // ней и местом под пальцем плавно сдвигаются на соседние места.
                     val from = s.liftSlot
@@ -235,8 +235,8 @@ fun KnobGrid(s: ScreenState, modifier: Modifier) {
                     }
                     val cw = (gridSize.width + sp) / 4f
                     val ch = (gridSize.height + sp) / 4f
-                    val sx by animateFloatAsState(((dest % 4) - col) * cw, label = "mixShiftX")
-                    val sy by animateFloatAsState(((dest / 4) - row) * ch, label = "mixShiftY")
+                    val sx by animateFloatAsState(if (mixCell) ((dest % 4) - col) * cw else 0f, label = "mixShiftX")
+                    val sy by animateFloatAsState(if (mixCell) ((dest / 4) - row) * ch else 0f, label = "mixShiftY")
                     val lifted = k == from
                     val cellMod = Modifier.zIndex(if (lifted) 1f else 0f).graphicsLayer {
                         if (lifted) {

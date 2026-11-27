@@ -12,6 +12,7 @@ import app.jambo.android.AppNative
  */
 class ScreenState(val midi: app.jambo.android.MidiHub) {
     internal val song = SongExportUi()
+    internal var arrangePreferences by mutableStateOf(ArrangePreferences())
     var top by mutableStateOf(IntArray(6)); private set
     var topTexts by mutableStateOf(arrayOf("", "")); private set
     var tracks by mutableStateOf(IntArray(3)); private set

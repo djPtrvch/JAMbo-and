@@ -81,11 +81,12 @@ internal class ArrangeData(raw: IntArray) {
     val recording = raw[15] != 0
     val ref = raw[16] != 0
     val refB = raw[17] != 0
+    val playingTimeline = raw[18] != 0
     val sections: List<ArrangeSection>
     val tracks: List<ArrangeTrack>
 
     init {
-        var i = 18
+        var i = 19
         fun read() = raw[i++]
         sections = List(raw[12]) { ArrangeSection(read(), read(), read()) }
         tracks = List(raw[11]) {

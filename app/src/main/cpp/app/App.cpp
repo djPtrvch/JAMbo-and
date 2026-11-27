@@ -217,6 +217,8 @@ SoundSnapshot::Options App::soundOptions(const ProjectAssets& assets) {
     ensureSamples(assets.samples);
     o.map = sliceMap_;
     o.warpFollow = warpFollow_;
+    o.stretchBeat = stretchBeat_;
+    o.scSends = {bool(duckSends_ & 1), bool(duckSends_ & 2), bool(duckSends_ & 4)};
     o.levelRelative = levelRelative_;
     return o;
 }

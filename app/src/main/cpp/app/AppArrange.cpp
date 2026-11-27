@@ -43,6 +43,7 @@ void App::prepareArrangePlay() {
         if (arrangement.loop && arrangement.hasLoop()) from = arrangement.loopFrom;
         else if (project_.arrangeEnd() > 0 && from >= project_.arrangeEnd()) from = arrangeCursor_ = 0;
     }
+    if (!arrangePlaying_ && arrangeRecordArmed_ && arrangeRecordFromStart_) from = arrangeCursor_ = 0;
     arrangeLive_ = from;
     arrangeLiveTime_ = now_;
     arrangeTick_ = -1;
@@ -102,7 +103,7 @@ void App::selectArrangeBlock(int t, int b) {
 
 int App::arrangeCarryLength(int t, int clip) const {
     if (t < 0 || t >= int(project_.tracks.size()) || !project_.tracks[size_t(t)].clipFilled(clip)) return 0;
-    const int reps = clip < int(project_.scenes.size()) ? std::max(1, project_.scenes[size_t(clip)].repeats) : 1;
+    const int reps = arrangeRepeats_ && clip < int(project_.scenes.size()) ? std::max(1, project_.scenes[size_t(clip)].repeats) : 1;
     return project_.tracks[size_t(t)].clipSteps(clip) * reps;
 }
 
@@ -261,14 +262,14 @@ void App::toggleArrangeSteps() {
 void App::sendRowToArrange(int row, std::optional<int> step) {
     if (row < 0 || row >= project_.visibleRows()) return;
     const int at = project_.arrange.snapped(step.value_or(arrangeCursor_));
-    edit([&](Project& p) { p.rowToArrange(row, at); });
+    edit([&](Project& p) { p.rowToArrange(row, at, arrangeRepeats_); });
 }
 
 void App::sendClipToArrange(int track, int row) {
     if (track < 0 || track >= int(project_.tracks.size()) || row < 0 || row >= project_.visibleRows()) return;
     const int at = project_.arrange.snapped(arrangeCursor_);
     edit([&](Project& p) {
-        const int repeats = row < int(p.scenes.size()) ? p.scenes[size_t(row)].repeats : 1;
+        const int repeats = arrangeRepeats_ && row < int(p.scenes.size()) ? p.scenes[size_t(row)].repeats : 1;
         p.placeRow(row, {track}, repeats, at);
     });
 }

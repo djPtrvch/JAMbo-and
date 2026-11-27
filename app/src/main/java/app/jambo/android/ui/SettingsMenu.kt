@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -20,7 +22,10 @@ import app.jambo.android.Native
 import kotlinx.coroutines.delay
 
 /** Вкладки SETTINGS — только те, чьи функции уже есть (порядок — как в Swift-версии); остальные — с функциями. */
-private val TABS = listOf("RECORD", "SAMPLER", "RANDOM", "MORPH", "LEVEL", "APPEARANCE", "AUDIO ENGINE")
+private enum class SettingsSection(val title: String) {
+    RECORD("RECORD"), SAMPLER("SAMPLER"), ARRANGE("ARRANGE"), MORPH("MORPH"), RANDOM("RANDOM"),
+    LEVEL("LEVEL"), DUCK("DUCK"), APPEARANCE("APPEARANCE"), ENGINE("AUDIO ENGINE")
+}
 
 /** SETTINGS (SettingsMenu.swift): стрелка назад; подпись SECTIONS и вкладки по 3 в ряд; ниже, с чертой, — вкладка.
  *  Настройки — на устройстве (SharedPreferences), общие для проектов. */
@@ -31,19 +36,20 @@ fun SettingsPage(s: ScreenState, back: () -> Unit) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(end = 6.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             FieldLabel("SECTIONS")
-            for (r in TABS.indices step 3) {
-                val row = TABS.subList(r, minOf(r + 3, TABS.size))
-                MenuChoices(row.mapIndexed { i, t -> t to (s.settingsTab == r + i) }) { s.settingsTab = r + it }
+            SettingsSection.entries.chunked(3).forEach { row ->
+                MenuChoices(row.map { it.title to (s.settingsTab == it.ordinal) }) { s.settingsTab = row[it].ordinal }
             }
             Divider()
-            when (s.settingsTab) {
-                0 -> RecordTab(s)
-                1 -> SamplerTab(s)
-                2 -> RandomTab(s)
-                3 -> MorphTab(s)
-                4 -> LevelTab(s)
-                5 -> AppearanceTab(s)
-                else -> EngineTab()
+            when (SettingsSection.entries.getOrElse(s.settingsTab) { SettingsSection.RECORD }) {
+                SettingsSection.RECORD -> RecordTab(s)
+                SettingsSection.SAMPLER -> SamplerTab(s)
+                SettingsSection.ARRANGE -> ArrangeTab(s)
+                SettingsSection.MORPH -> MorphTab(s)
+                SettingsSection.RANDOM -> RandomTab(s)
+                SettingsSection.LEVEL -> LevelTab(s)
+                SettingsSection.DUCK -> DuckTab(s)
+                SettingsSection.APPEARANCE -> AppearanceTab(s)
+                SettingsSection.ENGINE -> EngineTab()
             }
         }
     }
@@ -54,10 +60,32 @@ private fun RecordTab(s: ScreenState) {
     val st = s.settings
     ToggleRow("QUANTIZE", st[0] != 0) { s.act(Act.SET_RECORD_SETTINGS, if (it) 1 else 0, st[1]) }
     MenuNote("ON: a note played with REC lands on the nearest step. OFF: on the step where it was played.")
+    val p = s.arrangePreferences
+    FieldLabel("ARRANGE REC START")
+    MenuChoices(listOf("PLAYHEAD" to !p.recordFromStart, "BEGINNING" to p.recordFromStart)) {
+        s.arrangePreferences = p.copy(recordFromStart = it == 1)
+    }
+    MenuNote("When recording PATTERNS into the arrangement, start at the playhead or at the beginning.")
+    ToggleRow("DRUM STEP PAINT", p.drumPaint) { s.arrangePreferences = p.copy(drumPaint = it) }
+    MenuNote("On drum and sample tracks, dragging along the step row triggers each step you pass.")
+    FieldLabel("METRONOME · ${p.clickLevel}%")
+    val th = LocalTheme.current
+    Slider(value = p.clickLevel.toFloat(), onValueChange = {
+        s.arrangePreferences = p.copy(clickLevel = it.toInt())
+    }, valueRange = 0f..200f, modifier = Modifier.fillMaxWidth(),
+        colors = SliderDefaults.colors(thumbColor = th.accent, activeTrackColor = th.accent, inactiveTrackColor = th.line))
+    MenuNote("100% is the usual click level. The range is 0–200%.")
+
 }
 
 @Composable
 private fun SamplerTab(s: ScreenState) {
+    val p = s.arrangePreferences
+    FieldLabel("STRETCH")
+    MenuChoices(listOf("NORMAL" to !p.stretchBeat, "BEAT" to p.stretchBeat)) {
+        s.arrangePreferences = p.copy(stretchBeat = it == 1)
+    }
+    MenuNote("NORMAL works for all material. BEAT uses less CPU and suits drum loops.")
     val map = s.settings[6]
     val follow = s.settings[7]
     FieldLabel("SLICE NOTES")
@@ -65,6 +93,33 @@ private fun SamplerTab(s: ScreenState) {
     MenuNote("CHROMATIC assigns slices by semitone. SCALE follows the project's scale from its root in octave 3.")
     ToggleRow("WARP TO PROJECT BPM", follow != 0) { s.act(Act.SET_SAMPLER_SETTINGS, map, if (it) 1 else 0) }
     MenuNote("Opening WARP for a sample without a file BPM sets it to the project tempo.")
+}
+
+@Composable
+private fun ArrangeTab(s: ScreenState) {
+    val p = s.arrangePreferences
+    FieldLabel("TRACKS")
+    MenuChoices(listOf("FIX" to !p.scaleTracks, "SCALE" to p.scaleTracks)) {
+        s.arrangePreferences = p.copy(scaleTracks = it == 1)
+    }
+    MenuNote("FIX uses the Expanded and Compact buttons under the meter. SCALE resizes track rows with a vertical two-finger pinch.")
+    ToggleRow("FOLLOW PLAYHEAD", p.follow) { s.arrangePreferences = p.copy(follow = it) }
+    MenuNote("Scrolls the arrangement to keep the playhead in view while playing.")
+    ToggleRow("ROW REPEATS", p.rowRepeats) { s.arrangePreferences = p.copy(rowRepeats = it) }
+    MenuNote("Includes pattern row repeats when sending clips to the arrangement. Turn off for one pass per row.")
+}
+
+@Composable
+private fun DuckTab(s: ScreenState) {
+    val p = s.arrangePreferences
+    FieldLabel("DUCK SENDS")
+    listOf("REVERB", "DELAY", "DRIVE").forEachIndexed { i, title ->
+        val bit = 1 shl i
+        ToggleRow(title, p.duckSends and bit != 0) { on ->
+            s.arrangePreferences = p.copy(duckSends = if (on) p.duckSends or bit else p.duckSends and bit.inv())
+        }
+    }
+    MenuNote("Duck attenuates enabled effect sends. Existing effect tails keep playing.")
 }
 
 @Composable
@@ -110,6 +165,8 @@ private fun AppearanceTab(s: ScreenState) {
     val scales = listOf(48, 32, 16)
     MenuChoices(scales.map { "$it dB" to (s.displayScale == it) }) { s.displayScale = scales[it] }
     MenuNote("Zoom of the level displays in the master effect windows (COMP, CLIP, LIM): from 0 dBFS down to −48, −32 or −16 dB.")
+    val p = s.arrangePreferences
+    ToggleRow("KNOB GROUPS IN COLUMNS", p.knobColumns) { s.arrangePreferences = p.copy(knobColumns = it) }
 }
 
 /** AUDIO ENGINE: фактическая частота, буфер и задержка (строка «Now:», раз в 0,5 с). */

@@ -3,8 +3,6 @@ package app.jambo.android.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.calculateCentroid
-import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -36,13 +34,11 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import app.jambo.android.AppNative
 import app.jambo.android.AppNative.Act
-import app.jambo.android.MidiTarget
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
-internal data class ArrangeViewport(val x: Float = 0f, val y: Float = 0f, val stepWidth: Float = 0f)
 private data class CarryTarget(val step: Int, val insert: Boolean, val outline: Rect)
 
 internal sealed interface ArrangeMenu {
@@ -87,6 +83,9 @@ internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, ste
     val measure = rememberTextMeasurer()
     val density = LocalDensity.current
     val header = column() + Layout.gap.dp
+    val preferences = s.arrangePreferences
+    val scaleTracks = preferences.scaleTracks
+    LaunchedEffect(scaleTracks, preferences.compact) { port = port.copy(y = 0f, rowHeight = 0f) }
     val text = 13.tsp()
     fun groupAction(command: Int, delta: Int = 0) {
         val ids = group.flatMap { listOf(it.first, it.second) }.toIntArray()
@@ -96,20 +95,10 @@ internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, ste
     }
 
     Column(modifier, verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-        Row(Modifier.fillMaxWidth().height(Layout.topHeight.dp), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
-            InkButton("▦", menu == ArrangeMenu.Grid, Modifier.weight(1f), Layout.topHeight) { menu = ArrangeMenu.Grid }
-            Tool("TRIM", Modifier.weight(1f)) {
-                if (group.size >= 2) groupAction(3) else s.arrangeAct(ArrangeAct.SPLIT)
-            }
-            Tool("⇤", Modifier.weight(1f)) { s.arrangeAct(ArrangeAct.SEEK, 0) }
-            InkButton("LOOP", d.loop, Modifier.weight(1f), Layout.topHeight) { s.arrangeAct(ArrangeAct.LOOP) }
-            InkButton("AUTO", d.auto, Modifier.weight(1f).midiLearnMark(s, MidiTarget.AUTO), Layout.topHeight) {
-                if (!s.learnTarget(MidiTarget.AUTO)) s.arrangeAct(ArrangeAct.AUTO)
-            }
-            InkButton("KNOBS", knobs, Modifier.weight(1f), Layout.topHeight) { knobs = !knobs }
-            InkButton("STEPS", !d.hideSteps, Modifier.weight(1f), Layout.topHeight) { s.arrangeAct(ArrangeAct.STEPS) }
-            InkButton("REF", d.ref, Modifier.weight(1f), Layout.topHeight) { s.arrangeAct(ArrangeAct.REF) }
-        }
+        ArrangeToolbar(s, d, menu == ArrangeMenu.Grid, knobs,
+            grid = { menu = if (menu == ArrangeMenu.Grid) null else ArrangeMenu.Grid },
+            split = { if (group.size >= 2) groupAction(3) else s.arrangeAct(ArrangeAct.SPLIT) },
+            toggleKnobs = { knobs = !knobs })
         val lower = (Layout.trackHeight + Layout.seqHeight + Layout.keySide(width, s.keys[1].coerceAtLeast(7)) +
             3 * Layout.gap).dp
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
@@ -121,10 +110,29 @@ internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, ste
                 val gap = Layout.gap.dp.toPx()
                 val st = port.stepWidth.takeIf { it > 0 } ?: ((timelineWidth.toPx() - headerPx) / 256).coerceAtLeast(0.1f)
                 val hidden = if (d.auto || !d.hideSteps) lower.toPx() else 0f
-                val row = ((maxHeight.toPx() + hidden - ruler - section + gap) / 8).coerceAtLeast(gap + 1)
-                TimelineGeometry(headerPx, ruler, section, row, gap, st, port, reference != null)
+                val seen = (maxHeight.toPx() - ruler - section).coerceAtLeast(0f)
+                val lanes = (d.tracks.size + if (reference != null) 1 else 0).coerceAtLeast(1)
+                val expanded = scaleTracks || !preferences.compact
+                val row = when {
+                    scaleTracks && port.rowHeight > 0 -> port.rowHeight
+                    expanded -> ((seen + hidden - 7 * gap) / 8).coerceAtLeast(20.dp.toPx())
+                    else -> ((seen - (lanes - 1) * gap) / lanes).coerceAtLeast(16.dp.toPx())
+                } + gap
+                val maxY = (lanes * row - gap - seen).coerceAtLeast(0f)
+                TimelineGeometry(headerPx, ruler, section, row, gap, st, port.copy(y = port.y.coerceIn(0f, maxY)), reference != null)
+            }
+            val visibleWidth = with(density) { (timelineWidth.toPx() - geometry.header).coerceAtLeast(1f) }
+            val follow = preferences.follow && s.top[3] != 0 && s.arrangeCarry == null
+            LaunchedEffect(follow, s.arrangePosition, visibleWidth, geometry.stepWidth) {
+                if (!follow) return@LaunchedEffect
+                val at = s.arrangePosition.toFloat() * geometry.stepWidth
+                when {
+                    at - port.x > visibleWidth * 0.75f -> port = port.copy(x = at - visibleWidth * 0.75f)
+                    at < port.x -> port = port.copy(x = (at - visibleWidth * 0.10f).coerceAtLeast(0f))
+                }
             }
             val geo by rememberUpdatedState(geometry)
+            val resizingTracks by rememberUpdatedState(scaleTracks)
             val data by rememberUpdatedState(d)
             val ref by rememberUpdatedState(reference)
             val stepDuration by rememberUpdatedState(stepSeconds)
@@ -240,7 +248,7 @@ internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, ste
                     var lifting = false
                     var selecting = false
                     var horizontalScroll = true
-                    var zoom = g.stepWidth
+                    var pinch: ArrangePinch? = null
                     down.consume()
                     while (true) {
                         val event = awaitPointerEvent()
@@ -248,11 +256,12 @@ internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, ste
                         if (c.isConsumed) break
                         val fingers = event.changes.filter { it.pressed }
                         if (fingers.size > 1 && !headerHit) {
-                            val center = event.calculateCentroid()
-                            val anchor = geo.step(event.calculateCentroid(useCurrent = false).x)
-                            val field = (size.width - g.header).coerceAtLeast(1f)
-                            zoom = (zoom * event.calculateZoom()).coerceIn(field / 1024f, field / 64f)
-                            port = port.copy(stepWidth = zoom, x = (anchor * zoom - center.x + g.header).coerceAtLeast(0f))
+                            val a = fingers[0].position
+                            val b = fingers[1].position
+                            val current = pinch ?: ArrangePinch(a, b, geo,
+                                (size.width - g.header).coerceAtLeast(1f), size.height.toFloat(), this.density,
+                                resizingTracks, initial.tracks.size).also { pinch = it }
+                            port = current.update(a, b)
                             event.changes.forEach { it.consume() }
                             moved = true
                             zoomed = true
@@ -386,7 +395,7 @@ internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, ste
                 InkButton(if (d.refB) "B" else "A", d.refB, Modifier.align(Alignment.TopStart).width(44.dp)
                     .offset(x = header - 48.dp, y = 4.dp), 30f) { s.arrangeAct(ArrangeAct.REF_B) }
             }
-            Box(Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(Layout.meterWidth.dp)) { MeterColumn(s, Modifier.fillMaxHeight()) }
+            ArrangeMeter(s, Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(Layout.meterWidth.dp))
             if (knobs) {
                 Row(Modifier.width(timelineWidth).fillMaxHeight().tile(theme.bg),
                     horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
@@ -395,11 +404,12 @@ internal fun ArrangeWindow(s: ScreenState, width: Float, modifier: Modifier, ste
                     RightColumn(s, Modifier.width(rightColumn()).fillMaxHeight()) {}
                 }
             }
+            if (menu == ArrangeMenu.Grid) ArrangeGridOverlay(s, d) { menu = null }
         }
         if (d.auto) ArrangeAutoPanel(s, d, port, header, lower, Modifier.fillMaxWidth()) {
             port = it
         }
         else if (!d.hideSteps) steps()
     }
-    menu?.let { ArrangeMenus(s, d, it, sectionNames, { command -> groupAction(command) }) { menu = null } }
+    menu?.takeUnless { it == ArrangeMenu.Grid }?.let { ArrangeMenus(s, d, it, sectionNames, { command -> groupAction(command) }) { menu = null } }
 }

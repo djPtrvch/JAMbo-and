@@ -171,6 +171,7 @@ public:
     const std::set<int>& heldSteps() const { return held_; }
     void toggleStep(int index);
     void setNoteLength(int index, int len);
+    bool paintDrumSteps(int first, int last);
     /// Зажат a, тап по b: b — копия a; true — скопировано (прежний b запомнен для restoreCopy).
     bool copyStep(int a, int b);
     /// Отменить последнюю копию в шаг index (двойной тап при зажатом первом шаге).
@@ -409,6 +410,7 @@ public:
     std::optional<Project::BlockRef> arrangeSelection() const { return arrangeSelection_; }
     void toggleArrange();
     void seekArrange(int step);
+    void setAdditionalSettings(bool repeats, bool recordFromStart, bool stretchBeat, int sends, int click);
     void selectArrangeBlock(int track, int block);
     void addArrangeBlock(int track, int clip, int step, bool insert, std::optional<int> length = std::nullopt);
     int arrangeCarryLength(int track, int clip) const;
@@ -840,6 +842,8 @@ private:
     bool arrangeView_ = false, arrangePlaying_ = false, arrangeAuto_ = false;
     bool arrangeRefB_ = false;
     bool arrangeRecordArmed_ = false;
+    bool arrangeRepeats_ = true, arrangeRecordFromStart_ = false, stretchBeat_ = false;
+    int duckSends_ = 4, clickLevel_ = 100;
     ArrRecorder arrangeRecorder_;
     struct ArrangeAutoTake {
         int slot;

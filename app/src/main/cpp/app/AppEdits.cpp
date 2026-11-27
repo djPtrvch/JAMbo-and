@@ -82,6 +82,24 @@ void App::toggleStep(int index) {
     editTrack([&](Track& t) { t.toggleStep(index, notes); });
 }
 
+bool App::paintDrumSteps(int first, int last) {
+    if (channel_ != Channel::track || first < 0 || last < first || last >= Params::maxPages * Params::stepsPerPage) return false;
+    const auto& sound = track().sample;
+    if (track().drumRole() < 0 && (sound.empty() || SynthKey::engine(sound) >= 0)) return false;
+    const auto notes = trigNotes();
+    editTrack([&](Track& t) {
+        for (int i = first; i <= last; ++i) {
+            t.withStep(i, [&](Step& s) {
+                if (!s.on) {
+                    s.on = true;
+                    if (s.notes.empty()) s.notes = notes;
+                }
+            });
+        }
+    });
+    return true;
+}
+
 void App::setNoteLength(int index, int len) {
     if (channel_ != Channel::track) return;
     const auto notes = trigNotes();
