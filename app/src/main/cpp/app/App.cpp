@@ -52,6 +52,7 @@ void App::loadProject(const Project& p) {
 // MARK: — транспорт
 
 void App::togglePlay() {
+    if (songExport_) return;
     playing_ = !playing_;
     endRecTake();
     liveStopped();
@@ -209,17 +210,19 @@ const WtTable* App::table(const std::string& key) {
     return tb.get();
 }
 
-void App::publishAudio() {
-    const auto assets = projectAssets(project_);
-    std::map<std::string, std::shared_ptr<WtTable>> tables;
-    for (const auto& key : assets.tables)
-        if (table(key)) tables[key] = tables_[key];
-    ensureSamples(assets.samples);
+SoundSnapshot::Options App::soundOptions(const ProjectAssets& assets) {
     SoundSnapshot::Options o;
+    for (const auto& key : assets.tables)
+        if (table(key)) o.tables[key] = tables_[key];
+    ensureSamples(assets.samples);
     o.map = sliceMap_;
     o.warpFollow = warpFollow_;
-    o.tables = tables;
     o.levelRelative = levelRelative_;
+    return o;
+}
+
+void App::publishAudio() {
+    auto o = soundOptions(projectAssets(project_));
     o.refB = arrangeReferenceB();
     if (libPreviewKey_) o.extra = {*libPreviewKey_};
     static const std::map<std::string, SampleRef> none;

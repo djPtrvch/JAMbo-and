@@ -35,7 +35,7 @@ private const val NAME_LIMIT = 24
  *  окно открытия (LOAD; MIX и IMPORT строк — позже), свайп влево — EDIT и корзина (у Autosave — только корзина).
  *  SAVE AS с именем существующего проекта спрашивает, перезаписать ли его. */
 @Composable
-fun ProjectsPage(s: ScreenState, back: () -> Unit, close: () -> Unit) {
+fun ProjectsPage(s: ScreenState, back: () -> Unit, close: () -> Unit, exportSong: () -> Unit) {
     val r = s.projectRows
     val name = r.lastOrNull() ?: ""
     val unsaved = s.projects[0] != 0
@@ -60,6 +60,7 @@ fun ProjectsPage(s: ScreenState, back: () -> Unit, close: () -> Unit) {
             Unit
         }
         ProjectFileButtons(s, name, close)
+        MenuItem("EXPORT SONG", action = exportSong)
         MenuHead("PROJECTS")
         if (rows.isEmpty()) MenuNote("No saved projects yet — save one with SAVE")
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {

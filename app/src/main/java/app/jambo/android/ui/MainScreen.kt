@@ -200,6 +200,7 @@ private fun Body(s: ScreenState, th: Theme, controllerActions: ControllerActions
         }
         if (s.midi.controls.learning) MidiLearnStrip(s, Modifier.align(Alignment.BottomCenter))
         if (s.mainMenu) MainMenuOverlay(s, controllerActions)
+        SongExportAnchor(s)
         if (s.midi.controls.editor != null) MidiMapEditor(s.midi)
     }
 }

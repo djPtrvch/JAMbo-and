@@ -6,6 +6,7 @@
 #include "sequencer/MidiClock.h"
 #include "sequencer/Arpeggiator.h"
 #include "engine/CoreEvent.h"
+#include "engine/SongRender.h"
 #include "EqDisplay.h"
 #include "MeterState.h"
 #include "MasterMeters.h"
@@ -61,6 +62,7 @@ struct AppAudio {
     virtual StemRing* stemRing() { return nullptr; }
     /// Прослушивание полосы EQ (LISTEN) в колбэке; nullptr — звука нет.
     virtual EqListen* eqListen() { return nullptr; }
+    virtual void setSongExportMute(bool) {}
     virtual long framesRendered() const { return 0; }
     /// Ход транспорта из колбэка (запись с REC).
     virtual PlayClock::State clock() const { return {}; }
@@ -133,6 +135,8 @@ public:
     bool playing() const { return playing_; }
     bool metronome() const { return metronome_; }
     void togglePlay();
+    std::optional<SongRenderSource> beginSongExport();
+    void endSongExport();
     void toggleMetronome();
     void setBpm(double v);
     double runningBpm() const;
@@ -708,7 +712,7 @@ private:
     int selected_ = 0;
     Channel channel_ = Channel::track;
     int viewPage_ = 0;
-    bool playing_ = false, metronome_ = false;
+    bool playing_ = false, metronome_ = false, songExport_ = false;
     std::set<int> held_, used_;
     std::array<std::vector<int>, Params::maxTracks> selNotes_{};
     std::array<bool, Params::maxTracks> chordMode_{};
@@ -979,6 +983,7 @@ private:
     void libEdit(const std::function<void(Library&)>& change);
     /// Сэмплы проекта, которых нет в памяти, — с диска.
     void ensureSamples(const std::set<std::string>& keys);
+    SoundSnapshot::Options soundOptions(const ProjectAssets& assets);
     bool libUseSamples(const std::vector<std::pair<std::string, std::string>>& list);
     std::string trackLabel(int i) const;
     ProjectSession session_;

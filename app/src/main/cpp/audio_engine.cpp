@@ -203,6 +203,7 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream*, void* dat
         }
     }
 
+    if (songExportMute_.load(std::memory_order_relaxed)) std::fill(out, out + 2 * frames, 0.0f);
     frameCount_ += frames;
     lastFrames_.store(frames, std::memory_order_relaxed);
 

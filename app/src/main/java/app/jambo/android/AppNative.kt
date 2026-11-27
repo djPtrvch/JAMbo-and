@@ -164,6 +164,11 @@ object AppNative {
     external fun midiNoteFrom(note: Int, velocity: Int, identity: Int)
 
     external fun sampleEditorTexts(): Array<String>
+    external fun songSeconds(): Double
+    external fun prepareSong(): Boolean
+    external fun renderSongFile(path: String, codec: Int, depth: Int, rate: Int, tail: Int): Int
+    external fun songProgress(): Int
+    external fun cancelSong()
     external fun arrangeAct(command: Int, a: Int, b: Int, c: Int, d: Int)
     external fun arrangeData(): IntArray
     external fun arrangePosition(): Double

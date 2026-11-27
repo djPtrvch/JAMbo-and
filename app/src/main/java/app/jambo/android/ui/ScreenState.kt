@@ -11,6 +11,7 @@ import app.jambo.android.AppNative
  * ревизия изменилась, и меняют своё состояние, только если содержимое другое: перерисовывается изменившееся.
  */
 class ScreenState(val midi: app.jambo.android.MidiHub) {
+    internal val song = SongExportUi()
     var top by mutableStateOf(IntArray(6)); private set
     var topTexts by mutableStateOf(arrayOf("", "")); private set
     var tracks by mutableStateOf(IntArray(3)); private set

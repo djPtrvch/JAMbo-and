@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(oboe REQUIRED CONFIG)
+include(song_codecs.cmake)
 
 # Ableton Link: scripts/fetch-deps.sh кладёт исходники в third_party/link.
 set(LINK_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/link)
@@ -30,6 +31,8 @@ add_library(jambo SHARED
   jni_bridge.cpp
   jni_app.cpp
   jni_arrange.cpp
+  jni_song_export.cpp
+  song_encode.cpp
   jni_lib.cpp
   jni_sample_editor.cpp
   jni_midi.cpp
@@ -42,4 +45,5 @@ add_library(jambo SHARED
 target_include_directories(jambo PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_SOURCE_DIR} ${JSON_DIR})
 # Без -ffast-math: проверки NaN и точность должны совпадать с тестами и эталонами.
 target_compile_options(jambo PRIVATE -Wall -Wno-multichar -O2)
-target_link_libraries(jambo oboe::oboe Ableton::Link android log)
+add_dependencies(jambo song_codecs)
+target_link_libraries(jambo oboe::oboe Ableton::Link android log song_avformat song_avcodec song_swresample song_avutil)

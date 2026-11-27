@@ -37,10 +37,11 @@ fun MainMenuOverlay(s: ScreenState, actions: ControllerActions) {
     Box(Modifier.offset(0.dp, top.dp).width(width.dp).height(height.dp).menuBox()
         .pointerInput(Unit) { detectTapGestures { } }.padding(12.dp)) {
         when (page) {
-            1 -> ProjectsPage(s, back = { page = 0 }, close = close)
+            1 -> ProjectsPage(s, back = { page = 0 }, close = close, exportSong = { page = 5 })
             2 -> SettingsPage(s, back = { page = 0 })
             3 -> MidiMenuPage(s.midi, actions, back = { page = 0 }, close = close)
             4 -> SyncMenuPage(s.midi, actions, back = { page = 0 })
+            5 -> SongExportPage(s, back = { page = 1 })
             else -> Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(top = 4.dp, end = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 MenuHead("PROJECT")

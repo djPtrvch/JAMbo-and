@@ -14,6 +14,7 @@ double App::midiFrameAt(double heardHost) const {
 }
 
 void App::startMidiPlay(double host) {
+    if (songExport_) return;
     playing_ = true;
     endRecTake();
     liveStopped();

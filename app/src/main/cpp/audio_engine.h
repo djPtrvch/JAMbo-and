@@ -26,6 +26,7 @@ public:
     void tap(int64_t touchNanos);           // время касания, CLOCK_MONOTONIC
     // jambo::AppAudio (основной поток; события и снимки — под produce_).
     void push(const jambo::CoreEvent& e) override;
+    void setSongExportMute(bool on) override { songExportMute_.store(on, std::memory_order_relaxed); }
     double modOut(int i) const override;
     jambo::PlayClock::State clock() const override;
     double heardNow() const override;
@@ -67,6 +68,7 @@ private:
 
     // UI/MIDI -> аудио
     std::atomic<bool> tone_{false};
+    std::atomic<bool> songExportMute_{false};
     std::atomic<uint32_t> tapSeq_{0};
     std::atomic<int64_t> tapTouchNs_{0};
     /// Ядро: события и снимки пишет один поток за раз (produce_), колбэк читает без блокировок.

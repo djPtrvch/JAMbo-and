@@ -1002,6 +1002,36 @@ void arrangerSelectionTransfer() {
           "arrange selection: TO END starts after the last block");
 }
 
+void songRender() {
+    CoreAudio audio;
+    App app(&audio);
+    app.toggleStep(0);
+    app.addArrangeBlock(0, app.project().tracks[0].slot, 0, false);
+    app.setArrangeLoop(0, 4);
+    app.toggleArrangeLoop();
+    const auto source = app.beginSongExport();
+    check(source && !app.beginSongExport(), "song export: prepares one snapshot at a time");
+    if (!source) return;
+    int frames = 0;
+    float peak = 0;
+    const auto sink = [&](const float* left, const float* right, int n) {
+        frames += n;
+        for (int i = 0; i < n; ++i) peak = std::max({peak, std::abs(left[i]), std::abs(right[i])});
+        return true;
+    };
+    const int expected = int(std::llround(source->project.arrangeEnd() * 15.0 * 48000 / source->project.bpm));
+    check(renderSong(*source, 0, sink, [] { return false; }, [](double) {}) && frames == expected && peak > 0.001,
+          "song export: renders the audible arrangement once and cuts precisely at its end");
+    frames = 0;
+    check(renderSong(*source, 2, sink, [] { return false; }, [](double) {}) && frames == expected + 96000,
+          "song export: a fixed tail has the requested duration");
+    frames = 0;
+    check(!renderSong(*source, -1, sink, [&] { return frames >= 2048; }, [](double) {}) && frames == 2048,
+          "song export: cancellation stops the PCM stream");
+    app.endSongExport();
+    check(app.project().arrange.loop, "song export: the project loop is preserved");
+}
+
 void arrangerRecording() {
     CoreAudio audio;
     App app(&audio);
@@ -1259,6 +1289,7 @@ int runAppTests() {
     arrangerApp();
     arrangerRecording();
     arrangerSelectionTransfer();
+    songRender();
     arrangerReference();
     arrangerRecordAutomation();
     sliceAndWarpEditor();
