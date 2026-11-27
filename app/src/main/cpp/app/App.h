@@ -582,7 +582,12 @@ public:
     // Редактор сэмпла
     std::string editorKey() const;
     std::string editorName() const;
-    void editorEdit(int operation, double a, double b);
+    struct EditorRemap {
+        std::string key;
+        double begin;
+        double end;
+    };
+    std::optional<EditorRemap> editorEdit(int operation, double a, double b);
     void editorSlice(int index, double at);
     std::vector<std::string> editorSliceLabels() const;
     std::vector<int> editorSliceRoles() const;

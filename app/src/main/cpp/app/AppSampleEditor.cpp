@@ -15,26 +15,26 @@ std::string App::editorName() const {
     return key.empty() ? "" : sampleName(key);
 }
 
-void App::editorEdit(int operation, double a, double b) {
+std::optional<App::EditorRemap> App::editorEdit(int operation, double a, double b) {
     const auto key = editorKey();
     const auto src = sampleData(key);
-    if (!src || !samples_ || !std::isfinite(a) || !std::isfinite(b)) return;
+    if (!src || !samples_ || !std::isfinite(a) || !std::isfinite(b)) return std::nullopt;
     const int n = src->frames();
-    if (n < 1 || operation < 0 || operation > 4) return;
+    if (n < 1 || operation < 0 || operation > 4) return std::nullopt;
     if (operation == 4) {
         stopLibraryPreview();
         editTrack([](Track& t) { t.clearSample(); });
-        return;
+        return std::nullopt;
     }
     const bool cut = operation == 3;
     int begin = 0, end = n;
     if (operation == 0 || cut) {
         begin = std::clamp(int(std::round(std::clamp(std::min(a, b), 0.0, 1.0) * n)), 0, n - 1);
         end = std::clamp(int(std::round(std::clamp(std::max(a, b), 0.0, 1.0) * n)), begin + (cut ? 0 : 1), n);
-        if ((begin == 0 && end == n) || (cut && begin == end)) return;
+        if ((begin == 0 && end == n) || (cut && begin == end)) return std::nullopt;
     }
     const bool stereo = src->channels() == 2;
-    if (operation == 2 && !stereo) return;
+    if (operation == 2 && !stereo) return std::nullopt;
     const int count = cut ? n - (end - begin) : end - begin;
     auto out = std::make_shared<SampleData>(count, stereo && operation != 2);
     float gain = 1;
@@ -64,7 +64,7 @@ void App::editorEdit(int operation, double a, double b) {
         }
     }
     const auto next = SampleStore::store(*out, samples_->dir());
-    if (next.empty() || next == key) return;
+    if (next.empty() || next == key) return std::nullopt;
     stopLibraryPreview();
     samples_->add(next, out);
     const int selected = selected_;
@@ -120,6 +120,8 @@ void App::editorEdit(int operation, double a, double b) {
         else t.slices[next] = std::move(marks);
         t.replaceSample(key, next);
     });
+    if (cut) return std::nullopt;
+    return EditorRemap{next, double(begin) / n, double(end) / n};
 }
 
 void App::editorSlice(int index, double at) {

@@ -916,7 +916,8 @@ void sliceAndWarpEditor() {
     app.editWarp(W::bypass, -1, 0, 0);
     check(app.editorWarpInfo().isOff() && app.editorWarpInfo().marks.size() == 2, "warp editor: bypass keeps its markers");
     app.editWarp(W::bypass, -1, 0, 0);
-    app.editorEdit(3, 0.25, 0.5);
+    const auto cutRemap = app.editorEdit(3, 0.25, 0.5);
+    check(!cutRemap, "editor: CUT resets the viewport");
     const auto cut = app.sampleData(app.editorKey());
     check(cut && cut->frames() == 3600 && app.editorWarpInfo().marks.size() == 2 &&
         std::abs(app.editorWarpInfo().marks.back().at - 2.0 / 3) < 1e-9, "warp editor: CUT remaps the warp marks");
@@ -953,13 +954,17 @@ void sampleEditor() {
         app.editorSlice(-1, 0.125);
         app.editorSlice(-1, 0.5);
         app.editorSlice(1, 0.625);
-        app.editorEdit(0, 0.25, 0.75);
+        const auto trim = app.editorEdit(0, 0.2503, 0.7498);
         const auto trimmed = app.editorKey();
+        check(trim && trim->key == trimmed && trim->begin == 0.25 && trim->end == 0.75,
+            "editor: viewport remap uses the stored frame boundaries");
         const auto trimData = app.sampleData(trimmed);
         const auto marks = app.project().tracks[0].sliceMarks(trimmed);
         check(trimData && trimData->frames() == 240 && trimmed != raw, "editor: TRIM saves a shorter copy");
         check(marks.size() == 1 && std::abs(marks[0].at - 0.75) < 1e-6, "editor: TRIM remaps the remaining slice");
-        app.editorEdit(2, 0, 1);
+        const auto monoRemap = app.editorEdit(2, 0, 1);
+        check(monoRemap && monoRemap->key == app.editorKey() && monoRemap->begin == 0 && monoRemap->end == 1,
+            "editor: same-length edits preserve the whole viewport coordinate range");
         const auto mono = app.sampleData(app.editorKey());
         check(mono && mono->channels() == 1 && std::abs(mono->left()[0] - 0.375f) < 1e-6, "editor: MONO averages stereo");
         app.editorEdit(1, 0, 1);

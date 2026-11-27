@@ -15,6 +15,13 @@ internal data class SampleView(val left: Double = 0.0, val span: Double = 1.0) {
     fun fraction(x: Float, width: Int) = left + span * x / width.coerceAtLeast(1)
     fun x(fraction: Double, width: Float) = ((fraction - left) / span * width).toFloat()
 
+    fun remap(begin: Double, end: Double): SampleView {
+        val length = (end - begin).coerceAtLeast(1e-9)
+        val nextSpan = (span / length).coerceAtMost(1.0)
+        val nextLeft = ((left - begin) / length).coerceIn(0.0, 1 - nextSpan)
+        return SampleView(nextLeft, nextSpan)
+    }
+
     companion object {
         fun between(a: Double, b: Double, frames: Int): SampleView {
             val lo = minOf(a, b).coerceIn(0.0, 1.0)

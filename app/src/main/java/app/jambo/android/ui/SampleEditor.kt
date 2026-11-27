@@ -47,6 +47,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
+private data class PendingSampleView(val source: String, val destination: String, val view: SampleView)
+
 @Composable
 fun SampleEditor(s: ScreenState, modifier: Modifier) {
     val theme = LocalTheme.current
@@ -57,7 +59,15 @@ fun SampleEditor(s: ScreenState, modifier: Modifier) {
     val warp = remember(key, s.revision) { WarpSample(AppNative.sampleWarpInfo()) }
     var warpOn by remember(key) { mutableStateOf(false) }
     var warpGrid by remember { mutableStateOf(0.25) }
-    var view by remember(key) { mutableStateOf(SampleView()) }
+    var pendingView by remember { mutableStateOf<PendingSampleView?>(null) }
+    var view by remember(key) {
+        mutableStateOf(pendingView?.takeIf { it.destination == key }?.view ?: SampleView())
+    }
+    LaunchedEffect(key, pendingView) {
+        val pending = pendingView ?: return@LaunchedEffect
+        if (key == pending.destination) view = pending.view
+        if (key != pending.source) pendingView = null
+    }
     val wave = remember(key, s.revision, if (warpOn) null else view) {
         AppNative.sampleEditorWave(editorColumns, if (warpOn) 0.0 else view.left, if (warpOn) 1.0 else view.right)
     }
@@ -129,8 +139,12 @@ fun SampleEditor(s: ScreenState, modifier: Modifier) {
         busy = true
         val a = start.toDouble()
         val b = end.toDouble()
+        val previousView = view
         scope.launch {
-            withContext(Dispatchers.IO) { AppNative.sampleEditorEdit(action, a, b) }
+            val remap = withContext(Dispatchers.IO) { AppNative.sampleEditorEdit(action, a, b) }
+            if (remap != null) {
+                pendingView = PendingSampleView(key, remap.key, previousView.remap(remap.begin, remap.end))
+            }
             s.refresh()
             busy = false
         }

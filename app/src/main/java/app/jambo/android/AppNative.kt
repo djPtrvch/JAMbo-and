@@ -165,7 +165,8 @@ object AppNative {
 
     external fun sampleEditorTexts(): Array<String>
     external fun sampleEditorWave(columns: Int, a: Double, b: Double): FloatArray
-    external fun sampleEditorEdit(operation: Int, a: Double, b: Double)
+    data class EditorRemap(val key: String, val begin: Double, val end: Double)
+    external fun sampleEditorEdit(operation: Int, a: Double, b: Double): EditorRemap?
     external fun sampleEditorSlice(index: Int, at: Double)
     external fun sampleSliceLabels(): Array<String>
     external fun sampleSliceRoles(): IntArray

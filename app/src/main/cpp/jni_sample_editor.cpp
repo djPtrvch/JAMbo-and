@@ -58,9 +58,20 @@ FN(jfloatArray, sampleEditorWave)(JNIEnv* env, jobject, jint columns, jdouble a,
     return result;
 }
 
-FN(void, sampleEditorEdit)(JNIEnv*, jobject, jint operation, jdouble a, jdouble b) {
-    std::lock_guard<std::mutex> guard(jniLock());
-    jniApp().editorEdit(operation, a, b);
+FN(jobject, sampleEditorEdit)(JNIEnv* env, jobject, jint operation, jdouble a, jdouble b) {
+    std::optional<jambo::App::EditorRemap> remap;
+    {
+        std::lock_guard<std::mutex> guard(jniLock());
+        remap = jniApp().editorEdit(operation, a, b);
+    }
+    if (!remap) return nullptr;
+    const auto type = env->FindClass("app/jambo/android/AppNative$EditorRemap");
+    if (!type) return nullptr;
+    const auto ctor = env->GetMethodID(type, "<init>", "(Ljava/lang/String;DD)V");
+    if (!ctor) return nullptr;
+    const auto key = env->NewStringUTF(remap->key.c_str());
+    if (!key) return nullptr;
+    return env->NewObject(type, ctor, key, remap->begin, remap->end);
 }
 
 FN(void, sampleEditorSlice)(JNIEnv*, jobject, jint index, jdouble at) {
