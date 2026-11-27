@@ -424,6 +424,7 @@ public:
     void toggleArrangeLoop();
     void toggleArrangeSteps();
     void sendRowToArrange(int row, std::optional<int> step);
+    void sendClipToArrange(int track, int row);
     void setArrangeTrackColor(int track, int color);
     void addArrangeSection(int step);
     void resizeArrangeSection(int index, int step, bool left);
@@ -434,6 +435,16 @@ public:
     void setArrangeAuto(int track, const std::string& id, const std::vector<ArrAutoPoint>& points);
     void deleteArrangeAuto(int track, const std::string& id);
     void clearArrangeAuto(int track);
+    bool arrangeReferenceB() const {
+        return arrangeView_ && arrangeRefB_ && project_.arrange.showRef && project_.arrange.ref.has_value();
+    }
+    void toggleArrangeReference();
+    void openArrangeReference();
+    void loadArrangeReference(const std::string& key, const std::string& name);
+    void deleteArrangeReference();
+    void toggleArrangeReferenceB();
+    void setArrangeReferenceOffset(double seconds);
+    void setArrangeReferenceGain(double db);
     bool arrangeRecordArmed() const { return arrangeRecordArmed_; }
     bool arrangeRecording() const { return arrangeRecorder_.active(); }
     std::vector<ArrRecorder::Seg> arrangeRecordedSegments() const { return arrangeRecorder_.current(); }
@@ -575,6 +586,7 @@ public:
     /// SAVE в меню звука: браузер в режиме сохранения пресета синта дорожки.
     void openBrowserSave();
     bool libSaveMode() const { return browser_ && (browser_->savePreset || !browser_->sample.empty()); }
+    bool libRefMode() const { return browser_ && browser_->reference; }
     /// Имя по умолчанию в поле NAME: движок и номер.
     std::string libDefaultName() const;
     /// Узел с тем же именем в папке сохранения (вопрос OVERWRITE / SAVE AS) или nullptr.
@@ -708,7 +720,7 @@ private:
         std::optional<int> recIndex;
         double t0 = 0;
         bool screenKey = false;
-        std::optional<int> arrangeNote;
+        std::optional<int> arrangeNote = std::nullopt;
     };
     std::map<int, KeyHold> keyHolds_;
     std::optional<std::pair<int, Step>> lastCopy_;
@@ -819,6 +831,7 @@ private:
 
     bool patternView_ = false;
     bool arrangeView_ = false, arrangePlaying_ = false, arrangeAuto_ = false;
+    bool arrangeRefB_ = false;
     bool arrangeRecordArmed_ = false;
     ArrRecorder arrangeRecorder_;
     struct ArrangeAutoTake {
@@ -881,6 +894,7 @@ private:
         std::vector<int> steps;
         /// SAVE: пресет синта дорожки — в открытую папку.
         bool savePreset = false;
+        bool reference = false;
         std::string sample;
         Json sampleMarks;
     };

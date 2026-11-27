@@ -170,6 +170,10 @@ object AppNative {
     external fun arrangeTake(): IntArray
     external fun arrangeGroup(command: Int, delta: Int, group: IntArray): IntArray
     external fun arrangeSections(): Array<String>
+    external fun arrangeRefName(): Array<String>
+    external fun arrangeRefInfo(): DoubleArray
+    external fun arrangeRefPeaks(key: String): FloatArray
+    external fun arrangeRefOffset(offset: Double)
     external fun arrangeRenameSection(index: Int, title: String)
     external fun arrangeClips(track: Int): IntArray
     external fun arrangeAutoParams(track: Int, existing: Boolean): Array<String>

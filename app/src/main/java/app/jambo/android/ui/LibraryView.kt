@@ -51,6 +51,7 @@ fun LibraryView(s: ScreenState, modifier: Modifier) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val info = s.lib
+    val reference = info.getOrElse(7) { 0 } != 0
     val rows = s.libRows
     val items = remember(rows) {
         (2 until rows.size - 5 step 6).map { LibItem(rows[it], rows[it + 1], rows[it + 2], rows[it + 3], rows[it + 4] == "1", rows[it + 5] == "1") }
@@ -75,6 +76,20 @@ fun LibraryView(s: ScreenState, modifier: Modifier) {
             s.reload()
         }
     }
+    val pickReference = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val folder = AppNative.libImportFolder()
+        s.importing = 1
+        scope.launch {
+            try {
+                val loaded = withContext(Dispatchers.IO) { importFiles(ctx, listOf(uri), folder) {} }
+                if (loaded == 0) AppNative.libNote("Nothing to import: no audio found")
+                s.reload()
+            } finally {
+                s.importing = 0
+            }
+        }
+    }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
         Row(Modifier.fillMaxWidth().height(Layout.topHeight.dp), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp),
             verticalAlignment = Alignment.CenterVertically) {
@@ -82,7 +97,10 @@ fun LibraryView(s: ScreenState, modifier: Modifier) {
             Text(rows[0], color = th.text, fontSize = 13.tsp(), fontWeight = FontWeight.Bold, maxLines = 1,
                 overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(horizontal = 6.dp))
             Tool("NEW FOLDER", Modifier.width(120.dp)) { ask = "" to "New folder" }
-            Tool("IMPORT", Modifier.width(96.dp), enabled = s.importing == 0) { pick.launch(arrayOf("*/*")) }
+            Tool("IMPORT", Modifier.width(96.dp), enabled = s.importing == 0) {
+                if (reference) pickReference.launch(arrayOf("audio/*", "video/*"))
+                else pick.launch(arrayOf("*/*"))
+            }
             Tool("✕", Modifier.width(Layout.topHeight.dp)) { s.libAct(LibAct.CLOSE) }
         }
         Box(Modifier.weight(1f).fillMaxWidth().tile(th.panel2)) {

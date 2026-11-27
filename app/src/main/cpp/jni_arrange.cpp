@@ -1,5 +1,6 @@
 // JNI аранжировщика: состояние таймлайна, правки блоков и кривые AUTO.
 #include "jni_common.h"
+#include <limits>
 
 #define FN(ret, name) extern "C" JNIEXPORT ret JNICALL Java_app_jambo_android_AppNative_##name
 
@@ -7,7 +8,7 @@ namespace {
 enum class Command {
     toggle, seek, select, add, insert, move, resize, duplicate, remove, split, grid, snap,
     loop, loopRange, steps, autoPanel, row, color, section, sectionStart, sectionEnd, deleteSection, record,
-    copyBlock, pasteBlock, trackClipboard
+    copyBlock, pasteBlock, trackClipboard, refToggle, refLoad, refDelete, refB, clipToArrange
 };
 }
 
@@ -41,6 +42,11 @@ FN(void, arrangeAct)(JNIEnv*, jobject, jint command, jint a, jint b, jint c, jin
     case Command::copyBlock: app.copyArrangeBlock(a, b); break;
     case Command::pasteBlock: app.pasteArrangeBlock(a, b, c); break;
     case Command::trackClipboard: app.arrangeTrackClipboard(a, b); break;
+    case Command::refToggle: app.toggleArrangeReference(); break;
+    case Command::refLoad: app.openArrangeReference(); break;
+    case Command::refDelete: app.deleteArrangeReference(); break;
+    case Command::refB: app.toggleArrangeReferenceB(); break;
+    case Command::clipToArrange: app.sendClipToArrange(a, b); break;
     }
 }
 
@@ -54,7 +60,8 @@ FN(jintArray, arrangeData)(JNIEnv* env, jobject) {
     std::vector<jint> values{1, a.grid, int(a.snap), int(a.hideSteps), int(app.arrangeAuto()),
         int(a.loop), a.loopFrom, a.loopTo, p.arrangeEnd(), selected ? selected->first : -1,
         selected ? selected->second : -1, jint(p.tracks.size()), jint(a.markers.size()),
-        int(app.hasArrangeBlockCopy()), int(app.hasArrangeTrackCopy()), int(app.arrangeRecording())};
+        int(app.hasArrangeBlockCopy()), int(app.hasArrangeTrackCopy()), int(app.arrangeRecording()),
+        int(a.showRef && a.ref.has_value()), int(app.arrangeReferenceB())};
     for (const auto& marker : a.markers)
         values.insert(values.end(), {marker.at, marker.end.value_or(-1), marker.color});
     for (const auto& track : p.tracks) {
@@ -110,6 +117,48 @@ FN(jobjectArray, arrangeSections)(JNIEnv* env, jobject) {
     std::vector<std::string> names;
     for (const auto& marker : jniApp().project().arrange.markers) names.push_back(marker.name);
     return jniStrings(env, names);
+}
+
+FN(jobjectArray, arrangeRefName)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> lock(jniLock());
+    const auto& ref = jniApp().project().arrange.ref;
+    return ref ? jniStrings(env, {ref->key, ref->name}) : jniStrings(env, {});
+}
+
+FN(jdoubleArray, arrangeRefInfo)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> lock(jniLock());
+    const auto& ref = jniApp().project().arrange.ref;
+    const jdouble data[] = {ref ? ref->offset : 0, ref ? ref->bpm.value_or(0) : 0};
+    const auto array = env->NewDoubleArray(2);
+    if (array) env->SetDoubleArrayRegion(array, 0, 2, data);
+    return array;
+}
+
+FN(jfloatArray, arrangeRefPeaks)(JNIEnv* env, jobject, jstring name) {
+    const auto key = jniString(env, name);
+    jambo::SampleRef sample;
+    {
+        std::lock_guard<std::mutex> lock(jniLock());
+        sample = jniApp().sampleData(key);
+    }
+    std::vector<jfloat> peaks;
+    if (sample) {
+        constexpr int hop = 256;
+        for (int i = 0; i < sample->frames(); i += hop) {
+            float peak = 0;
+            for (int j = i; j < std::min(i + hop, sample->frames()); ++j)
+                peak = std::max({peak, std::abs(sample->left()[j]), std::abs(sample->right()[j])});
+            peaks.push_back(peak);
+        }
+    }
+    const auto array = env->NewFloatArray(jsize(peaks.size()));
+    if (array && !peaks.empty()) env->SetFloatArrayRegion(array, 0, jsize(peaks.size()), peaks.data());
+    return array;
+}
+
+FN(void, arrangeRefOffset)(JNIEnv*, jobject, jdouble offset) {
+    std::lock_guard<std::mutex> lock(jniLock());
+    jniApp().setArrangeReferenceOffset(offset);
 }
 
 FN(void, arrangeRenameSection)(JNIEnv* env, jobject, jint index, jstring title) {

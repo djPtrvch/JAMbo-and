@@ -7,7 +7,7 @@
 
 namespace jambo {
 
-int App::meterChannel() const { return channel_ == Channel::track ? selected_ : Levels::master; }
+int App::meterChannel() const { return channel_ == Channel::track && !arrangeReferenceB() ? selected_ : Levels::master; }
 
 void App::tickMeters(double now) {
     Levels* lv = audio_->levels();
@@ -29,6 +29,7 @@ void App::resetLoudness() {
 }
 
 double App::meterVol(int ch) const {
+    if (arrangeReferenceB()) return project_.arrange.ref->gain;
     if (ch == Levels::master) return project_.outVol;
     if (ch >= int(project_.tracks.size())) return Params::volDef;
     const Track& t = project_.tracks[size_t(ch)];
@@ -38,6 +39,10 @@ double App::meterVol(int ch) const {
 }
 
 void App::setMeterVol(int ch, double db) {
+    if (arrangeReferenceB()) {
+        setArrangeReferenceGain(db);
+        return;
+    }
     if (ch == Levels::master) {
         const double v = std::max(Params::volMin, std::min(0.0, db));
         edit([&](Project& p) { p.outVol = v; });

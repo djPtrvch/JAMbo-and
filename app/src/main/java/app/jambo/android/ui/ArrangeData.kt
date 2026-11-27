@@ -30,6 +30,11 @@ internal object ArrangeAct {
     const val COPY_BLOCK = 23
     const val PASTE_BLOCK = 24
     const val TRACK_CLIPBOARD = 25
+    const val REF = 26
+    const val REF_LOAD = 27
+    const val REF_DELETE = 28
+    const val REF_B = 29
+    const val CLIP_TO_ARRANGE = 30
 }
 
 internal fun ScreenState.arrangeAct(command: Int, a: Int = 0, b: Int = 0, c: Int = 0, d: Int = 0) {
@@ -66,11 +71,13 @@ internal class ArrangeData(raw: IntArray) {
     val hasBlockCopy = raw[13] != 0
     val hasTrackCopy = raw[14] != 0
     val recording = raw[15] != 0
+    val ref = raw[16] != 0
+    val refB = raw[17] != 0
     val sections: List<ArrangeSection>
     val tracks: List<ArrangeTrack>
 
     init {
-        var i = 16
+        var i = 18
         fun read() = raw[i++]
         sections = List(raw[12]) { ArrangeSection(read(), read(), read()) }
         tracks = List(raw[11]) {

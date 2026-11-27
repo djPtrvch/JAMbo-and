@@ -86,7 +86,7 @@ fun GridMenus(s: ScreenState, d: GridData, g: GridGeom, ui: GridUi) {
         Dismiss { ui.cellMenu = null }
         val r = maxOf(0, d.rows.indexOf(c.row))
         val w = 180f
-        val h = 3 * 40f + 2 * 6f + 16
+        val h = 4 * 40f + 3 * 6f + 16
         val x = minOf(maxOf(0f, g.x(c.track) + g.trackW / 2 - w / 2), g.w - w)
         val below = g.y(r) + g.rowH + 6
         val y = if (below + h < g.h) below else maxOf(0f, g.y(r) - 6 - h)
@@ -96,6 +96,10 @@ fun GridMenus(s: ScreenState, d: GridData, g: GridGeom, ui: GridUi) {
             MenuItem("COPY", enabled = filled) { run(Act.COPY_CLIP) }
             MenuItem("PASTE", enabled = d.hasClipCopy) { run(Act.PASTE_CLIP) }
             MenuItem("DELETE", enabled = filled, red = true) { run(Act.DELETE_CLIP) }
+            MenuItem("TO ARRANGE", enabled = filled) {
+                s.arrangeAct(ArrangeAct.CLIP_TO_ARRANGE, c.track, c.row)
+                ui.cellMenu = null
+            }
         }
     }
     ui.rowMenu?.let { k ->
@@ -153,7 +157,16 @@ private fun RowMenu(s: ScreenState, d: GridData, k: Int, modifier: Modifier, clo
             MenuItem("PASTE", Modifier.weight(1f), enabled = d.hasRowCopy) { act(Act.PASTE_ROW) }
             MenuItem("DELETE", Modifier.weight(1f), red = true) { act(Act.DELETE_ROW) }
         }
-        MenuItem("TO ARRANGE") { s.arrangeAct(ArrangeAct.ROW, k, -1); close() }
+        MenuItem("TO ARRANGE") {
+            s.act(Act.BEGIN_GESTURE)
+            try {
+                AppNative.setScene(k, name, reps)
+                s.arrangeAct(ArrangeAct.ROW, k, -1)
+            } finally {
+                s.act(Act.END_GESTURE)
+            }
+            close()
+        }
         MenuItem("OK") {
             AppNative.setScene(k, name, reps)
             s.refresh()

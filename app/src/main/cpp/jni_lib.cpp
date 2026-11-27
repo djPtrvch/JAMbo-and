@@ -18,7 +18,7 @@ FN(jintArray, lib)(JNIEnv* env, jobject) {
     if (!m.browserOpen()) return jniInts(env, {0, 1, 0, 0, 0, 0, 0});
     const auto& p = m.libPicked();
     return jniInts(env, {1, m.libAtRoot(), p ? 1 : 0, p ? jint(p->size()) : 0, jint(m.browserSteps().size()),
-                         jint(m.libItems().size()), m.libSaveMode() ? 1 : 0});
+                         jint(m.libItems().size()), m.libSaveMode() ? 1 : 0, m.libRefMode() ? 1 : 0});
 }
 
 /// Строки браузера: [путь, подпись внизу, затем по строке: id, вид (f, s, p), имя, справа (число в папке, движок),

@@ -987,6 +987,30 @@ void arrangerRecording() {
     check(app.project().tracks[0].blocks.empty(), "arrange record: UNDO removes the take in one edit");
 }
 
+void arrangerReference() {
+    const auto dir = std::filesystem::temp_directory_path() / ("jambo-ref-" + Library::newId());
+    CoreAudio audio;
+    App app(&audio);
+    app.openLibraryStorage(dir.string());
+    auto sample = std::make_shared<SampleData>(4800, false);
+    std::fill_n(sample->left(), sample->frames(), 0.25f);
+    const auto key = SampleStore::store(*sample, app.sampleStore()->dir());
+    app.toggleArrange();
+    app.toggleArrangeReference();
+    check(app.libRefMode(), "arrange REF: without a reference, opens its library mode");
+    app.libImported(app.libImportFolder(), {key, "Ref.wav", sample, 48});
+    check(!app.browserOpen() && app.project().arrange.showRef && app.project().arrange.ref &&
+          app.project().arrange.ref->key == key, "arrange REF: import opens the reference lane");
+    check(!app.library().sameName(Library::root, "Ref.wav"), "arrange REF: direct import stays out of the library");
+    app.toggleArrangeReferenceB();
+    app.setMeterVol(Levels::master, -7);
+    check(app.arrangeReferenceB() && app.project().arrange.ref && app.project().arrange.ref->gain == -7 &&
+          app.project().outVol != -7, "arrange REF: B controls reference gain");
+    app.togglePatterns();
+    check(!app.arrangeReferenceB(), "arrange REF: outside ARRANGE the project is audible");
+    std::filesystem::remove_all(dir);
+}
+
 void sampleEditor() {
     const auto dir = std::filesystem::temp_directory_path() / ("jambo-editor-" + Library::newId());
     {
@@ -1169,6 +1193,7 @@ int runAppTests() {
     sampleEditor();
     arrangerApp();
     arrangerRecording();
+    arrangerReference();
     sliceAndWarpEditor();
     moveTrackKeepsSound();
     eq();

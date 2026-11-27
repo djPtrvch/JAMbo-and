@@ -25,6 +25,7 @@ void App::loadProject(const Project& p) {
     arrangeCursor_ = 0;
     arrangeLive_ = 0;
     arrangeSelection_.reset();
+    arrangeRefB_ = false;
     endRecTake();
     liveStopped();
     lead_ = 0;
@@ -219,6 +220,7 @@ void App::publishAudio() {
     o.warpFollow = warpFollow_;
     o.tables = tables;
     o.levelRelative = levelRelative_;
+    o.refB = arrangeReferenceB();
     if (libPreviewKey_) o.extra = {*libPreviewKey_};
     static const std::map<std::string, SampleRef> none;
     audio_->publish(project_, o, samples_ ? samples_->samples() : none);

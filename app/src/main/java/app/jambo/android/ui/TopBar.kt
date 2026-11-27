@@ -81,9 +81,11 @@ fun TopBar(s: ScreenState, onMenu: () -> Unit) {
                 s.learnTarget(MidiTarget.PATTERNS)
                 s.act(Act.TOGGLE_PATTERNS)
             }
-            Toggle("ARRANGE", s.arrange[0] != 0, Modifier.weight(1f).report(s, "arrange")) {
-                s.sampleEditor = false
-                s.arrangeAct(ArrangeAct.TOGGLE)
+            Toggle("ARRANGE", s.arrange[0] != 0, Modifier.weight(1f).report(s, "arrange").midiLearnMark(s, MidiTarget.ARRANGE)) {
+                if (!s.learnTarget(MidiTarget.ARRANGE)) {
+                    s.sampleEditor = false
+                    s.arrangeAct(ArrangeAct.TOGGLE)
+                }
             }
         }
         Spacer(Modifier.width(Layout.meterWidth.dp))

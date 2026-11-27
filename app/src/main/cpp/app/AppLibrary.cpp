@@ -168,7 +168,7 @@ void App::closeBrowser() {
 std::vector<LibNode> App::libItems() const {
     std::vector<LibNode> out;
     for (auto& n : library_.children(libFolder_))
-        if (n.kind != LibKind::table) out.push_back(n);
+        if (n.kind != LibKind::table && (!libRefMode() || n.kind != LibKind::preset)) out.push_back(n);
     return out;
 }
 
@@ -261,6 +261,11 @@ void App::libTap(const std::string& id) {
         libEnter(n.id);
         return;
     }
+    if (libRefMode()) {
+        if (n.kind == LibKind::sample && n.key && libUseSamples({{*n.key, n.name}}))
+            loadArrangeReference(*n.key, n.name);
+        return;
+    }
     if (channel_ != Channel::track || libSaveMode()) return;
     if (libPicked_) {
         if (libPicked_->count(n.id)) libPicked_->erase(n.id);
@@ -301,7 +306,7 @@ void App::libTap(const std::string& id) {
 }
 
 void App::libHold(const std::string& id) {
-    if (libPicked_ || !browser_ || !browser_->steps.empty() || libSaveMode()) return;
+    if (libPicked_ || !browser_ || !browser_->steps.empty() || libSaveMode() || libRefMode()) return;
     const LibNode* n = library_.node(id);
     if (n && (n->kind == LibKind::sample || n->kind == LibKind::preset)) {
         libPicked_ = std::set<std::string>{id};
@@ -353,10 +358,17 @@ void App::libLoadPicked() {
 
 // MARK: — IMPORT
 
-std::string App::libImportFolder() const { return libFolder_; }
+std::string App::libImportFolder() const { return libRefMode() ? "@arrange-reference" : libFolder_; }
 
 void App::libImported(const std::string& folder, const SampleStore::Loaded& l) {
     if (!samples_) return;
+    if (folder == "@arrange-reference") {
+        if (libRefMode()) {
+            samples_->add(l.key, l.data);
+            loadArrangeReference(l.key, l.name);
+        }
+        return;
+    }
     samples_->add(l.key, l.data);
     libEdit([&](Library& lib) {
         lib.addSample(library_.isFolder(folder) ? folder : std::string(Library::root), l.key, l.name);
@@ -364,6 +376,7 @@ void App::libImported(const std::string& folder, const SampleStore::Loaded& l) {
 }
 
 bool App::libImportPreset(const std::string& folder, const std::string& name, const std::string& data) {
+    if (folder == "@arrange-reference") return false;
     std::string base = name;
     const std::string ext = ".jambopreset";
     if (base.size() > ext.size() && base.compare(base.size() - ext.size(), ext.size(), ext) == 0)

@@ -15,6 +15,8 @@ object MidiTarget {
     const val MOD = 39
     const val EQ = 40
     const val PATTERNS = 41
+    const val ARRANGE = 42
+    const val AUTO = 43
     const val STEP = 48
     const val BPM = 64
     const val LEVEL = 65
@@ -49,7 +51,7 @@ object MidiTarget {
         target == GRID_UP || target == GRID_DOWN || target in ROW until ROW + WINDOW_ROWS ||
             target in CLIP until CLIP + 16 * WINDOW_ROWS
 
-    fun actions(chords: Int) = (PLAY..PATTERNS) + (CHORD..ARP) +
+    fun actions(chords: Int) = (PLAY..AUTO) + (CHORD..ARP) +
         (TRACK until KEY + 25) + (CHORD_TYPE until CHORD_TYPE + chords) + (ROW until PAGE + 8) + (STEP until STEP + 16)
 }
 
@@ -58,6 +60,8 @@ fun midiTargetLabel(target: Int): String = with(MidiTarget) {
         in 0 until KNOBS -> "KNOB ${target / 4 + 1}.${target % 4 + 1}"
         in PRESS until PLAY -> midiTargetLabel(target - PRESS) + " PRESS"
         in PLAY..PATTERNS -> listOf("PLAY", "REC", "UNDO", "REDO", "METRONOME", "SHIFT", "FX", "MOD", "EQ", "PATTERNS")[target - PLAY]
+        ARRANGE -> "ARRANGE"
+        AUTO -> "AUTO"
         in STEP until STEP + 16 -> "STEP ${target - STEP + 1}"
         in BPM..PAGE_ARROW + 3 -> listOf("BPM", "LEVEL", "CHORD", "OCTAVE ▲", "OCTAVE ▼", "LFO1", "LFO2", "LFO3", "ENV",
             "MORPH", "MIX", "MST", "ARM MST", "GRID ▲", "GRID ▼", "SOUND ◀", "SOUND ▶", "PAGE ◀", "PAGE ▶", "PAGE ▲", "PAGE ▼")[target - BPM]

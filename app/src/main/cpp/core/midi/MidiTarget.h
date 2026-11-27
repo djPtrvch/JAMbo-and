@@ -7,6 +7,7 @@ constexpr int knobCount = 16;
 constexpr int press = 16;
 constexpr int play = 32, rec = 33, undo = 34, redo = 35, metronome = 36, shift = 37;
 constexpr int fx = 38, mod = 39, eq = 40, patterns = 41;
+constexpr int arrange = 42, autoPanel = 43;
 constexpr int step = 48;
 constexpr int bpm = 64, level = 65, chord = 66, octaveUp = 67, octaveDown = 68;
 constexpr int lfo = 69, morph = 73, mix = 74, master = 75, armMaster = 76;

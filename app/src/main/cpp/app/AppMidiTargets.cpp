@@ -124,6 +124,8 @@ void App::midiMappedButton(int target, bool down, bool touch, bool setState, boo
         case mt::eq: if (down != eqView_) toggleEqView(); return;
         case mt::arp: setArpMode(down); return;
         case mt::patterns: if (down != patternView_) togglePatterns(); return;
+        case mt::arrange: if (down != arrangeView_) toggleArrange(); return;
+        case mt::autoPanel: if (arrangeView_ && down != arrangeAuto_) toggleArrangeAuto(); return;
         default: break;
         }
     }
@@ -152,6 +154,8 @@ void App::midiMappedButton(int target, bool down, bool touch, bool setState, boo
         case mt::metronome: toggleMetronome(); break;
         case mt::eq: toggleEqView(); break;
         case mt::patterns: togglePatterns(); break;
+        case mt::arrange: toggleArrange(); break;
+        case mt::autoPanel: if (arrangeView_) toggleArrangeAuto(); break;
         case mt::chord: chordTap(); break;
         case mt::arp: setArpMode(!arp().mode); break;
         case mt::octaveUp: setOctave(octave() + 1); break;

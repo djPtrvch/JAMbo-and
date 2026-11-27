@@ -134,7 +134,7 @@ private fun Body(s: ScreenState, th: Theme, controllerActions: ControllerActions
         }
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
             TopBar(s) { s.mainMenu = !s.mainMenu }
-            if (s.arrange[0] != 0) ArrangeWindow(s, width, Modifier.weight(1f).fillMaxWidth(), lowerPanel)
+            if (s.arrange[0] != 0 && s.lib[0] == 0) ArrangeWindow(s, width, Modifier.weight(1f).fillMaxWidth(), lowerPanel)
             else if (s.grid[0] != 0) PatternGrid(s, Modifier.weight(1f).fillMaxWidth(), width)
             else if (s.masterWin[0] >= 0) Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Layout.gap.dp)) {
                 MasterWindow(s, Modifier.weight(1f).fillMaxHeight())
@@ -168,7 +168,7 @@ private fun Body(s: ScreenState, th: Theme, controllerActions: ControllerActions
                 }
                 MeterColumn(s, Modifier.fillMaxHeight())
             }
-            if (s.arrange[0] == 0) lowerPanel()
+            if (s.arrange[0] == 0 || s.lib[0] != 0) lowerPanel()
         }
         if (s.sound[2] != 0) SoundMenuOverlay(s, left)
         if (s.pageMenu >= 0) PageMenuOverlay(s, pagesRect)
