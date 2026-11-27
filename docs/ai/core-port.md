@@ -18,4 +18,5 @@
   EqPresets — тест library_test.
 - RANDOM: DrumRhythm, MelodyRhythm, StyleRhythm/StyleRoles, TechnoRhythm и SliceRhythm. Тесты `app_test.cpp` сверяют свойства с правилами Swift, в том числе сквозной цикл Techno, вариации ударных и сбивки нарезки.
 - Аранжировщик: ArrangeEdits, ArrangeAuto, ArrangeRecorder, воспроизведение аранжировки в Launcher/Sequencer и события AudioCore уже есть. Следующий этап — действия App, мост JNI и экран ARRANGE/AUTO.
-- Не перенесено: HeadPack, PhonesProfile/PhonesEq, переход MIX (Project::mixed, blendMaster), правки варпинга Track. Состояние экрана и сборок — в [handoff.md](../../handoff.md).
+- В редакторе сэмплов `AppSampleEditor.cpp` отвечает за метки нарезки, привязку к нотам и назначение ролей RANDOM. `AppSampleWarp.cpp` редактирует карту WARP дорожки, в том числе метки, BPM файла, AUTO WARP и CLEAR WARP. Правки и UNDO покрыты в `app_test.cpp`. Воспроизведение по карте проверяется в `sampler_test.cpp`.
+- Не перенесено: HeadPack, PhonesProfile/PhonesEq, переход MIX (Project::mixed, blendMaster). Состояние экрана и сборок — в [handoff.md](../../handoff.md).
