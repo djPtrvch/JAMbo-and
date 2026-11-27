@@ -9,6 +9,7 @@ namespace jambo {
 App::App(AppAudio* audio)
     : audio_(audio), playPos_(size_t(Params::maxTracks + SeqData::chans), -1), cell_(size_t(Params::maxTracks), -1) {
     lastArpTick_.fill(-1);
+    randomParts_.fill(-1);
     publishAudio();
 }
 
@@ -34,9 +35,6 @@ void App::loadProject(const Project& p) {
         audio_->push(CoreEvent::arp(int(i), false, 0, 2, 1, 0.5f, false));
         sentArp_[i] = {};
     }
-    randomParts_.clear();
-    lastProgression_.clear();
-    lastDrumPattern_.clear();
     project_ = p;
     audio_->push(CoreEvent::tempo(runningBpm()));
     publishAudio();

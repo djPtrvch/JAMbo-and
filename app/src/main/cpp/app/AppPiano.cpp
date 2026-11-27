@@ -60,7 +60,7 @@ void App::editArp(const std::function<void(TrackArp&)>& change) {
 
 void App::setArpMode(bool on) {
     if (channel_ != Channel::track || on == arp().mode) return;
-    const bool enabled = on ? chordOn() : arp().on;
+    const bool enabled = on ? chordMode_[size_t(selected_)] : arp().on;
     chordMode_[size_t(selected_)] = !on && enabled;
     editArp([&](TrackArp& a) { a.mode = on; a.on = on && enabled; });
 }
@@ -82,8 +82,11 @@ void App::setArpLatch(bool on) {
 }
 
 void App::chordTap() {
-    if (channel_ == Channel::track && (shiftHeld_ || randomButton())) writeRandom();
-    else if (arp().mode) editArp([](TrackArp& a) { a.on = !a.on; });
+    if (shiftHeld_ || randomButton()) {
+        if (channel_ == Channel::track) writeRandom();
+        return;
+    }
+    if (arp().mode) editArp([](TrackArp& a) { a.on = !a.on; });
     else toggleChord();
 }
 

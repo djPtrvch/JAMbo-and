@@ -1,7 +1,7 @@
 // Случайный ритм ударных: стили, роли и рисунки (порт Core/Model/DrumRhythm.swift, ветка swift JAMbo).
 #pragma once
 #include <algorithm>
-#include <random>
+#include "RhythmRandom.h"
 #include "Clip.h"
 #include "../synth/Jambo.h"
 
@@ -27,8 +27,19 @@ inline int role(int engine) {
     }
 }
 inline constexpr double swing[] = {54, 50, 56, 50, 52, 50};
-std::vector<int> drumBase(int role, int style, int length, std::mt19937& rng);
-void writeDrums(Page& page, const std::vector<int>& base, int role, int style, int note,
-                int length, bool vary, bool fill, std::mt19937& rng);
+struct Hit {
+    int step;
+    std::optional<double> velocity;
+    std::optional<int> ratchet;
+    std::optional<double> chance;
+};
+using Hits = std::vector<Hit>;
+using Pattern = std::vector<Hits>;
+
+RhythmRandom::Ints euclid(int k, int n, int rotation);
+Pattern pattern(int role, int style, const RhythmRandom::Ints& lengths, const RhythmRandom::Ints* avoid,
+                RhythmRandom::Rng& rng);
+RhythmRandom::Ints steps(const Hits& hits);
+void writePage(Page& page, const Hits& hits, int note);
 }  // namespace DrumRhythm
 }  // namespace jambo

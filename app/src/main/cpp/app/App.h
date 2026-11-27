@@ -727,7 +727,9 @@ private:
     int randomSettings_ = randomDefaults;
     std::map<int, std::vector<int>> lastDrumPattern_;
     std::vector<int> lastProgression_;
-    std::map<int, int> randomParts_;
+    std::optional<int> lastRandomKind_;
+    int randomPartOverride(size_t track) const;
+    std::array<int, Params::maxTracks> randomParts_{};
     void writeRandom();
     int randomDrumRole(const Track& t) const;
     bool randomSlices(const Track& t) const;

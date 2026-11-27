@@ -1,25 +1,11 @@
 // Рисунки ударных и p-lock по стилю проекта.
 #include "DrumRhythm.h"
-#include <string_view>
+#include <cmath>
 
 namespace jambo::DrumRhythm {
 
 namespace {
-using Rng = std::mt19937;
-
-int between(Rng& rng, int lo, int hi) {
-    return std::uniform_int_distribution<int>(lo, hi)(rng);
-}
-
-bool chance(Rng& rng, int percent) {
-    return between(rng, 1, 100) <= percent;
-}
-
-std::string_view variant(std::string_view table, Rng& rng) {
-    int index = between(rng, 0, int(std::count(table.begin(), table.end(), ' ')));
-    while (index-- > 0) table.remove_prefix(table.find(' ') + 1);
-    return table.substr(0, table.find(' '));
-}
+using namespace RhythmRandom;
 
 // Рисунки ударных из DrumRhythm.swift: x — обязательный шаг, цифра — вероятность из десяти.
 constexpr const char* kickPatterns[] = {
@@ -36,64 +22,136 @@ constexpr const char* hatPatterns[] = {
     "22x222x222x222x2 66x666x666x666x6", "55x555x555x555x5 88x888x888x888x8 ..7...7...7...7.",
     "8282828282828282", "x4x4x4x4x4x4x4x4", "x1x1x1x1x1x1x1x1", "3333333333333333",
 };
+const Ints snareGhosts[] = {{3, 6, 9, 11, 14, 15}, {7, 15}, {7, 9, 14, 15},
+                           {3, 6, 11, 14, 15}, {3, 6, 9, 11, 14, 15}, {}};
 
+bool snareLike(int role) { return role == snare || role == clap; }
 
-}  // namespace
+Hit hit(int style, int role, int step, bool ghost, Rng& rng) {
+    Hit out{step, {}, {}, {}};
+    if (role != kick) {
+        out.velocity = ghost ? std::round(real(rng, 38.1, 57.15))
+            : step % 4 == 0 ? 127.0 : std::round(real(rng, 88.9, 107.95));
+    }
+    if (style == 3 && role == hat && step % 4 != 0 && real(rng) < 0.2) out.ratchet = integer(rng, 1, 3);
+    if (step > 0 && style == 5 && role != kick) out.chance = 50;
+    if (step > 0 && style == 1 && role == hat && step % 4 != 2) out.chance = 75;
+    return out;
+}
 
-std::vector<int> drumBase(int role, int style, int len, Rng& rng) {
-    std::vector<int> hits;
-    if (role == DrumRhythm::perc) {
+Hits base(int role, int style, int length, Rng& rng) {
+    Hits out;
+    if (role == perc) {
         constexpr int low[] = {3, 3, 3, 2, 2, 2}, high[] = {5, 5, 7, 5, 4, 5};
-        const int count = std::min(len, between(rng, low[style], high[style]));
-        const int offset = between(rng, 0, len - 1);
-        for (int i = 0; i < count; ++i) hits.push_back((i * len / count + offset) % len);
-        std::sort(hits.begin(), hits.end());
+        const int count = integer(rng, low[style], high[style]);
+        const int shift = integer(rng, 0, length - 1);
+        for (int step : euclid(count, length, shift)) out.push_back(hit(style, role, step, false, rng));
     } else {
-        const auto pattern = variant(role == DrumRhythm::kick ? kickPatterns[style]
-            : role == DrumRhythm::hat ? hatPatterns[style] : snarePatterns[style], rng);
-        for (int step = 0; step < std::min(len, int(pattern.size())); ++step) {
-            const char cell = pattern[size_t(step)];
-            if (cell == 'x' || (cell >= '1' && cell <= '9' && chance(rng, (cell - '0') * 10)))
-                hits.push_back(step);
+        const auto options = split(role == kick ? kickPatterns[style]
+            : role == hat ? hatPatterns[style] : snarePatterns[style]);
+        const auto cells = options.size() == 1 ? options.front() : pick(rng, options);
+        const auto& ghosts = snareGhosts[style];
+        for (int step = 0; step < length; ++step) {
+            const char cell = step < int(cells.size()) ? cells[size_t(step)] : '.';
+            const double p = cell == 'x' ? 1 : cell == '.' ? 0 : (cell - '0') / 10.0;
+            if (p > 0 && real(rng) < p) {
+                const bool ghost = snareLike(role) && p < 1 && std::find(ghosts.begin(), ghosts.end(), step) != ghosts.end();
+                out.push_back(hit(style, role, step, ghost, rng));
+            }
         }
     }
-    if (hits.empty()) hits.push_back(len / 2);
-    return hits;
+    if (out.empty()) out.push_back(hit(style, role, length / 2, false, rng));
+    return out;
 }
 
-void writeDrums(Page& page, const std::vector<int>& base, int role, int style, int note,
-                int len, bool vary, bool fill, Rng& rng) {
-    auto hits = base;
-    hits.erase(std::lower_bound(hits.begin(), hits.end(), len), hits.end());
-    if (vary) {
-        const int s = between(rng, 0, len - 1);
-        const auto it = std::lower_bound(hits.begin(), hits.end(), s);
-        if (it == hits.end() || *it != s) hits.insert(it, s);
-        else if (hits.size() > 1 && (role != DrumRhythm::kick || s != 0) &&
-                 ((role != DrumRhythm::snare && role != DrumRhythm::clap) || s % 4 != 0)) hits.erase(it);
+bool anchor(int role, int style, int step) {
+    if (role == kick) return step == 0;
+    if (!snareLike(role)) return false;
+    const auto& ghosts = snareGhosts[style];
+    if (std::find(ghosts.begin(), ghosts.end(), step) != ghosts.end()) return false;
+    const auto options = split(snarePatterns[style]);
+    return std::all_of(options.begin(), options.end(), [step](auto row) {
+        return step < int(row.size()) && row[size_t(step)] == 'x';
+    });
+}
+
+Hits vary(const Hits& source, int role, int style, int length, Rng& rng) {
+    Hits out;
+    for (const auto& h : source) if (h.step < length) out.push_back(h);
+    const int changes = integer(rng, 1, 2);
+    for (int i = 0; i < changes; ++i) {
+        std::vector<size_t> removable;
+        for (size_t j = 0; j < out.size(); ++j) if (!anchor(role, style, out[j].step)) removable.push_back(j);
+        Ints free;
+        for (int s = 0; s < length; ++s)
+            if (std::none_of(out.begin(), out.end(), [s](const auto& h) { return h.step == s; })) free.push_back(s);
+        const bool remove = !removable.empty() && (free.empty() || coin(rng));
+        if (remove) {
+            const auto index = pick(rng, removable);
+            if (out.size() > 1) { out.erase(out.begin() + index); continue; }
+        }
+        if (!free.empty()) {
+            const int s = pick(rng, free);
+            out.push_back(hit(style, role, s, snareLike(role) && s % 4 != 0, rng));
+        }
     }
-    if (fill) {
-        constexpr int probability[] = {40, 60, 70, 60, 50};
-        const int start = std::max(0, len - 4);
-        hits.erase(std::lower_bound(hits.begin(), hits.end(), start), hits.end());
-        const auto prior = hits.size();
-        for (int s = start; s < len; ++s)
-            if (chance(rng, probability[role])) hits.push_back(s);
-        if (hits.size() == prior) hits.push_back(between(rng, start, len - 1));
-    }
-    if (hits.empty()) hits.push_back(len / 2);
-    for (int s : hits) {
-        Step& step = page[size_t(s)];
+    if (out.empty()) return base(role, style, length, rng);
+    std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) { return a.step < b.step; });
+    return out;
+}
+
+Hits fill(const Hits& source, int role, int style, int length, Rng& rng) {
+    const int first = std::max(0, length - 4);
+    constexpr double chance[] = {0.4, 0.6, 0.7, 0.6, 0.5};
+    Hits out;
+    for (const auto& h : source) if (h.step < first) out.push_back(h);
+    const auto before = out.size();
+    for (int s = first; s < length; ++s)
+        if (real(rng) < chance[role]) out.push_back(hit(style, role, s, false, rng));
+    if (out.size() == before) out.push_back(hit(style, role, integer(rng, first, length - 1), false, rng));
+    return out;
+}
+}  // namespace
+
+Ints euclid(int k, int n, int rotation) {
+    Ints out;
+    if (n <= 0 || k <= 0) return out;
+    k = std::min(k, n);
+    for (int i = 0; i < k; ++i) out.push_back(((i * n / k + rotation) % n + n) % n);
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+Ints steps(const Hits& hits) {
+    Ints out;
+    for (const auto& h : hits) out.push_back(h.step);
+    return out;
+}
+
+Pattern pattern(int role, int style, const Ints& lengths, const Ints* avoid, Rng& rng) {
+    Pattern out(lengths.size());
+    std::vector<size_t> playing;
+    for (size_t i = 0; i < lengths.size(); ++i) if (lengths[i] > 0) playing.push_back(i);
+    if (playing.empty()) return out;
+    style = styleIndex(style);
+    const auto first = playing.front(), last = playing.back();
+    out[first] = base(role, style, lengths[first], rng);
+    for (int tries = 1; avoid && steps(out[first]) == *avoid && tries < 16; ++tries)
+        out[first] = base(role, style, lengths[first], rng);
+    for (const auto i : playing)
+        if (i != first && i != last) out[i] = vary(out[first], role, style, lengths[i], rng);
+    if (last != first) out[last] = fill(out[first], role, style, lengths[last], rng);
+    return out;
+}
+
+void writePage(Page& page, const Hits& hits, int note) {
+    for (const auto& h : hits) {
+        Step& step = page[size_t(h.step)];
         step.on = true;
         step.notes = {note};
-        const bool backbeat = (role == DrumRhythm::snare || role == DrumRhythm::clap) && s % 4 != 0;
-        if (role != DrumRhythm::kick)
-            step.locks["level"] = s % 4 == 0 ? 127 : backbeat ? between(rng, 38, 57) : between(rng, 89, 108);
-        if (style == 3 && role == DrumRhythm::hat && s % 4 != 0 && chance(rng, 20))
-            step.locks["ratchet"] = between(rng, 1, 3);
-        if (s > 0 && style == 5 && role != DrumRhythm::kick) step.locks["prob"] = 50;
-        if (s > 0 && style == 1 && role == DrumRhythm::hat && s % 4 != 2) step.locks["prob"] = 75;
+        if (h.velocity) step.locks["level"] = *h.velocity;
+        if (h.ratchet) step.locks["ratchet"] = *h.ratchet;
+        if (h.chance) step.locks["prob"] = *h.chance;
     }
 }
-
 }  // namespace jambo::DrumRhythm

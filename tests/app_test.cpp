@@ -3,6 +3,10 @@
 #include "app/App.h"
 #include "midi/MidiTarget.h"
 #include "model/SynthEngines.h"
+#include "model/DrumRhythm.h"
+#include "model/MelodyRhythm.h"
+#include "model/SliceRhythm.h"
+#include "model/Scales.h"
 #include "engine/AudioCore.h"
 #include <cmath>
 #include <cstdio>
@@ -431,6 +435,110 @@ void arpRecording() {
     check(!audio.core.arp.active(0), "arp: project load clears the previous arpeggiator");
 }
 
+void randomSwiftRules() {
+    RhythmRandom::Rng rng(1944);
+    const auto beforeFill = [](const auto& page, int at) {
+        std::vector<std::pair<int, double>> out;
+        for (const auto& e : page) {
+            if (e.step < at) out.push_back({e.step, e.velocity.value_or(-1)});
+        }
+        return out;
+    };
+    bool twoChanges = false, keptBaseVelocity = true, finalFill = true, keptAnchors = true;
+    bool correctGhosts = true, ghostPresent = false;
+    for (int style = 0; style < 6; ++style) {
+        for (int role = DrumRhythm::kick; role <= DrumRhythm::perc; ++role) {
+            for (int trial = 0; trial < 60; ++trial) {
+                const auto pages = DrumRhythm::pattern(role, style, {16, 16, 16, 7}, nullptr, rng);
+                const auto base = DrumRhythm::steps(pages[0]);
+                keptBaseVelocity &= beforeFill(pages[0], 3) == beforeFill(pages[3], 3);
+                finalFill &= std::any_of(pages[3].begin(), pages[3].end(), [](const auto& hit) {
+                    return hit.step >= 3 && hit.step < 7;
+                });
+                for (size_t i : {1, 2}) {
+                    const auto steps = DrumRhythm::steps(pages[i]);
+                    std::vector<int> difference;
+                    std::set_symmetric_difference(base.begin(), base.end(), steps.begin(), steps.end(),
+                                                  std::back_inserter(difference));
+                    twoChanges |= difference.size() == 2;
+                    keptAnchors &= difference.size() <= 2 && (role != DrumRhythm::kick || steps.front() == 0);
+                }
+                if (style == 0 && role == DrumRhythm::snare) {
+                    for (const auto& hit : pages.front()) {
+                        if (hit.step == 3) { ghostPresent = true; correctGhosts &= hit.velocity && *hit.velocity <= 57; }
+                    }
+                }
+            }
+        }
+    }
+    check(twoChanges && keptAnchors && keptBaseVelocity && finalFill && correctGhosts && ghostPresent,
+          "RANDOM Swift: drum variation, preserved anchors and velocity, ghost hits and fill");
+
+    std::vector<SliceRhythm::SlicePiece> pieces;
+    for (int i = 0; i < 6; ++i) pieces.push_back({60 + i, 2, 0, 0, -1});
+    bool breakFill = true, replacedOnlyNotes = true;
+    for (int trial = 0; trial < 100; ++trial) {
+        const auto pages = SliceRhythm::pattern(pieces, {16, 16, 16, 7}, 0, nullptr, rng);
+        for (size_t i : {1, 2}) {
+            replacedOnlyNotes &= pages[i].size() == pages[0].size() && pages[i].front().note == 60;
+            for (size_t j = 0; j < pages[i].size(); ++j)
+                replacedOnlyNotes &= pages[i][j].step == pages[0][j].step;
+        }
+        breakFill &= pages.back().front().note == 60 && pages.back().back().step >= 3 &&
+                     pages.back().back().length == 1;
+    }
+    check(replacedOnlyNotes && breakFill, "RANDOM Swift: slice variations reuse the break and end with a fill");
+
+    using MelodyRhythm::Role;
+    TrackArp settings;
+    settings.octaves = 2;
+    bool cycles = true, clipped = true, rests = false;
+    for (int trial = 0; trial < 100; ++trial) {
+        const auto pat = MelodyRhythm::generate({Role::arp, 1, 0, 0, 0, 4, false, settings},
+                                                {16, 16, 16, 7}, {1, 7}, {}, rng);
+        rests |= pat.front().size() < 12;
+        const std::array<int, 6> rows[] = {{60, 67, 71, 72, 79, 83}, {71, 77, 81, 83, 89, 93}};
+        std::vector<int> positions;
+        for (size_t p = 0; p < pat.size(); ++p) {
+            const auto& row = rows[p / 2];
+            for (const auto& e : pat[p]) {
+                const auto at = std::find(row.begin(), row.end(), e.note);
+                clipped &= e.step % 4 != 0 && e.step < (p == 3 ? 7 : 16) && at != row.end();
+                positions.push_back(int(at - row.begin()));
+            }
+        }
+        bool period = false;
+        for (size_t n = 3; n <= 7 && n < positions.size(); ++n)
+            period |= std::equal(positions.begin() + n, positions.end(), positions.begin());
+        cycles &= period;
+    }
+    check(cycles && clipped && rests, "RANDOM Swift: Techno ARP keeps its 3-7 note cycle across pages and chord changes");
+
+    bool bounded = true;
+    for (int style = 0; style < 6; ++style) {
+        for (Role role : {Role::bass, Role::lead, Role::keys, Role::pad, Role::arp}) {
+            for (int scale = 0; scale < int(Scales::all.size()); ++scale) {
+                const auto degrees = MelodyRhythm::progression(style, scale, nullptr, rng);
+                const int kind = MelodyRhythm::kind(style, rng);
+                const auto pat = MelodyRhythm::generate({role, style, kind, scale, 11, 6, false, settings},
+                                                        {16, 16, 7, 0}, degrees, {}, rng);
+                bounded &= pat.size() == 4 && pat[3].empty();
+                for (size_t p = 0; p < 3; ++p)
+                    for (const auto& event : pat[p])
+                        bounded &= event.step >= 0 && event.step < (p == 2 ? 7 : 16) &&
+                                   event.note >= 0 && event.note <= 127 && event.length > 0 && event.length <= 32;
+            }
+        }
+    }
+    check(bounded, "RANDOM Swift: all styles and roles honor note bounds and short pages");
+    const MelodyRhythm::Kicks kicks{{0, 10}, {0, 6, 13}};
+    const auto trap = MelodyRhythm::generate({Role::bass, 3, 0, 0, 0, 1, false, {}},
+                                            {16, 16}, {1, 5}, kicks, rng);
+    check(trap[0].size() == 2 && trap[0][0].step == 0 && trap[0][1].step == 10 &&
+          trap[1].size() == 2 && trap[1][0].step == 0 && trap[1][1].step == 6,
+          "RANDOM Swift: Trap bass follows the kick and leaves the last four steps clear");
+}
+
 void randomPatterns() {
     CoreAudio audio;
     App app(&audio);
@@ -825,6 +933,7 @@ int runAppTests() {
     projects();
     chords();
     arpRecording();
+    randomSwiftRules();
     randomPatterns();
     rec();
     meter();
