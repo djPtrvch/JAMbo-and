@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.jambo.android.AppNative.Act
 import app.jambo.android.MidiTarget
+import app.jambo.android.Native
+import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -88,7 +92,27 @@ fun TopBar(s: ScreenState, onMenu: () -> Unit) {
                 }
             }
         }
-        Spacer(Modifier.width(Layout.meterWidth.dp))
+        CpuIndicator(Modifier.width(Layout.meterWidth.dp))
+    }
+}
+
+/** Средняя загрузка аудиоколбэка, обновление четыре раза в секунду. */
+@Composable
+private fun CpuIndicator(modifier: Modifier) {
+    var percent by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            percent = Native.cpuLoadPercent().roundToInt().coerceAtLeast(0)
+            delay(250)
+        }
+    }
+    val th = LocalTheme.current
+    val ink = if (percent >= 70) th.rec else th.dim
+    Column(modifier.fillMaxHeight().offset(y = 6.dp), verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        val text = 9.tsp()
+        Text("CPU", color = ink, fontSize = text, lineHeight = text, maxLines = 1)
+        Text("$percent%", color = ink, fontSize = text, lineHeight = text, maxLines = 1)
     }
 }
 

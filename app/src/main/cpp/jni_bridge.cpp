@@ -25,6 +25,8 @@ FN(void, stop)(JNIEnv*, jobject) { if (gAudio) gAudio->stop(); }
 FN(void, setTone)(JNIEnv*, jobject, jboolean on) { ensure(); gAudio->setTone(on); }
 FN(void, tap)(JNIEnv*, jobject, jlong touchNs) { ensure(); gAudio->tap(touchNs); }
 
+FN(jdouble, cpuLoadPercent)(JNIEnv*, jobject) { return gAudio ? gAudio->cpuLoadPercent() : 0; }
+
 FN(jdoubleArray, audioInfo)(JNIEnv* env, jobject) {
     ensure();
     double v[AudioEngine::kInfoSize];

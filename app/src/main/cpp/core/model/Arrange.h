@@ -2,6 +2,7 @@
 // Позиции и длины — в шагах транспорта (16 на такт) от начала аранжировки.
 #pragma once
 #include <algorithm>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -22,6 +23,31 @@ constexpr int stepsPerBar = 16;
 constexpr int steps[4] = {16, 8, 4, 1};
 }  // namespace ArrGrid
 
+/// Неизменённые копии клипа разделяют память; перед правкой блок получает свою копию.
+class ArrPattern {
+public:
+    ArrPattern() = default;
+    ArrPattern(Clip value) : clip_(std::make_shared<Clip>(std::move(value))) {}
+    ArrPattern(std::optional<Clip> value) {
+        if (value) clip_ = std::make_shared<Clip>(std::move(*value));
+    }
+    bool has_value() const { return bool(clip_); }
+    explicit operator bool() const { return has_value(); }
+    const Clip& operator*() const { return *clip_; }
+    const Clip* operator->() const { return clip_.get(); }
+    Clip& edit() {
+        if (!clip_.unique()) clip_ = std::make_shared<Clip>(*clip_);
+        return *clip_;
+    }
+    bool operator==(const ArrPattern& other) const {
+        return clip_ == other.clip_ || (clip_ && other.clip_ && *clip_ == *other.clip_);
+    }
+    bool operator==(const Clip& value) const { return clip_ && *clip_ == value; }
+
+private:
+    std::shared_ptr<Clip> clip_;
+};
+
 /// Блок на дорожке: клип сетки, начало и длина в шагах, offset — с какого шага прохода клипа; pattern — своя копия
 /// клипа (nullopt — играет клип сетки); autos — автоматизация блока; legacyLink — LINK прежних проектов (не пишется).
 struct ArrBlock {
@@ -29,12 +55,12 @@ struct ArrBlock {
     int start = 0;
     int length = ArrGrid::stepsPerBar;
     int offset = 0;
-    std::optional<Clip> pattern;
+    ArrPattern pattern;
     std::vector<ArrAutoLane> autos;
     bool legacyLink = false;
 
     ArrBlock() = default;
-    ArrBlock(int c, int s, int l, int o = 0, std::optional<Clip> p = std::nullopt)
+    ArrBlock(int c, int s, int l, int o = 0, ArrPattern p = {})
         : clip(c), start(s), length(l), offset(o), pattern(std::move(p)) {}
     int end() const { return start + length; }
     /// Начало блока сдвинулось на d шагов вправо: точки — на прежних местах таймлайна.

@@ -2,6 +2,7 @@
 #include <climits>
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include "Project.h"
 #include "Track.h"
 
@@ -64,42 +65,45 @@ void Arrangement::repair() {
 
 void Track::clearArrange(int from, int to) {
     if (to <= from) return;
-    std::vector<ArrBlock> out;
-    for (const auto& b : blocks) {
-        if (b.end() <= from || b.start >= to) {
-            out.push_back(b);
-            continue;
-        }
-        if (b.start < from) {
-            ArrBlock left = b;
-            left.length = from - b.start;
-            left.pinCut(left.length);
-            out.push_back(left);
-        }
-        if (b.end() > to) {
-            const int cut = to - b.start;
-            ArrBlock right = b;
-            right.pinCut(cut);
-            right.start = to;
-            right.length = b.end() - to;
-            right.offset = b.offset + cut;
-            right.shiftAutos(cut);
-            out.push_back(right);
-        }
+    const auto first = std::lower_bound(blocks.begin(), blocks.end(), from,
+        [](const ArrBlock& b, int x) { return b.end() <= x; });
+    const auto last = std::lower_bound(first, blocks.end(), to,
+        [](const ArrBlock& b, int x) { return b.start < x; });
+    if (first == last) return;
+
+    std::vector<ArrBlock> remain;
+    if (first->start < from) {
+        auto left = *first;
+        left.length = from - left.start;
+        left.pinCut(left.length);
+        remain.push_back(std::move(left));
     }
-    blocks = out;
+    if (const auto& b = *std::prev(last); b.end() > to) {
+        auto right = b;
+        const int cut = to - b.start;
+        right.pinCut(cut);
+        right.start = to;
+        right.length = b.end() - to;
+        right.offset = b.offset + cut;
+        right.shiftAutos(cut);
+        remain.push_back(std::move(right));
+    }
+    const auto at = blocks.erase(first, last);
+    blocks.insert(at, std::make_move_iterator(remain.begin()), std::make_move_iterator(remain.end()));
 }
 
 int Track::placeBlock(const ArrBlock& b) {
     ArrBlock n = b;
     n.start = std::max(0, n.start);
     n.length = std::max(1, n.length);
+    if (blocks.empty() || blocks.back().end() <= n.start) {
+        blocks.push_back(std::move(n));
+        return int(blocks.size()) - 1;
+    }
     clearArrange(n.start, n.end());
-    blocks.push_back(n);
-    // Swift sort не устойчив, но блоки после clearArrange не перекрываются и с разными start — порядок один.
-    std::stable_sort(blocks.begin(), blocks.end(), [](const ArrBlock& a, const ArrBlock& c) { return a.start < c.start; });
-    for (size_t i = 0; i < blocks.size(); ++i) if (blocks[i] == n) return int(i);
-    return 0;
+    const auto at = std::lower_bound(blocks.begin(), blocks.end(), n.start,
+        [](const ArrBlock& existing, int x) { return existing.start < x; });
+    return int(blocks.insert(at, std::move(n)) - blocks.begin());
 }
 
 void Track::repairBlocks() {

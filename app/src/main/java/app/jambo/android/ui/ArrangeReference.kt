@@ -8,10 +8,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.text.TextMeasurer
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import app.jambo.android.AppNative
 import kotlinx.coroutines.Dispatchers
@@ -34,12 +30,9 @@ internal fun arrangeReference(s: ScreenState, visible: Boolean): ArrangeReferenc
 
 internal fun DrawScope.drawArrangeReference(
     track: ArrangeReference, header: Float, top: Float, row: Float, stepWidth: Float, scroll: Float,
-    stepSeconds: Double, theme: Theme, measure: TextMeasurer, text: TextUnit,
+    stepSeconds: Double, theme: Theme,
 ) {
     drawRect(theme.trackBg, Offset(0f, top), Size(size.width, row))
-    val bpm = if (track.bpm > 0) " · %.1f BPM".format(track.bpm) else ""
-    val title = measure.measure("REF · " + track.name + bpm, TextStyle(color = theme.text, fontSize = text))
-    clipRect(right = header) { drawText(title, topLeft = Offset(8.dp.toPx(), top + (row - title.size.height) / 2)) }
     val hopSeconds = 256 / 48_000.0
     val column = 2.dp.toPx().coerceAtLeast(1f)
     val mid = top + row / 2

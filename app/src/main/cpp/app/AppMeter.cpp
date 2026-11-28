@@ -1,6 +1,7 @@
 // App: измеритель уровня справа (порт AppModelMeter.swift, ветка swift JAMbo): канал — выбранная дорожка, при MIX и
 // MST — выход мастера; регулятор громкости поверх полос; стерео или моно.
 #include "App.h"
+#include <unordered_set>
 #include "synth/Jambo.h"
 #include "model/SynthEngines.h"
 #include <cmath>
@@ -28,18 +29,19 @@ void App::resetLoudness() {
     if (lv) lv->loudness.resetRequests.store(lv->loudness.resetRequests.load() + 1);
 }
 
-double App::meterVol(int ch) const {
-    if (arrangeReferenceB()) return project_.arrange.ref->gain;
+double App::meterVol(int ch, bool followReference) const {
+    if (ch == Levels::ref || (followReference && arrangeReferenceB()))
+        return project_.arrange.ref ? project_.arrange.ref->gain : 0;
     if (ch == Levels::master) return project_.outVol;
-    if (ch >= int(project_.tracks.size())) return Params::volDef;
+    if (ch < 0 || ch >= int(project_.tracks.size())) return Params::volDef;
     const Track& t = project_.tracks[size_t(ch)];
     if (!levelRelative_) return t.vol;
     if (t.trim <= Params::volMin + 0.05) return Params::volMin;
     return std::max(Params::volMin, t.vol + t.trim);
 }
 
-void App::setMeterVol(int ch, double db) {
-    if (arrangeReferenceB()) {
+void App::setMeterVol(int ch, double db, bool followReference) {
+    if (ch == Levels::ref || (followReference && arrangeReferenceB())) {
         setArrangeReferenceGain(db);
         return;
     }
@@ -117,8 +119,9 @@ bool App::trackStereo(int t) const {
     }
     for (const auto& c : tr.clips)
         if (c && clipStereo(*c)) return true;
+    std::unordered_set<const Clip*> checked;
     for (const auto& b : tr.blocks) {
-        if (b.pattern && clipStereo(*b.pattern)) return true;
+        if (b.pattern && checked.insert(&*b.pattern).second && clipStereo(*b.pattern)) return true;
         for (const auto& l : b.autos)
             if (panLane(l)) return true;
     }

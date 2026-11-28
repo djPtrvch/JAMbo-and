@@ -292,8 +292,8 @@ public:
     void resetMeterPeak();
     void resetLoudness();
     /// Итоговая громкость канала измерителя (подпись VOL и регулятор).
-    double meterVol(int ch) const;
-    void setMeterVol(int ch, double db);
+    double meterVol(int ch, bool followReference = true) const;
+    void setMeterVol(int ch, double db, bool followReference = true);
     /// Палец на регуляторе: жест (одна запись UNDO) и подпись VOL.
     void setVolDrag(bool on);
     /// Стерео ли дорожка на метре (стерео где-то на дорожке — метр стерео).

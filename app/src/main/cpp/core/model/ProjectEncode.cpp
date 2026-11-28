@@ -236,7 +236,7 @@ Json put(const ArrBlock& v) {
     o["start"] = put(v.start);
     o["length"] = put(v.length);
     o["offset"] = put(v.offset);
-    putIf(o, "pattern", v.pattern);
+    if (v.pattern) o["pattern"] = put(*v.pattern);
     o["autos"] = put(v.autos);
     return o;
 }

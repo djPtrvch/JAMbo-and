@@ -1,5 +1,6 @@
 // JNI аранжировщика: состояние таймлайна, правки блоков и кривые AUTO.
 #include "jni_common.h"
+#include <cmath>
 #include <limits>
 
 #define FN(ret, name) extern "C" JNIEXPORT ret JNICALL Java_app_jambo_android_AppNative_##name
@@ -69,10 +70,12 @@ FN(jintArray, arrangeData)(JNIEnv* env, jobject) {
         int(a.showRef && a.ref.has_value()), int(app.arrangeReferenceB()), int(app.arrangePlaying())};
     for (const auto& marker : a.markers)
         values.insert(values.end(), {marker.at, marker.end.value_or(-1), marker.color});
-    for (const auto& track : p.tracks) {
-        values.insert(values.end(), {track.color, int(track.mute), int(track.solo), jint(track.blocks.size())});
+    for (int t = 0; t < int(p.tracks.size()); ++t) {
+        const auto& track = p.tracks[size_t(t)];
+        values.insert(values.end(), {track.color, int(track.mute), int(track.solo), int(app.trackStereo(t)), jint(track.blocks.size())});
         for (const auto& block : track.blocks) {
-            const auto clip = track.blockClip(block);
+            const auto* clip = block.pattern ? &*block.pattern :
+                (track.clipFilled(block.clip) ? &*track.clips[size_t(block.clip)] : nullptr);
             const int length = clip ? clip->playLen() : 0;
             values.insert(values.end(), {block.start, block.length, block.clip, block.offset,
                 clip ? clip->passTicks() : 1, clip ? clip->speed() : 0, length});
@@ -311,4 +314,30 @@ FN(void, setAdditionalSettings)(JNIEnv*, jobject, jboolean repeats, jboolean rec
 FN(jboolean, paintDrumSteps)(JNIEnv*, jobject, jint first, jint last) {
     std::lock_guard<std::mutex> lock(jniLock());
     return jniApp().paintDrumSteps(first, last);
+}
+
+// Заголовки ARRANGE: громкость, две полосы с пиками, sidechain и слышимость.
+FN(jfloatArray, arrangeHeaderMeters)(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> lock(jniLock());
+    const auto& app = jniApp();
+    const auto& p = app.project();
+    std::vector<jfloat> values;
+    for (int t = 0; t <= int(p.tracks.size()); ++t) {
+        const bool ref = t == int(p.tracks.size());
+        const int channel = ref ? jambo::Levels::ref : t;
+        const auto bars = app.meters().bars(channel, true);
+        const auto left = bars.empty() ? jambo::MeterBar{} : bars[0];
+        const auto right = bars.size() < 2 ? left : bars[1];
+        values.insert(values.end(), {jfloat(app.meterVol(channel, false)), left.level, left.hold, right.level, right.hold,
+            ref ? 0.f : app.meters().duckDb(t), ref || p.audible(t) ? 1.f : 0.f});
+    }
+    auto array = env->NewFloatArray(jsize(values.size()));
+    if (array) env->SetFloatArrayRegion(array, 0, jsize(values.size()), values.data());
+    return array;
+}
+
+FN(void, setArrangeHeaderVolume)(JNIEnv*, jobject, jint track, jdouble db) {
+    if (!std::isfinite(db)) return;
+    std::lock_guard<std::mutex> lock(jniLock());
+    jniApp().setMeterVol(track == -1 ? jambo::Levels::ref : track, db, false);
 }

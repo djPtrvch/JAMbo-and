@@ -1,5 +1,5 @@
 // Снимок паттернов для аудиопотока (порт SeqData, Core/Sequencer/SeqSnapshot.swift, ветка swift JAMbo): плоские
-// массивы чисел. У каждого клипа (дорожка·cellsPerTrack + ячейка) свой паттерн: блок шагов (−1 — пусто), длина и
+// массивы чисел. У каждого клипа (дорожка и ячейка) свой паттерн: блок шагов (−1 — пусто), длина и
 // играющие страницы. Массивы выделены при построении снимка (SeqSnapshot) — колбэк только читает.
 #pragma once
 #include <algorithm>
@@ -13,9 +13,6 @@ struct SeqData {
     static constexpr int maxSteps = 8 * 16;
     static constexpr int maxNotes = 8;
     static constexpr int slots = 16;
-    /// Ячейки блоков аранжировки со своей копией клипа: после ячеек сетки, по номеру блока на дорожке.
-    static constexpr int arrCells = 128;
-    static constexpr int cellsPerTrack = slots + arrCells;
     static constexpr int chans = 2;
 
     int trackCount = 0;
@@ -23,7 +20,7 @@ struct SeqData {
     std::vector<uint8_t> stopped;
     std::vector<int32_t> slot;
     /// На клип: блок шагов (−1 — пусто), длина паттерна, страницы from…to, скорость.
-    std::vector<int32_t> clipBlock, clipLength, clipFrom, clipTo;
+    std::vector<int32_t> cellFirst, clipBlock, clipLength, clipFrom, clipTo;
     std::vector<int8_t> clipRate;
     /// На шаг (блок·maxSteps + шаг): триг, длина, ноты (·maxNotes), split, длины и velocity нот, Chance, Ratchet,
     /// p-lock Chance и Ratchet (биты 1 и 2), Swing.
@@ -71,7 +68,7 @@ struct SeqData {
     /// Блок дорожки t на позиции x аранжировки (−1 — нет).
     int block(int t, int x) const;
     bool filled(int t, int k) const {
-        return k >= 0 && k < cellsPerTrack && clipBlock[size_t(t * cellsPerTrack + k)] >= 0;
+        return t >= 0 && t < trackCount && k >= 0 && k < cellCount(t) && clipBlock[ci(t, k)] >= 0;
     }
     struct Range {
         int from, to;
@@ -132,7 +129,8 @@ struct SeqData {
     }
 
 private:
-    size_t ci(int t, int k) const { return size_t(t * cellsPerTrack + std::max(0, std::min(cellsPerTrack - 1, k))); }
+    int cellCount(int t) const { return cellFirst[size_t(t + 1)] - cellFirst[size_t(t)]; }
+    size_t ci(int t, int k) const { return size_t(cellFirst[size_t(t)] + std::clamp(k, 0, cellCount(t) - 1)); }
 };
 
 }  // namespace jambo

@@ -1002,6 +1002,54 @@ void arrangerSelectionTransfer() {
           "arrange selection: TO END starts after the last block");
 }
 
+void arrangeFullGridTransfer() {
+    CoreAudio audio;
+    App app(&audio);
+    Project project;
+    project.tracks.resize(Params::maxTracks, project.tracks[0]);
+    project.rows = Params::patternSlots;
+    GridSelection all;
+    Clip source;
+    source.pages[0][0].on = true;
+    source.pages[0][0].notes = {48};
+    constexpr int repeats = 9;
+    for (int row = 0; row < Params::patternSlots; ++row) {
+        all.rows.insert(row);
+        project.setScene(row, "Verse", repeats);
+        for (auto& track : project.tracks) track.clips[size_t(row)] = source;
+    }
+    app.loadProject(project);
+    app.togglePatterns();
+    app.toggleArrange();
+    const int blocks = Params::patternSlots * repeats;
+    const auto preview = app.previewGridSelection(all, 16);
+    check(preview.size() == 1 + 3 * blocks * Params::maxTracks && preview[0] == 0 &&
+          app.project().arrangeEnd() == 0, "arrange selection: preview of all slots leaves the project intact");
+    app.sendSelectionToArrange(all, 16, 0);
+    const auto& first = app.project().tracks[0];
+    if (first.blocks.size() != size_t(blocks) || !first.blocks.back().pattern) {
+        check(false, "arrange selection: full grid retains all repeated blocks");
+        return;
+    }
+    check(app.project().arrangeEnd() == 16 + blocks * source.passTicks() &&
+          app.project().arrange.markers.size() == Params::patternSlots &&
+          &*first.blocks[0].pattern == &*first.blocks[1].pattern,
+          "arrange selection: repeats share a copy until edited; sections follow their rows");
+    app.selectArrangeBlock(0, blocks - 1);
+    app.toggleStep(1);
+    const SeqSnapshot snap(app.project());
+    const auto& data = snap.data();
+    const auto& edited = app.project().tracks[0];
+    const auto step = data.stepIndex(0, data.blkClip[size_t(blocks - 1)], 1);
+    check(edited.blocks.back().pattern->pages[0][1].on && !edited.blocks[blocks - 2].pattern->pages[0][1].on &&
+          !edited.clips.back()->pages[0][1].on && step >= 0 && data.on[size_t(step)],
+          "arrange selection: edits beyond block 128 stay independent and reach the audio snapshot");
+    app.undo();
+    app.undo();
+    check(app.project().arrangeEnd() == 0 && app.project().tracks.back().clipFilled(Params::patternSlots - 1),
+          "arrange selection: one undo removes the transferred grid and keeps the source clips");
+}
+
 void songRender() {
     CoreAudio audio;
     App app(&audio);
@@ -1319,6 +1367,7 @@ int runAppTests() {
     arrangerRecording();
     arrangerSettings();
     arrangerSelectionTransfer();
+    arrangeFullGridTransfer();
     songRender();
     arrangerReference();
     arrangerRecordAutomation();

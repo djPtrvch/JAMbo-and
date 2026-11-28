@@ -159,7 +159,7 @@ void Project::migrateFilter() {
             }
         }
         for (auto& b : t.blocks) {
-            if (b.pattern) clip(*b.pattern, type);
+            if (b.pattern) clip(b.pattern.edit(), type);
             lanes(b.autos, type);
         }
         lanes(t.autos, type);

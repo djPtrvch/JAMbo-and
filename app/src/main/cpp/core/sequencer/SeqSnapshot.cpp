@@ -2,6 +2,7 @@
 #include "SeqSnapshot.h"
 #include <cmath>
 #include <map>
+#include <unordered_map>
 #include "model/ArrangeAuto.h"
 #include "model/Project.h"
 #include "sampler/SampleData.h"
@@ -90,7 +91,7 @@ void fill(SeqData& d, const Track& track, const Clip& c, int cell, int block) {
     d.clipLength[size_t(cell)] = c.length;
     d.clipFrom[size_t(cell)] = r.lower;
     d.clipTo[size_t(cell)] = r.upper;
-    d.clipRate[size_t(cell)] = int8_t(std::max(-4, std::min(1, c.speed())));
+    d.clipRate[size_t(cell)] = int8_t(std::clamp(c.speed(), -4, 1));
     const double probT = trackValue(track, "prob");
     const double ratchetT = trackValue(track, "ratchet");
     auto sw = track.params.find("swing");
@@ -156,15 +157,25 @@ void fill(SeqData& d, const Track& track, const Clip& c, int cell, int block) {
 
 SeqSnapshot::SeqSnapshot(const Project& project) {
     const int tracks = SeqData::maxTracks;
-    const size_t cells = size_t(tracks * SeqData::cellsPerTrack);
     const int used = std::min(int(project.tracks.size()), tracks);
+    SeqData& d = data_;
+    d.cellFirst.resize(size_t(tracks + 1));
+    auto ownCells = std::vector<std::unordered_map<const Clip*, int>>(size_t(tracks));
+    int cells = 0;
     int blocks = 0;
-    for (int t = 0; t < used; ++t) {
+    for (int t = 0; t < tracks; ++t) {
+        d.cellFirst[size_t(t)] = cells;
+        cells += SeqData::slots;
+        if (t >= used) continue;
         const Track& tr = project.tracks[size_t(t)];
         for (const auto& c : tr.clips) if (c) ++blocks;
-        for (int i = 0; i < int(tr.blocks.size()); ++i)
-            if (i < SeqData::arrCells && tr.blocks[size_t(i)].pattern) ++blocks;
+        auto& own = ownCells[size_t(t)];
+        for (const auto& b : tr.blocks) {
+            if (b.pattern && own.try_emplace(&*b.pattern, SeqData::slots + int(own.size())).second) ++cells;
+        }
+        blocks += int(own.size());
     }
+    d.cellFirst[size_t(tracks)] = cells;
     const size_t steps = size_t(std::max(1, blocks) * SeqData::maxSteps);
     size_t arrBlocks = 1;
     for (int t = 0; t < used; ++t) arrBlocks += project.tracks[size_t(t)].blocks.size();
@@ -173,7 +184,6 @@ SeqSnapshot::SeqSnapshot(const Project& project) {
         for (const auto& b : project.tracks[size_t(t)].blocks)
             for (const auto& l : b.autos) autoPoints += l.points.size();
     const size_t autoCells = size_t(tracks * ArrAutoTarget::count);
-    SeqData& d = data_;
     const size_t mn = SeqData::maxNotes;
     d.stopped.assign(size_t(tracks), 1);
     d.slot.assign(size_t(tracks), 0);
@@ -228,11 +238,10 @@ SeqSnapshot::SeqSnapshot(const Project& project) {
     for (int t = 0; t < used; ++t) {
         const Track& tr = project.tracks[size_t(t)];
         d.arrFirst[size_t(t)] = nb;
-        for (int i = 0; i < int(tr.blocks.size()); ++i) {
-            const ArrBlock& b = tr.blocks[size_t(i)];
-            // Своя копия — своя ячейка (после ячеек сетки), иначе — клип сетки.
-            const bool own = b.pattern && i < SeqData::arrCells;
-            d.blkClip[size_t(nb)] = own ? SeqData::slots + i : b.clip;
+        const auto& own = ownCells[size_t(t)];
+        for (const auto& b : tr.blocks) {
+            // Повторы с той же копией используют один набор шагов; правка блока даёт свою ячейку.
+            d.blkClip[size_t(nb)] = b.pattern ? own.at(&*b.pattern) : b.clip;
             d.blkStart[size_t(nb)] = b.start;
             d.blkLen[size_t(nb)] = b.length;
             d.blkOff[size_t(nb)] = b.offset;
@@ -284,12 +293,11 @@ SeqSnapshot::SeqSnapshot(const Project& project) {
         d.slot[size_t(t)] = track.slot;
         for (int k = 0; k < SeqData::slots; ++k) {
             if (!track.clips[size_t(k)]) continue;
-            fill(d, track, *track.clips[size_t(k)], t * SeqData::cellsPerTrack + k, block);
+            fill(d, track, *track.clips[size_t(k)], d.cellFirst[size_t(t)] + k, block);
             ++block;
         }
-        for (int i = 0; i < int(track.blocks.size()) && i < SeqData::arrCells; ++i) {
-            if (!track.blocks[size_t(i)].pattern) continue;
-            fill(d, track, *track.blocks[size_t(i)].pattern, t * SeqData::cellsPerTrack + SeqData::slots + i, block);
+        for (const auto& [pattern, cell] : ownCells[size_t(t)]) {
+            fill(d, track, *pattern, d.cellFirst[size_t(t)] + cell, block);
             ++block;
         }
     }

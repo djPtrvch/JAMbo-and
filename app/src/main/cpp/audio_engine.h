@@ -51,6 +51,7 @@ public:
 
     // Заполняет out (kInfoSize значений), см. порядок в audio_engine.cpp.
     static constexpr int kInfoSize = 20;
+    double cpuLoadPercent() const { return loadAvg_.load() * 100.0; }
     void info(double* out);
 
     oboe::DataCallbackResult onAudioReady(oboe::AudioStream* s, void* data, int32_t frames) override;

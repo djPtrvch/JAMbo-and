@@ -18,7 +18,7 @@ import kotlin.math.floor
 
 internal fun DrawScope.drawArrangeTimeline(
     geometry: TimelineGeometry, d: ArrangeData, s: ScreenState, sectionNames: Array<String>,
-    theme: Theme, names: Array<String>, measure: TextMeasurer, text: TextUnit, take: IntArray,
+    theme: Theme, measure: TextMeasurer, text: TextUnit, take: IntArray,
     group: List<Pair<Int, Int>>, marquee: Rect?, outlines: List<Rect>, reference: ArrangeReference?,
     refDrag: Double?, bpm: Double, stepSeconds: Double,
 ) {
@@ -45,6 +45,7 @@ internal fun DrawScope.drawArrangeTimeline(
             val next = section.end.takeIf { it > section.start }
                 ?: d.sections.getOrNull(i + 1)?.start ?: maxOf(d.end, end.toInt() + 1)
             val w = g.x(next.toFloat()) - x
+            if (x > size.width || x + w < g.header) return@forEachIndexed
             drawLine(theme.accent, Offset(x, g.ruler), Offset(x, g.rulerBottom))
             if (section.end >= 0) drawLine(theme.accent, Offset(x + w, g.ruler), Offset(x + w, g.rulerBottom))
             val label = measure.measure(sectionNames.getOrElse(i) { "" }, TextStyle(color = theme.text, fontSize = text))
@@ -89,10 +90,14 @@ internal fun DrawScope.drawArrangeTimeline(
                 drawRect(theme.text.copy(alpha = 0.15f), start, area)
                 drawRect(theme.text, start, area, style = Stroke(1.dp.toPx()))
             }
-            outlines.forEach {
-                drawRect(theme.accent, Offset(it.left, it.top), Size(it.width, it.height),
-                    style = Stroke(2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(
-                        floatArrayOf(4.dp.toPx(), 4.dp.toPx()))))
+            if (outlines.isNotEmpty()) {
+                val border = Stroke(2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(
+                    floatArrayOf(4.dp.toPx(), 4.dp.toPx())))
+                outlines.forEach {
+                    if (it.right >= g.header && it.left <= size.width && it.bottom >= g.bodyTop && it.top <= size.height) {
+                        drawRect(theme.accent, it.topLeft, it.size, style = border)
+                    }
+                }
             }
             for (i in take.indices step 3) {
                 val x = g.x(take[i + 1].toFloat())
@@ -111,21 +116,8 @@ internal fun DrawScope.drawArrangeTimeline(
     val remaining = ((d.end - s.arrangePosition).coerceAtLeast(0.0) * 15 / bpm).toInt()
     val timing = "%d:%02d / −%d:%02d".format(seconds / 60, seconds % 60, remaining / 60, remaining % 60)
     drawText(measure.measure(timing, TextStyle(color = theme.text, fontSize = text)), topLeft = Offset(8.dp.toPx(), 8.dp.toPx()))
-    clipRect(right = g.header, top = g.bodyTop) {
-        d.tracks.forEachIndexed { t, lane ->
-            val y = g.rowTop(t)
-            val selected = s.tracks[2] == 0 && s.tracks[1] == t
-            drawRect(if (selected) theme.panel2 else theme.panel, Offset(0f, y),
-                Size(g.header - g.gap, g.row - g.gap))
-            drawRect(arrangeColor(lane.color), Offset(0f, y), Size(5.dp.toPx(), g.row - g.gap))
-            val state = if (lane.mute) "  M" else if (lane.solo) "  S" else ""
-            drawText(measure.measure(names.getOrElse(t) { (t + 1).toString() } + state,
-                TextStyle(color = if (selected) theme.accent else theme.text, fontSize = text)),
-                topLeft = Offset(12.dp.toPx(), y + 8.dp.toPx()))
-        }
-    }
     reference?.let {
         drawArrangeReference(refDrag?.let { offset -> it.copy(offset = offset) } ?: it, g.header,
-            g.rulerBottom, g.row - g.gap, g.stepWidth, g.port.x, stepSeconds, theme, measure, text)
+            g.rulerBottom, g.row - g.gap, g.stepWidth, g.port.x, stepSeconds, theme)
     }
 }

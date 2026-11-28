@@ -187,6 +187,8 @@ object AppNative {
     external fun arrangeClips(track: Int): IntArray
     external fun arrangeCarryLength(track: Int, clip: Int): Int
     external fun gridSelectionMasks(): IntArray
+    external fun arrangeHeaderMeters(): FloatArray
+    external fun setArrangeHeaderVolume(track: Int, db: Double)
     external fun arrangeSelectionPreview(selection: IntArray, step: Int): IntArray
     external fun arrangeSendSelection(selection: IntArray, step: Int, mode: Int)
     external fun arrangeAutoParams(track: Int, existing: Boolean): Array<String>

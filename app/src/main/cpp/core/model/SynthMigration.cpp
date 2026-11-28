@@ -172,7 +172,7 @@ void Project::migrateGranular() {
         }
         const bool gran = SynthKey::engine(t.sample) == J::granular;
         for (auto& blk : t.blocks) {
-            if (blk.pattern) clip(*blk.pattern, t.sample, base);
+            if (blk.pattern) clip(blk.pattern.edit(), t.sample, base);
             if (gran) lanes(blk.autos, base);
         }
         if (gran) {

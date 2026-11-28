@@ -41,7 +41,7 @@ const Clip& Track::openClip() const {
 
 Clip& Track::editOpen() {
     const int b = editedBlock();
-    if (b >= 0) return *blocks[size_t(b)].pattern;
+    if (b >= 0) return blocks[size_t(b)].pattern.edit();
     auto& c = clips[size_t(openIndex())];
     if (!c) c = Clip();
     return *c;

@@ -9,6 +9,7 @@ object Native {
     external fun setTone(on: Boolean)
     external fun tap(touchNanos: Long)
     /** Порядок значений — AudioEngine::info (audio_engine.cpp). */
+    external fun cpuLoadPercent(): Double
     external fun audioInfo(): DoubleArray
 
     external fun linkEnable(on: Boolean)

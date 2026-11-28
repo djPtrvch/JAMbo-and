@@ -62,7 +62,7 @@ internal data class ArrangeBlock(
     }
 }
 
-internal data class ArrangeTrack(val color: Int, val mute: Boolean, val solo: Boolean, val blocks: List<ArrangeBlock>)
+internal data class ArrangeTrack(val color: Int, val mute: Boolean, val solo: Boolean, val stereo: Boolean, val blocks: List<ArrangeBlock>)
 internal data class ArrangeSection(val start: Int, val end: Int, val color: Int)
 
 internal class ArrangeData(raw: IntArray) {
@@ -90,7 +90,7 @@ internal class ArrangeData(raw: IntArray) {
         fun read() = raw[i++]
         sections = List(raw[12]) { ArrangeSection(read(), read(), read()) }
         tracks = List(raw[11]) {
-            ArrangeTrack(read(), read() != 0, read() != 0,
+            ArrangeTrack(read(), read() != 0, read() != 0, read() != 0,
                 List(read()) { ArrangeBlock(read(), read(), read(), read(), read(), read(), IntArray(read()) { read() }) })
         }
     }

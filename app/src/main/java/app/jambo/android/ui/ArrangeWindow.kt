@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,7 +33,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import app.jambo.android.AppNative
-import app.jambo.android.AppNative.Act
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.floor
@@ -72,8 +72,12 @@ internal fun ArrangeWindow(
     val header = column() + Layout.gap.dp
     val preferences = s.arrangePreferences
     val scaleTracks = preferences.scaleTracks
-    val knobs = s.arrangeKnobs
+    val knobs = s.arrangeKnobs && s.arrangeCarry == null
     val text = 13.tsp()
+    val meters = remember { mutableStateOf(ArrangeHeaderMeters(AppNative.arrangeHeaderMeters())) }
+    LaunchedEffect(knobs) {
+        if (!knobs) while (true) withFrameNanos { meters.value = ArrangeHeaderMeters(AppNative.arrangeHeaderMeters()) }
+    }
     fun groupAction(command: Int, delta: Int = 0) {
         val ids = group.flatMap { listOf(it.first, it.second) }.toIntArray()
         val updated = AppNative.arrangeGroup(command, delta, ids)
@@ -289,8 +293,6 @@ internal fun ArrangeWindow(
                                             groupAction(0, (delta.toFloat() / nativeStep).roundToInt() * nativeStep)
                                         } else s.arrangeAct(ArrangeAct.MOVE, t, k, b.start + delta)
                                     }
-                                    headerHit && row != null && abs((final - p).y) >= 30.dp.toPx() ->
-                                        s.act(Act.SWIPE, t, if (final.y > p.y) 1 else 0)
                                 }
                             } else if (!moved) {
                                 val double = c.uptimeMillis - lastTap < 320 && (p - lastPos).getDistance() < 30.dp.toPx()
@@ -305,10 +307,7 @@ internal fun ArrangeWindow(
                                     } else s.arrangeAct(ArrangeAct.SEEK, step.roundToInt())
                                 } else if (row != null) {
                                     when {
-                                        headerHit -> {
-                                            s.arrangeAct(ArrangeAct.SELECT, t, -1)
-                                            if (double) menu = ArrangeMenu.Track(t)
-                                        }
+                                        headerHit -> Unit
                                         b != null -> {
                                             if (!selectedGroup) {
                                                 group = emptyList()
@@ -371,9 +370,11 @@ internal fun ArrangeWindow(
                     refDrag = null
                 }
             }) {
-                drawArrangeTimeline(geometry, d, s, sectionNames, theme, names, measure, text, take,
+                drawArrangeTimeline(geometry, d, s, sectionNames, theme, measure, text, take,
                     group, marquee, carryOutlines + listOfNotNull(outline ?: target?.outline), reference, refDrag, bpm, stepSeconds)
+                drawArrangeHeaders(geometry, d, s, names, reference, theme, measure, meters.value, text)
             }
+            Box(Modifier.width(header).fillMaxHeight().arrangeHeaderTouches(s, geometry, meters, d.tracks.size) { menu = it })
             if (reference != null) {
                 InkButton(if (d.refB) "B" else "A", d.refB, Modifier.align(Alignment.TopStart).width(44.dp)
                     .offset(x = header - 48.dp, y = 4.dp), 30f) { s.arrangeAct(ArrangeAct.REF_B) }

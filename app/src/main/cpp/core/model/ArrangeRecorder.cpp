@@ -301,21 +301,24 @@ bool Project::addLive(Clip& c, const std::vector<ArrRecorder::LiveNote>& live, i
 // MARK: — свои копии клипов у блоков (Arrange.swift)
 
 std::optional<Clip> Track::blockClip(const ArrBlock& b) const {
-    if (b.pattern) return b.pattern;
+    if (b.pattern) return *b.pattern;
     if (b.clip >= 0 && b.clip < int(clips.size())) return clips[size_t(b.clip)];
     return std::nullopt;
 }
 
 bool Track::ownArrPatterns() {
     bool changed = false;
+    std::array<ArrPattern, Params::patternSlots> copies{};
     for (auto& b : blocks) {
-        if (b.pattern) continue;
-        const int k = b.clip;
-        if (k < 0 || k >= int(clips.size()) || !clips[size_t(k)]) continue;
-        Clip copy = *clips[size_t(k)];
-        // Звук перехода MIX (PREV) — у клипа сетки, не у блока.
-        copy.src.reset();
-        b.pattern = copy;
+        if (b.pattern || !clipFilled(b.clip)) continue;
+        auto& shared = copies[size_t(b.clip)];
+        if (!shared) {
+            Clip copy = *clips[size_t(b.clip)];
+            // Звук перехода MIX (PREV) — у клипа сетки, не у блока.
+            copy.src.reset();
+            shared = std::move(copy);
+        }
+        b.pattern = shared;
         changed = true;
     }
     return changed;

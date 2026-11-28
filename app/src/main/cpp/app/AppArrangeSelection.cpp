@@ -32,8 +32,11 @@ std::vector<int> App::previewGridSelection(const GridSelection& selection, int s
         if (old != next && std::any_of(old.begin(), old.end(), [&](const ArrBlock& block) {
             return block.start < *end && block.end() > at;
         })) result[0] = 1;
+        auto previous = old.begin();
         for (const auto& block : next) {
-            if (block.start >= at && std::find(old.begin(), old.end(), block) == old.end())
+            if (block.start < at) continue;
+            while (previous != old.end() && previous->start < block.start) ++previous;
+            if (previous == old.end() || !(*previous == block))
                 result.insert(result.end(), {int(t), block.start, block.length});
         }
     }
