@@ -40,6 +40,16 @@ internal suspend fun androidx.compose.ui.input.pointer.PointerInputScope.gridTou
     s: ScreenState, g: GridGeom, ui: GridUi, scope: CoroutineScope, dens: Float, phone: Boolean,
 ) {
     val presses = HashMap<PointerId, GridPress>()
+    var raw = s.grid
+    var data = GridData(raw)
+    fun currentGrid(): GridData {
+        val next = s.grid
+        if (next !== raw) {
+            raw = next
+            data = GridData(next)
+        }
+        return data
+    }
     var dragId: PointerId? = null
     var bandId: PointerId? = null
     var bandPoint = Offset.Zero
@@ -59,13 +69,13 @@ internal suspend fun androidx.compose.ui.input.pointer.PointerInputScope.gridTou
         bandId = id
         bandPoint = at
         bandMasks = AppNative.gridSelectionMasks()
-        updateBand(press, at, GridData(s.grid).top)
+        updateBand(press, at, currentGrid().top)
         press.job?.cancel()
         press.job = scope.launch {
             while (bandId == id) {
                 delay(250)
                 if (bandId != id) break
-                val d = GridData(s.grid)
+                val d = currentGrid()
                 val delta = when {
                     bandPoint.y < g.rowH / 2 -> -1
                     bandPoint.y > g.h - g.rowH / 2 -> 1
@@ -86,7 +96,7 @@ internal suspend fun androidx.compose.ui.input.pointer.PointerInputScope.gridTou
                 for (c in ev.changes) {
                     val x = c.position.x / dens
                     val y = c.position.y / dens
-                    val d = GridData(s.grid)
+                    val d = currentGrid()
                     if (c.pressed && !c.previousPressed) {
                         val hit = hit(g, d, x, y)
                         if (s.midi.controls.learning) {
@@ -115,7 +125,15 @@ internal suspend fun androidx.compose.ui.input.pointer.PointerInputScope.gridTou
                                 return@launch
                             }
                             when (val h = p.hit) {
-                                is GridHit.Cell -> s.act(Act.HOLD_CELL, h.track, h.row)
+                                is GridHit.Cell -> {
+                                    s.act(Act.HOLD_CELL, h.track, h.row)
+                                    if (dragId == null && ui.selection.group(h)) {
+                                        dragId = id
+                                        ui.groupOrigin = p.start
+                                        ui.dragCell = h
+                                        ui.ghost = p.start
+                                    }
+                                }
                                 is GridHit.Scene -> if (dragId == null) {
                                     dragId = id
                                     ui.dragRow = h.row
@@ -172,10 +190,12 @@ internal suspend fun androidx.compose.ui.input.pointer.PointerInputScope.gridTou
                                     }
                                 }
                             }
+                            val group = ui.selection.group(h)
+                            if (group && ui.groupOrigin == null) ui.groupOrigin = p.start
                             ui.dragCell = h
                             ui.ghost = Offset(x, y)
                             val t = hit(g, d, x, y)
-                            ui.target = if (t is GridHit.Cell && t != h && !ui.selection.group(h)) t else null
+                            ui.target = if (t is GridHit.Cell && t != h && !group) t else null
                         }
                     } else {
                         val p = presses.remove(c.id) ?: continue
@@ -194,6 +214,7 @@ internal suspend fun androidx.compose.ui.input.pointer.PointerInputScope.gridTou
                             droppedRow = ui.rowTarget
                             dragId = null
                             ui.ghost = null
+                            ui.groupOrigin = null
                             ui.target = null
                             ui.rowTarget = null
                             ui.dragCell = null
@@ -242,6 +263,7 @@ internal suspend fun androidx.compose.ui.input.pointer.PointerInputScope.gridTou
         presses.values.forEach { it.job?.cancel() }
         ui.band = null
         ui.ghost = null
+        ui.groupOrigin = null
         ui.dragCell = null
         ui.dragRow = null
         ui.target = null

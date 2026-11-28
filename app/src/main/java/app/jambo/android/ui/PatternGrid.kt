@@ -27,7 +27,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -65,18 +64,26 @@ sealed class GridHit {
 /** Сетка паттернов (PATTERNS; PatternGrid.swift): тап по ячейке — запуск, остановка, новый клип; удержание — правка без
  *  запуска, затем протяжка — копия клипа в другую ячейку; свайп вверх — меню ячейки; тап по строке — запуск строки,
  *  двойной тап — меню строки, удержание и протяжка — перенос строки, движение вверх-вниз — прокрутка окна строк.
- *  Рамка выделения, переход MIX и аранжировщик — позже. */
+ *  Выделение рамкой можно перенести группой через кнопку ARRANGE. */
 @Composable
 fun PatternGrid(s: ScreenState, modifier: Modifier, width: Float) {
-    val d = GridData(s.grid)
+    val raw = s.grid
+    val d = remember(raw) { GridData(raw) }
     val phone = LocalConfiguration.current.smallestScreenWidthDp < 600
     BoxWithConstraints(modifier) {
-        val g = GridGeom(maxWidth.value, maxHeight.value, Layout.step(width), d.tracks, d.windowRows)
+        val w = maxWidth.value
+        val h = maxHeight.value
+        val step = Layout.step(width)
+        val g = remember(w, h, step, d.tracks, d.windowRows) { GridGeom(w, h, step, d.tracks, d.windowRows) }
         val ui = remember { GridUi() }
         val scope = rememberCoroutineScope()
         Box(Modifier.width((g.w - g.step - Layout.gap).dp).fillMaxHeight()
             .onGloballyPositioned { s.patternTouchArea = it }
-            .pointerInput(g.w, g.h, d.tracks, phone) { gridTouches(s, g, ui, scope, density, phone) }) {
+            .pointerInput(g, phone) { gridTouches(s, g, ui, scope, density, phone) }) {
+            val dragCell = ui.dragCell
+            val dragRow = ui.dragRow
+            val selection = ui.selection
+            val liftedGroup = dragCell != null && selection.group(dragCell)
             for (r in 0 until d.windowRows) {
                 val k = d.rows[r]
                 if (k >= 0) {
@@ -84,12 +91,11 @@ fun PatternGrid(s: ScreenState, modifier: Modifier, width: Float) {
                         .midiLearnMark(s, MidiTarget.ROW + r, 6f))
                     for (i in 0 until d.tracks) {
                         val cell = GridHit.Cell(i, k)
-                        val lifted = ui.ghost != null && (ui.dragCell == cell || ui.dragRow == k ||
-                            ui.dragCell?.let { ui.selection.group(it) && ui.selection.contains(cell) } == true)
+                        val lifted = dragCell == cell || dragRow == k || liftedGroup && selection.contains(cell)
                         ClipCell(s, d, d.cells[r][i], i, ui.target == GridHit.Cell(i, k), lifted,
                             Modifier.offset(g.x(i).dp, g.y(r).dp).size(g.trackW.dp, g.rowH.dp)
                                 .midiLearnMark(s, MidiTarget.clip(i, r), 6f),
-                            d.cells[r][i].filled && ui.selection.contains(cell))
+                            d.cells[r][i].filled && selection.contains(cell))
                     }
                 } else if (d.plusRow == r) {
                     PlusCell(Modifier.offset(0.dp, g.y(r).dp).size(g.step.dp, g.rowH.dp))
@@ -104,7 +110,8 @@ fun PatternGrid(s: ScreenState, modifier: Modifier, width: Float) {
                     drawRect(ink, start, bounds, style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
                 }
             }
-            Ghost(s, d, g, ui)
+            if (liftedGroup) PatternGroupGhost(s, d, g, ui, Modifier.matchParentSize())
+            else DragGhost(s, d, g, ui)
         }
         GridSide(s, d, g, Modifier.offset(g.sideX.dp, 0.dp).width(g.step.dp).fillMaxHeight(), ui)
         GridMenus(s, d, g, ui)
@@ -118,6 +125,7 @@ class GridUi {
     var dragCell by mutableStateOf<GridHit.Cell?>(null)
     var dragRow by mutableStateOf<Int?>(null)
     var ghost by mutableStateOf<Offset?>(null)
+    internal var groupOrigin by mutableStateOf<Offset?>(null)
     var target by mutableStateOf<GridHit.Cell?>(null)
     var rowTarget by mutableStateOf<Int?>(null)
     var cellMenu by mutableStateOf<GridHit.Cell?>(null)
@@ -131,7 +139,7 @@ class GridUi {
 @Composable
 private fun ClipCell(s: ScreenState, d: GridData, c: GridCell, track: Int, target: Boolean, lifted: Boolean, modifier: Modifier, selected: Boolean = false) {
     val th = LocalTheme.current
-    val bg = if (!c.filled) th.panel else if (c.active) th.panel2 else th.panel2.copy(alpha = 0.62f)
+    val bg = clipTileBackground(c, th)
     val outline = if (selected) th.text else if (target || c.editing) th.accent else Color.Transparent
     val blinkOff = c.queued && d.playing && !s.blink
     val shape = RoundedCornerShape(6.dp)
@@ -144,28 +152,10 @@ private fun ClipCell(s: ScreenState, d: GridData, c: GridCell, track: Int, targe
     }
 }
 
-/** Миниатюра клипа: страницы строками по 16 шагов, по высоте — не меньше 4 строк, по центру. */
 @Composable
 private fun Thumb(c: GridCell, modifier: Modifier) {
     val th = LocalTheme.current
-    Canvas(modifier) {
-        val rows = c.pageCount
-        val units = maxOf(rows, 4)
-        val cw = size.width / 16
-        val rh = size.height / units
-        val top = (units - rows) / 2f * rh
-        for (r in 0 until rows) {
-            val bits = c.pages[2 * r]
-            val out = c.pages[2 * r + 1]
-            for (st in 0 until 16) {
-                var color = th.off
-                if (bits shr st and 1 != 0) color = th.text else if (bits shr (st + 16) and 1 != 0) color = th.text.copy(alpha = 0.45f)
-                if (out shr st and 1 != 0) color = color.copy(alpha = color.alpha * 0.2f)
-                drawRoundRect(color, Offset(st * cw + cw * 0.12f, top + r * rh + rh * 0.12f), Size(cw * 0.76f, rh * 0.76f),
-                    CornerRadius(1.dp.toPx()))
-            }
-        }
-    }
+    Canvas(modifier) { drawClipThumbnail(c, th, Offset.Zero, size) }
 }
 
 /** Жёлтая полоса хода внизу ячейки. */
@@ -188,7 +178,7 @@ private fun SceneCell(s: ScreenState, d: GridData, r: Int, k: Int, ui: GridUi, m
     val badge = if (playing) (if (d.rowLoop) "∞" else "${minOf(n + 1, reps)}/$reps") else "×$reps"
     val blinkOff = d.playing && d.sceneQueued == k && !s.blink
     val line = if (k in ui.selection.rows) th.text else if (ui.dragRow != null && ui.rowTarget == k) th.accent else Color.Transparent
-    val lifted = ui.ghost != null && ui.dragRow == k
+    val lifted = ui.dragRow == k
     Box(modifier.alpha(if (blinkOff || lifted) 0.35f else 1f).framed(if (filled) th.panel2 else th.panel, line, 6f)) {
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)) {
@@ -211,28 +201,14 @@ private fun PlusCell(modifier: Modifier) {
 
 /** Поднятое пальцем: клип или строка целиком (колонка строк и клипы). */
 @Composable
-private fun Ghost(s: ScreenState, d: GridData, g: GridGeom, ui: GridUi) {
-    val p = ui.ghost ?: return
+private fun DragGhost(s: ScreenState, d: GridData, g: GridGeom, ui: GridUi) {
     val c = ui.dragCell
     val k = ui.dragRow
+    if (c == null && k == null) return
+    val p = ui.ghost ?: return
     if (c != null) {
         val r = d.rows.indexOf(c.row)
-        if (r < 0) return
-        if (ui.selection.group(c)) {
-            val dx = p.x - g.x(c.track) - g.trackW / 2
-            val dy = p.y - g.y(r) - g.rowH / 2
-            for ((rowIndex, row) in d.rows.withIndex()) {
-                if (row < 0) continue
-                for (track in 0 until d.tracks) {
-                    val cell = d.cells[rowIndex][track]
-                    if (!cell.filled || !ui.selection.contains(GridHit.Cell(track, row))) continue
-                    ClipCell(s, d, cell, track, false, false,
-                        Modifier.offset((g.x(track) + dx).dp, (g.y(rowIndex) + dy).dp)
-                            .size(g.trackW.dp, g.rowH.dp).shadow(10.dp, RoundedCornerShape(6.dp)), selected = true)
-                }
-            }
-            return
-        }
+        if (r < 0 || c.track !in d.cells[r].indices) return
         ClipCell(s, d, d.cells[r][c.track], c.track, false, false,
             Modifier.offset((p.x - g.trackW / 2).dp, (p.y - g.rowH / 2).dp).size(g.trackW.dp, g.rowH.dp)
                 .shadow(10.dp, RoundedCornerShape(6.dp)))
