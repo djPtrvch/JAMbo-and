@@ -141,29 +141,31 @@ private fun ClipCell(s: ScreenState, d: GridData, c: GridCell, track: Int, targe
     val th = LocalTheme.current
     val bg = clipTileBackground(c, th)
     val outline = if (selected) th.text else if (target || c.editing) th.accent else Color.Transparent
-    val blinkOff = c.queued && d.playing && !s.blink
+    val opacity = if (lifted || c.queued && d.playing && !s.blink) 0.35f else 1f
     val shape = RoundedCornerShape(6.dp)
-    Box(modifier.alpha(if (lifted) 0.35f else if (blinkOff) 0.35f else 1f).tile(bg, 6f).border(1.dp, outline, shape)) {
-        if (c.filled) Thumb(c, Modifier.fillMaxSize().padding(start = 6.dp, end = 6.dp, top = 5.dp, bottom = 7.dp))
+    // Полупрозрачность самих примитивов: при подъёме группы не создаём слой для каждой ячейки.
+    Box(modifier.tile(bg.copy(alpha = bg.alpha * opacity), 6f)
+        .border(1.dp, outline.copy(alpha = outline.alpha * opacity), shape)) {
+        if (c.filled) Thumb(c, opacity, Modifier.fillMaxSize().padding(start = 6.dp, end = 6.dp, top = 5.dp, bottom = 7.dp))
         if (c.active && d.playing) {
             val frac = s.gridLive.getOrElse(2 + track) { 0 } / 1000f
-            ProgressBar(frac, Modifier.align(Alignment.BottomStart))
+            ProgressBar(frac, Modifier.align(Alignment.BottomStart), opacity)
         }
     }
 }
 
 @Composable
-private fun Thumb(c: GridCell, modifier: Modifier) {
+private fun Thumb(c: GridCell, opacity: Float, modifier: Modifier) {
     val th = LocalTheme.current
-    Canvas(modifier) { drawClipThumbnail(c, th, Offset.Zero, size) }
+    Canvas(modifier) { drawClipThumbnail(c, th, Offset.Zero, size, opacity) }
 }
 
 /** Жёлтая полоса хода внизу ячейки. */
 @Composable
-private fun ProgressBar(frac: Float, modifier: Modifier) {
+private fun ProgressBar(frac: Float, modifier: Modifier, opacity: Float = 1f) {
     val th = LocalTheme.current
     BoxWithConstraints(modifier.fillMaxWidth().height(3.dp)) {
-        Box(Modifier.width((maxWidth.value * frac.coerceIn(0f, 1f)).dp).fillMaxHeight().tile(th.accent, 0f))
+        Box(Modifier.width((maxWidth.value * frac.coerceIn(0f, 1f)).dp).fillMaxHeight().tile(th.accent.copy(alpha = opacity), 0f))
     }
 }
 

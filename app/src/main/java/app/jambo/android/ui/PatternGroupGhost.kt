@@ -63,7 +63,8 @@ internal fun PatternGroupGhost(s: ScreenState, d: GridData, g: GridGeom, ui: Gri
                 tiles.forEachIndexed { i, tile ->
                     val rect = bounds[i]
                     val alpha = if (!d.playing || !tile.cell.queued || s.blink) 1f else 0.35f
-                    drawRoundRect(clipTileBackground(tile.cell, th).copy(alpha = alpha), rect.topLeft, rect.size, radius)
+                    val background = clipTileBackground(tile.cell, th)
+                    drawRoundRect(background.copy(alpha = background.alpha * alpha), rect.topLeft, rect.size, radius)
                     drawRoundRect(th.text.copy(alpha = alpha), rect.topLeft, rect.size, radius, style = stroke)
                     drawClipThumbnail(tile.cell, th, rect.topLeft + Offset(6.dp.toPx(), 5.dp.toPx()),
                         Size((rect.width - 12.dp.toPx()).coerceAtLeast(0f), (rect.height - 12.dp.toPx()).coerceAtLeast(0f)),
